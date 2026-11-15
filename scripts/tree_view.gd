@@ -2,10 +2,12 @@ extends Node2D
 ## Draws the Heart Tree from assets/sprites/heart_tree.png (five 48x64 frames,
 ## one per stage). Origin is the bottom-centre of its patch of ground.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const Effects := preload("res://scripts/effects.gd")
 const FRAME := Vector2(48, 64)
 
-var _texture: Texture2D = load("res://assets/sprites/heart_tree.png")
+var _texture: Texture2D = Assets.texture("res://assets/sprites/heart_tree.png")
 var _hugs: int = 0
 var _heart: float = 0.0
 var _blink: int = 0

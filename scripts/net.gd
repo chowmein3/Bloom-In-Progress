@@ -10,13 +10,20 @@ signal player_joined(slot: int)
 signal player_left(slot: int)
 signal session_ended(was_host: bool)
 signal player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool)
+signal relay_ready  # host: the garden is open on the relay; partners can join by invite code
+signal relay_failed(reason: String)  # host: the relay could not be reached or refused us
+signal open_gardens_changed  # open_gardens changed while looking up invite codes
 signal gardens_changed  # found_gardens changed while looking for hosts
 signal internet_ready(address: String)  # the router opened a door for us; partners can use this address
 
 const DEFAULT_PORT := 24565
 const MAX_PLAYERS := 2
 const HOST_SLOT := 1
+const RelayPeer := preload("res://scripts/relay_peer.gd")
 const JOIN_TIMEOUT := 8.0
+const RELAY_JOIN_TIMEOUT := 75.0  # a sleeping free relay can take a minute to wake
+const RELAY_RETRIES := 6
+const LOOKUP_EVERY := 4.0
 const DISCOVERY_PORT := 24566  # hosts announce themselves here on the local network
 const BEACON_TAG := "BLOOM1"
 const BEACON_EVERY := 1.0
@@ -24,6 +31,17 @@ const FOUND_FOR := 4.0  # forget a host this long after its last announcement
 
 var online: bool = false
 var port: int = DEFAULT_PORT
+## Address of the relay server (relay/server.js) that lets partners connect
+## with an invite code and no router setup. "" = not set up; co-op then uses
+## the local network or a typed address. Set in project.godot: bloom/relay_url.
+var relay_url: String = str(ProjectSettings.get_setting("bloom/relay_url", ""))
+## True while the current session runs through the relay.
+var via_relay: bool = false
+## Gardens open on the relay right now, among the codes passed to
+## start_lookup(): code -> {"name", "full"}.
+var open_gardens: Dictionary = {}
+## Why the last join attempt failed: "", not_open, full, bad_code, unreachable, timeout.
+var last_join_error: String = ""
 ## Ask the router (UPnP) to let a partner in from the internet while hosting.
 var use_upnp: bool = true
 ## Hosts heard on the local network: address -> {"name", "port", "seen"}.
@@ -37,6 +55,14 @@ var _attempt: int = 0
 var _beacon: PacketPeerUDP
 var _beacon_in: float = 0.0
 var _listener: PacketPeerUDP
+var _relay_code: String = ""
+var _relay_name: String = ""
+var _relay_tries: int = 0
+var _relay_retry_in: float = -1.0
+var _lookup: WebSocketPeer
+var _lookup_codes: Array = []
+var _lookup_in: float = 0.0
+var _lookup_once: bool = false
 var _upnp: UPNP
 var _upnp_thread: Thread
 var _upnp_port: int = 0
@@ -47,6 +73,9 @@ func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	if relay_enabled():
+		start_lookup([])  # wakes a sleeping relay early; the Join screen passes real codes
+		_lookup_once = true
 
 
 ## The local player's slot (1 when playing alone, 0 while still joining).
@@ -77,6 +106,151 @@ func peer_of(slot: int) -> int:
 	return 0
 
 
+func relay_enabled() -> bool:
+	return relay_url.strip_edges() != ""
+
+
+## Host through the relay: partners join with the garden's invite code from
+## anywhere. Play starts at once; relay_ready or relay_failed follows.
+func host_online(code: String, garden_name: String) -> Error:
+	_relay_code = code
+	_relay_name = garden_name
+	_relay_tries = 0
+	return _open_relay_room()
+
+
+func _open_relay_room() -> Error:
+	var peer := RelayPeer.new()
+	var err: Error = peer.start_host(_relay_socket_url(), _relay_code, _relay_name)
+	if err != OK:
+		return err
+	peer.opened.connect(func() -> void:
+		_relay_tries = 0
+		relay_ready.emit())
+	peer.failed.connect(_on_relay_host_failed)
+	multiplayer.multiplayer_peer = peer
+	online = true
+	via_relay = true
+	_slot = HOST_SLOT
+	_peer_slots = {1: HOST_SLOT}
+	return OK
+
+
+func _on_relay_host_failed(reason: String) -> void:
+	# Carry on playing alone; try the relay again a few times in the background.
+	for peer_id: int in _peer_slots.keys():
+		if peer_id != 1:
+			var slot: int = _peer_slots[peer_id]
+			_peer_slots.erase(peer_id)
+			player_left.emit(slot)
+	var code: String = _relay_code
+	var garden_name: String = _relay_name
+	var tries: int = _relay_tries
+	_reset()
+	_relay_code = code
+	_relay_name = garden_name
+	_relay_tries = tries + 1
+	if (reason == "unreachable" or reason == "lost") and _relay_tries <= RELAY_RETRIES:
+		_relay_retry_in = 5.0
+	else:
+		_relay_code = ""
+	relay_failed.emit(reason)
+
+
+## Join a partner's garden by its invite code, through the relay.
+func join_online(code: String) -> Error:
+	stop_discovery()
+	stop_lookup()
+	last_join_error = ""
+	var peer := RelayPeer.new()
+	var err: Error = peer.start_join(_relay_socket_url(), code)
+	if err != OK:
+		return err
+	peer.failed.connect(func(reason: String) -> void:
+		if online and not is_host():
+			var joining: bool = _slot == 0
+			var others: Array = _peer_slots.values()
+			var mine: int = _slot
+			_reset()
+			if joining:
+				last_join_error = reason
+				join_failed.emit()
+			else:
+				for slot: int in others:
+					if slot != mine:
+						player_left.emit(slot)
+				session_ended.emit(false))
+	multiplayer.multiplayer_peer = peer
+	online = true
+	via_relay = true
+	_slot = 0
+	_peer_slots = {}
+	_start_join_timer(RELAY_JOIN_TIMEOUT)
+	return OK
+
+
+func _relay_socket_url() -> String:
+	var url: String = relay_url.strip_edges()
+	if url.begins_with("https://"):
+		return "wss://" + url.trim_prefix("https://")
+	if url.begins_with("http://"):
+		return "ws://" + url.trim_prefix("http://")
+	return url
+
+
+## Keep asking the relay which of these invite codes are open right now
+## (the Join screen uses this to light up a partner's garden).
+func start_lookup(codes: Array) -> void:
+	_lookup_codes = codes
+	_lookup_once = false
+	if not relay_enabled() or _lookup != null:
+		return
+	_lookup = WebSocketPeer.new()
+	_lookup_in = 0.0
+	if _lookup.connect_to_url(_relay_socket_url()) != OK:
+		_lookup = null
+
+
+func stop_lookup() -> void:
+	if _lookup != null:
+		_lookup.close()
+		_lookup = null
+	if not open_gardens.is_empty():
+		open_gardens = {}
+		open_gardens_changed.emit()
+
+
+func _poll_lookup(delta: float) -> void:
+	_lookup.poll()
+	var state: WebSocketPeer.State = _lookup.get_ready_state()
+	if state == WebSocketPeer.STATE_CLOSED:
+		_lookup = null
+		if not _lookup_once:
+			start_lookup(_lookup_codes)  # the relay may still be waking; try again
+		return
+	if state != WebSocketPeer.STATE_OPEN:
+		return
+	while _lookup.get_available_packet_count() > 0:
+		var parsed: Variant = JSON.parse_string(_lookup.get_packet().get_string_from_utf8())
+		if typeof(parsed) != TYPE_DICTIONARY or str(parsed.get("t", "")) != "found":
+			continue
+		var now_open: Dictionary = {}
+		for room: Variant in parsed.get("rooms", []):
+			if typeof(room) == TYPE_DICTIONARY:
+				now_open[str(room.get("code", ""))] = {"name": str(room.get("name", "")).left(24), "full": bool(room.get("full", false))}
+		if now_open != open_gardens:
+			open_gardens = now_open
+			open_gardens_changed.emit()
+		if _lookup_once:
+			_lookup.close()
+			_lookup = null
+			return
+	_lookup_in -= delta
+	if _lookup_in <= 0.0:
+		_lookup_in = LOOKUP_EVERY
+		_lookup.send_text(JSON.stringify({"t": "find", "codes": _lookup_codes}))
+
+
 func host_game() -> Error:
 	var peer := ENetMultiplayerPeer.new()
 	var err: Error = peer.create_server(port, MAX_PLAYERS - 1)
@@ -104,6 +278,8 @@ func join_game(address: String) -> Error:
 		join_port = host.substr(colon + 1).to_int()
 		host = host.left(colon)
 	stop_discovery()
+	stop_lookup()
+	last_join_error = ""
 	var peer := ENetMultiplayerPeer.new()
 	var err: Error = peer.create_client(host, join_port)
 	if err != OK:
@@ -112,13 +288,18 @@ func join_game(address: String) -> Error:
 	online = true
 	_slot = 0
 	_peer_slots = {}
+	_start_join_timer(JOIN_TIMEOUT)
+	return OK
+
+
+func _start_join_timer(seconds: float) -> void:
 	_attempt += 1
 	var attempt: int = _attempt
-	get_tree().create_timer(JOIN_TIMEOUT).timeout.connect(func() -> void:
+	get_tree().create_timer(seconds).timeout.connect(func() -> void:
 		if attempt == _attempt and online and _slot == 0:
 			_reset()
+			last_join_error = "timeout"
 			join_failed.emit())
-	return OK
 
 
 func leave() -> void:
@@ -165,6 +346,12 @@ func stop_discovery() -> void:
 
 
 func _process(delta: float) -> void:
+	if _lookup != null:
+		_poll_lookup(delta)
+	if _relay_retry_in > 0.0:
+		_relay_retry_in -= delta
+		if _relay_retry_in <= 0.0 and not online and _relay_code != "":
+			_open_relay_room()
 	if _beacon != null and online and is_host():
 		_beacon_in -= delta
 		if _beacon_in <= 0.0:
@@ -247,6 +434,9 @@ func _reset() -> void:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	online = false
+	via_relay = false
+	_relay_code = ""
+	_relay_retry_in = -1.0
 	_slot = HOST_SLOT
 	_peer_slots = {}
 
@@ -278,11 +468,16 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connection_failed() -> void:
+	if via_relay:
+		return  # the relay peer reports its own failures, with a reason
 	_reset()
+	last_join_error = "unreachable"
 	join_failed.emit()
 
 
 func _on_server_disconnected() -> void:
+	if via_relay:
+		return  # handled by the relay peer's `failed`
 	var others: Array = _peer_slots.values()
 	var mine: int = _slot
 	_reset()

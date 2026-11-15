@@ -2,6 +2,8 @@ extends Node
 ## Music and sound effects (autoload `Sound`). It only listens to GameState's
 ## signals, so in co-op you hear your partner's gardening too. N toggles music.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page"]
 const MUSIC_DB := -16.0
 const EFFECT_DB := -8.0
@@ -19,13 +21,13 @@ var _tree_hugs: int = 0
 
 func _ready() -> void:
 	for effect: String in EFFECTS:
-		_streams[effect] = load("res://assets/audio/%s.wav" % effect)
+		_streams[effect] = Assets.sound("res://assets/audio/%s.wav" % effect)
 	for i in 4:
 		var voice := AudioStreamPlayer.new()
 		voice.volume_db = EFFECT_DB
 		add_child(voice)
 		_voices.append(voice)
-	var theme: AudioStreamWAV = load("res://assets/audio/garden_theme.wav")
+	var theme: AudioStreamWAV = Assets.sound("res://assets/audio/garden_theme.wav")
 	theme.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	theme.loop_begin = 0
 	theme.loop_end = int(theme.get_length() * theme.mix_rate)

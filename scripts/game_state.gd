@@ -72,6 +72,8 @@ var saves_dir: String = "user://saves"
 ## File of the garden being played; "" while none is open (nothing is saved).
 var save_path: String = ""
 var garden_name: String = "My Garden"
+## Six-letter invite code a partner uses to join this garden through the relay.
+var garden_code: String = ""
 var species: Dictionary = {}  # id -> PlantData
 var soil: Dictionary = {}  # Vector2i -> {"watered": bool}
 var plants: Dictionary = {}  # Vector2i -> plant Dictionary (see _new_plant)
@@ -557,6 +559,7 @@ func to_snapshot() -> Dictionary:
 	return {
 		"version": 1,
 		"name": garden_name,
+		"code": garden_code,
 		"saved_at": int(Time.get_unix_time_from_system()),
 		"day_index": TimeManager.day_index,
 		"minutes": TimeManager.minutes,
@@ -608,6 +611,7 @@ func apply_snapshot(data: Dictionary) -> void:
 	for key: String in data.get("energy", {}).keys():
 		energy[int(key)] = int(data["energy"][key])
 	garden_name = str(data.get("name", "My Garden"))
+	garden_code = str(data.get("code", ""))
 	TimeManager.day_index = int(data.get("day_index", 0))
 	TimeManager.minutes = int(data.get("minutes", TimeManager.DAY_START))
 	TimeManager.raining = bool(data.get("raining", false))
@@ -672,6 +676,7 @@ func create_garden(new_name: String) -> void:
 	garden_name = new_name.strip_edges().left(24)
 	if garden_name == "":
 		garden_name = "My Garden"
+	garden_code = new_code()
 	var number: int = 1
 	while FileAccess.file_exists(saves_dir.path_join("garden_%d.json" % number)):
 		number += 1
@@ -682,6 +687,9 @@ func create_garden(new_name: String) -> void:
 func open_garden(path: String) -> bool:
 	save_path = path
 	if load_game():
+		if garden_code == "":  # gardens from before invite codes
+			garden_code = new_code()
+			save_game()
 		return true
 	close_garden()
 	return false
@@ -691,7 +699,18 @@ func open_garden(path: String) -> bool:
 func close_garden() -> void:
 	save_path = ""
 	garden_name = "My Garden"
+	garden_code = ""
 	new_game()
+
+
+## A fresh invite code: six characters, leaving out look-alikes (0/O, 1/I/L).
+func new_code() -> String:
+	const LETTERS := "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+	var bytes: PackedByteArray = Crypto.new().generate_random_bytes(6)
+	var code: String = ""
+	for b: int in bytes:
+		code += LETTERS[b % LETTERS.length()]
+	return code
 
 
 func delete_garden(path: String) -> void:

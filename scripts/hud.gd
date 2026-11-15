@@ -4,6 +4,8 @@ extends CanvasLayer
 ## (bottom), help card (H) and messages. Sizes are in game units (320x180);
 ## the window scales them up, so text stays sharp.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const Minimap := preload("res://scripts/minimap.gd")
 const HELP_ROWS: Array = [
 	["WASD", "Move"],
@@ -33,7 +35,7 @@ var player: Node2D
 var remote_players: Dictionary = {}  # shared with main.gd, for the minimap
 
 var _root: Control
-var _icons: Texture2D = load("res://assets/sprites/ui_icons.png")
+var _icons: Texture2D = Assets.texture("res://assets/sprites/ui_icons.png")
 var _map: PanelContainer
 var _date: Label
 var _time: Label

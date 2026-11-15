@@ -87,14 +87,16 @@ in the game; Heart Tree love sits where a farm sim would show gold.
 
 ## Getting it and connecting
 - Players download one zip and double-click the game; nothing to install.
-- On the same network the host announces itself and appears on the Join
-  screen, so nobody types an address.
-- Across the internet the host asks the router to open the port (UPnP) and
-  shows the address to share; the partner's game remembers it.
+- **Relay (when set up):** both games connect out to a small relay server, so
+  no router setup or addresses. Each garden has a permanent six-letter invite
+  code. The partner enters it once; from then on their Join screen lists the
+  garden and shows when it is open.
+- **Without the relay:** on the same network the host announces itself and
+  appears on the Join screen; across the internet the host asks the router to
+  open the port (UPnP) and shows the address to share.
 
 ## Next
-- **Easier connecting:** a relay or Steam networking for routers that refuse
-  UPnP, and invite codes in place of addresses.
+- **Connecting:** a relay host that doesn't sleep, or Steam networking.
 - **More co-op play:** plants that only reach a rare form with two carers,
   seeing which tool your partner is using, emotes.
 - **More to nurture:** light/shade needs, pests and weeds, decorations, more

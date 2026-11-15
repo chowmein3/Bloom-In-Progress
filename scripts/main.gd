@@ -8,12 +8,15 @@ extends Node2D
 ## To skip the menu, pass a mode after "--" on the command line:
 ##   godot --path . -- --solo | --host | --join=192.168.1.20
 
+const Assets := preload("res://scripts/assets.gd")
+
 const Ground := preload("res://scripts/ground.gd")
 const PlantView := preload("res://scripts/plant_view.gd")
 const Player := preload("res://scripts/player.gd")
 const Hud := preload("res://scripts/hud.gd")
 const Rain := preload("res://scripts/rain.gd")
 const Menu := preload("res://scripts/menu.gd")
+const Settings := preload("res://scripts/settings.gd")
 const TreeView := preload("res://scripts/tree_view.gd")
 const Journal := preload("res://scripts/journal.gd")
 const TILE := 16
@@ -47,7 +50,7 @@ func _ready() -> void:
 
 	# The tent and the Heart Tree stand in the same layer, sorted by their base.
 	var tent := Sprite2D.new()
-	tent.texture = load("res://assets/sprites/tent.png")
+	tent.texture = Assets.texture("res://assets/sprites/tent.png")
 	tent.centered = false
 	tent.offset = Vector2(-24, -48)
 	tent.position = Vector2((GameState.TENT_RECT.position.x + GameState.TENT_RECT.size.x / 2.0) * TILE, GameState.TENT_RECT.end.y * TILE)
@@ -114,6 +117,8 @@ func _ready() -> void:
 	Net.player_joined.connect(_on_player_joined)
 	Net.player_left.connect(_on_player_left)
 	Net.player_state.connect(_on_player_state)
+	Net.relay_ready.connect(_on_relay_ready)
+	Net.relay_failed.connect(_on_relay_failed)
 	Net.internet_ready.connect(func(address: String) -> void:
 		if remote_players.is_empty():
 			hud.call("set_status", "Hosting. Partner joins:\nSame Wi-Fi: automatic\nElsewhere: %s" % address))
@@ -197,6 +202,14 @@ func start_solo() -> void:
 
 
 func start_host() -> void:
+	if Net.relay_enabled():
+		# Through the relay: the partner joins from anywhere with the invite code.
+		if Net.host_online(GameState.garden_code, GameState.garden_name) != OK:
+			return_to_title("The meeting server's address looks wrong")
+			return
+		_begin()
+		hud.call("set_status", "Opening the garden\ngate for your partner...")
+		return
 	var err: Error = Net.host_game()
 	if err != OK:
 		return_to_title("Couldn't host. Is another copy already hosting?")
@@ -208,12 +221,38 @@ func start_host() -> void:
 	hud.call("show_message", "Your garden is open. Waiting for your partner...", 6.0)
 
 
-func start_join(address: String) -> void:
+func _on_relay_ready() -> void:
+	var code: String = pretty_code(GameState.garden_code)
+	if DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		DisplayServer.clipboard_set(code)
+	if remote_players.is_empty():
+		hud.call("set_status", "Garden open. Invite code:\n%s  (copied)" % code)
+		hud.call("show_message", "Garden open! Invite code %s is copied: paste it to your partner" % code, 8.0)
+
+
+func _on_relay_failed(reason: String) -> void:
+	match reason:
+		"already_hosted":
+			hud.call("set_status", "This garden is already\nopen on another computer")
+		"unreachable", "lost":
+			hud.call("set_status", "Can't reach the meeting\nserver. Trying again...")
+		_:
+			hud.call("set_status", "Couldn't open the garden\nfor a partner (%s)" % reason)
+
+
+static func pretty_code(code: String) -> String:
+	return "%s-%s" % [code.left(3), code.substr(3)] if code.length() == 6 else code
+
+
+## `target` is "code:ABCDEF" (invite code, through the relay) or an address.
+func start_join(target: String) -> void:
 	GameState.close_garden()
-	if Net.join_game(address) != OK:
-		menu.call("set_status", "That address doesn't look right")
+	var by_code: bool = target.begins_with("code:")
+	var err: Error = Net.join_online(target.trim_prefix("code:")) if by_code else Net.join_game(target)
+	if err != OK:
+		menu.call("set_status", "That doesn't look right")
 		return
-	menu.call("set_status", "Knocking on the garden gate...")
+	menu.call("set_status", "Knocking on the garden gate...\n(the first knock of the day can take a minute)" if by_code else "Knocking on the garden gate...")
 	menu.call("set_busy", true)
 
 
@@ -235,11 +274,27 @@ func _on_welcomed() -> void:
 	player.position = Vector2(15.5 * TILE, 5 * TILE)
 	_begin()
 	hud.call("set_status", "Visiting partner's garden")
+	# Once the garden arrives we know its name and invite code: remember it, so
+	# next time it is one click on the Join screen.
+	GameState.state_reloaded.connect(func() -> void:
+		if Net.online and not Net.is_host() and GameState.garden_code != "":
+			Settings.remember_garden(GameState.garden_code, GameState.garden_name), CONNECT_ONE_SHOT)
 
 
 func _on_join_failed() -> void:
 	menu.call("set_busy", false)
-	menu.call("set_status", "Couldn't reach that garden. Check the address\nand that your partner is hosting.")
+	var why: String = "Couldn't reach that garden. Check the address\nand that your partner is hosting."
+	match Net.last_join_error:
+		"not_open":
+			why = "That garden isn't open right now.\nAsk your partner to host it."
+		"full":
+			why = "Someone is already visiting that garden."
+		"bad_code":
+			why = "That invite code doesn't look right."
+		"timeout", "unreachable", "lost":
+			if Net.relay_enabled():
+				why = "Couldn't reach the meeting server.\nCheck your internet and try again."
+	menu.call("set_status", why)
 
 
 func _on_session_ended(was_host: bool) -> void:
@@ -271,7 +326,7 @@ func _on_player_left(slot: int) -> void:
 	remote_players.erase(slot)
 	hud.call("show_message", "Your partner left the garden", 4.0)
 	if Net.online and Net.is_host():
-		hud.call("set_status", "Hosting. Waiting for partner")
+		hud.call("set_status", "Garden open. Invite code:\n%s" % pretty_code(GameState.garden_code) if Net.via_relay else "Hosting. Waiting for partner")
 
 
 func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool) -> void:

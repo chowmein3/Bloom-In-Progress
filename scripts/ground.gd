@@ -2,10 +2,12 @@ extends Node2D
 ## Draws the grass and tilled soil from assets/tiles/ground.png: one row of
 ## 16px tiles per season; columns are 4 grass looks, dry soil, wet soil.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const TILE := 16
 const GRASS_COLUMNS: Array[int] = [0, 1, 0, 2, 1, 0, 3, 1]  # mostly plain, a few with tufts or a flower
 
-var _tiles: Texture2D = load("res://assets/tiles/ground.png")
+var _tiles: Texture2D = Assets.texture("res://assets/tiles/ground.png")
 
 
 func _ready() -> void:

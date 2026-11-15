@@ -8,6 +8,13 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - `scripts/net.gd` (autoload `Net`): host/join over ENet, player slots
   (host 1, guest 2), remote player positions, finding hosts on the local
   network (UDP beacon) and opening the router port (UPnP) while hosting.
+- `scripts/relay_peer.gd` + `relay/server.js` (Node, deployed via
+  `render.yaml`): co-op through a relay by invite code, used when
+  `bloom/relay_url` in `project.godot` is set. Host is always peer 1, guest
+  peer 2. Without it, co-op uses ENet on the local network or a typed address.
+- `scripts/assets.gd`: load all art and audio through `Assets.texture()` /
+  `Assets.sound()`; they fall back to the raw files when the project was never
+  imported. `scripts/settings.gd`: per-player preferences.
 - `export_presets.cfg`, `tools/build.sh`, `packaging/`: the downloadable
   Windows/Linux builds. `.github/workflows/release.yml` tests, builds and
   publishes them as the "latest" release on every push to `main`.
@@ -44,7 +51,7 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   320x180 game units and text is drawn sharp at full window resolution.
 - Use static types. Don't use `:=` on Dictionary values (they are Variant).
 - Reference scripts with `preload`, not `class_name`. Load textures and audio
-  with `load()` at runtime, not `preload`, so scripts still parse before import.
+  with `Assets.texture()` / `Assets.sound()`, never `preload` or bare `load()`.
 
 ## Checks
 - After a fresh clone, or after changing anything in `assets/`, run
@@ -52,6 +59,8 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - Rules: `godot --headless --path . res://tests/test_runner.tscn` (must print ALL TESTS PASSED).
 - Add a test there for every new rule.
 - Co-op: `tests/run_coop_test.sh <godot binary>` (must print CO-OP TEST PASSED).
+  It runs over the local network, then through a local relay when Node.js is
+  installed.
   Run it after touching `net.gd`, `game_state.gd` or the player/main scripts.
 - Menus: `godot --headless --path . res://tests/menu_test.tscn` (must print
   MENU TEST PASSED). Run it after touching `menu.gd` or how games start.

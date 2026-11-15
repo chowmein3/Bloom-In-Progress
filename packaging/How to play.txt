@@ -12,22 +12,22 @@ PLAY TOGETHER
   One of you hosts, the other joins. You each need the game.
 
   Host:     Co-op > Host > pick a garden (or "Host a new garden").
-            If Windows asks about the firewall, click "Allow access".
   Partner:  Co-op > Join.
 
-  Same home / same Wi-Fi:
-            The host's garden shows up on the Join screen by itself.
-            Click it.
+  If the host sees "Invite code: ABC-DEF":
+            Send that code to your partner (it is already copied; just
+            paste). The partner types or pastes it on the Join screen once.
+            After that the garden is listed there and lights up whenever
+            the host has it open: one click.
+            The first connection of the day can take up to a minute.
 
-  Different homes:
-            The host's game asks their router to let the partner in. If it
-            works, the host's help card (press H) shows a line starting
-            "Elsewhere:". The partner types that address on the Join screen.
-            The game remembers it for next time.
-            If no "Elsewhere:" line appears, the router said no. Then either
-            forward UDP port 24565 to the host's computer in the router's
-            settings, or both install Tailscale (free) and use the host's
-            Tailscale address.
+  If the host sees "Hosting. Partner joins: ...":
+            Same Wi-Fi: the garden shows up on the partner's Join screen by
+            itself. Click it. If Windows asks about the firewall, click
+            "Allow access".
+            Different homes: if the host's help card (press H) shows a line
+            starting "Elsewhere:", the partner types that address. If not,
+            the host forwards UDP port 24565 in their router's settings.
 
 KEYS
   WASD / arrows  move            J    garden journal

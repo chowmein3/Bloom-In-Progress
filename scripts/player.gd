@@ -3,6 +3,8 @@ extends Node2D
 ## makes world changes through GameState.request_*(); a remote one (the
 ## partner in co-op) just follows the positions sent over the network.
 
+const Assets := preload("res://scripts/assets.gd")
+
 signal loadout_changed
 
 const TILE := 16
@@ -158,7 +160,7 @@ func use_tool() -> void:
 func _draw() -> void:
 	if _texture == null or _texture_slot != player_id:
 		_texture_slot = player_id
-		_texture = load("res://assets/sprites/player_%d.png" % clampi(player_id, 1, 2))
+		_texture = Assets.texture("res://assets/sprites/player_%d.png" % clampi(player_id, 1, 2))
 	var row: int = 0
 	if facing == Vector2i(0, -1):
 		row = 1
