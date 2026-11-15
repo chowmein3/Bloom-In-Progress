@@ -17,6 +17,8 @@ func _ready() -> void:
 	GameState.new_game()
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
+	main.call("start_solo")
+	TimeManager.paused = true
 	var player: Node2D = main.get("player")
 	await _frames(5)
 
@@ -40,23 +42,23 @@ func _ready() -> void:
 	# Fill out a little garden through the same request API the player uses.
 	var kinds: Array[String] = ["sunpuff", "moonbell", "sunpuff", "moonbell", "sunpuff"]
 	for i in kinds.size():
-		var cell := Vector2i(17 + i * 2, 8)
+		var cell := Vector2i(9 + i * 2, 8)
 		GameState.request_till(P, cell)
 		GameState.request_plant(P, cell, kinds[i])
 	for day in 9:
 		for cell: Vector2i in GameState.plants.keys():
 			GameState.request_water(P, cell)
-			if cell.x != 17:
+			if cell.x != 9:
 				GameState.request_pet(P, cell)
 		if day == 4:
 			await _wait(2.0)
 			await _shot("2_growing")
 		GameState.end_day(false)
-		GameState.request_till(P, Vector2i(17 + day, 10))
+		GameState.request_till(P, Vector2i(9 + day, 10))
 	await _wait(2.0)
 	for cell: Vector2i in GameState.plants.keys():
 		GameState.request_water(P, cell)
-	GameState.request_pet(P, Vector2i(19, 8))
+	GameState.request_pet(P, Vector2i(11, 8))
 	await _frames(10)
 	await _shot("3_in_bloom")
 

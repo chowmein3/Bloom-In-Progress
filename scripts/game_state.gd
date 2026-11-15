@@ -2,8 +2,12 @@ extends Node
 ## The single source of truth for the shared garden.
 ##
 ## RULE: every change to the world goes through a request_*() function here.
-## In co-op (Milestone 2) these become RPCs that the host validates, so
-## nothing else may edit `soil`, `plants`, `seeds` or `produce` directly.
+## Nothing else may edit `soil`, `plants`, `seeds` or `produce` directly.
+##
+## In co-op the host owns the garden. A guest's request_*() call is sent to the
+## host, the host checks it and applies it with the matching _do_*() function,
+## and the host's change signals are mirrored back to guests by the _net_*()
+## functions at the bottom of this file.
 
 signal cell_changed(cell: Vector2i)
 signal plant_added(cell: Vector2i)
@@ -14,6 +18,7 @@ signal energy_changed(player_id: int)
 signal notice(text: String)
 signal day_advanced(summary: Dictionary)
 signal state_reloaded
+signal sleepers_changed
 
 const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/sunpuff.tres",
@@ -22,7 +27,7 @@ const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/frostwhisker.tres",
 ]
 const WORLD_SIZE := Vector2i(28, 18)  # in 16px tiles
-const TENT_RECT := Rect2i(20, 1, 3, 2)  # sleep here to end the day
+const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
 const MAX_ENERGY := 100
 const COST_TILL := 2
 const COST_WATER := 1
@@ -33,6 +38,7 @@ const RADIANT_AT := 80  # happiness needed for a radiant bloom
 const HAPPY_WATERED := 4
 const HAPPY_PETTED := 8
 const HAPPY_NEGLECTED := -12
+const HAPPY_DUET := 6  # extra when two different players pet a plant the same day
 const SOIL_REVERT_CHANCE := 0.1
 
 var save_path: String = "user://garden_save.json"
@@ -42,6 +48,7 @@ var plants: Dictionary = {}  # Vector2i -> plant Dictionary (see _new_plant)
 var seeds: Dictionary = {}  # species id -> count (shared by all players)
 var produce: Dictionary = {}  # species id -> count (shared by all players)
 var energy: Dictionary = {}  # player id -> int
+var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for the others
 var rng := RandomNumberGenerator.new()
 
 
@@ -51,6 +58,17 @@ func _ready() -> void:
 		var data: Resource = load(path)
 		species[data.get("id")] = data
 	TimeManager.curfew_reached.connect(_on_curfew)
+	TimeManager.time_changed.connect(_mirror_time)
+	Net.player_joined.connect(_on_player_joined)
+	Net.player_left.connect(_on_player_left)
+	Net.session_ended.connect(_on_session_ended)
+	cell_changed.connect(_mirror_cell)
+	plant_added.connect(_mirror_cell)
+	plant_removed.connect(_mirror_cell)
+	plant_petted.connect(_mirror_pet)
+	inventory_changed.connect(_mirror_inventory)
+	energy_changed.connect(_mirror_energy)
+	sleepers_changed.connect(_mirror_sleepers)
 	if not load_game():
 		new_game()
 
@@ -59,6 +77,7 @@ func new_game() -> void:
 	soil.clear()
 	plants.clear()
 	produce.clear()
+	sleeping.clear()
 	seeds = {"sunpuff": 6, "moonbell": 4, "gigglecap": 3, "frostwhisker": 2}
 	for pid: int in energy.keys():
 		energy[pid] = MAX_ENERGY
@@ -67,7 +86,7 @@ func new_game() -> void:
 
 
 func register_player(player_id: int) -> void:
-	if not energy.has(player_id):
+	if Net.is_host() and not energy.has(player_id):
 		energy[player_id] = MAX_ENERGY
 	energy_changed.emit(player_id)
 
@@ -135,8 +154,54 @@ func describe_cell(cell: Vector2i) -> String:
 
 
 # --------------------------------------------------------------- requests
+# Call these from gameplay code. On a guest they only send the request to the
+# host and return true; the result arrives through the usual signals.
 
 func request_till(player_id: int, cell: Vector2i) -> bool:
+	return _request("till", player_id, [cell])
+
+
+func request_water(player_id: int, cell: Vector2i) -> bool:
+	return _request("water", player_id, [cell])
+
+
+func request_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
+	return _request("plant", player_id, [cell, species_id])
+
+
+func request_pet(player_id: int, cell: Vector2i) -> bool:
+	return _request("pet", player_id, [cell])
+
+
+func request_harvest(player_id: int, cell: Vector2i) -> bool:
+	return _request("harvest", player_id, [cell])
+
+
+func request_sleep(player_id: int) -> bool:
+	return _request("sleep", player_id, [])
+
+
+func _request(action: String, player_id: int, args: Array) -> bool:
+	if Net.is_host():
+		return _apply(action, player_id, args)
+	_rpc_request.rpc_id(1, action, args)
+	return true
+
+
+func _apply(action: String, player_id: int, args: Array) -> bool:
+	match action:
+		"till": return _do_till(player_id, args[0])
+		"water": return _do_water(player_id, args[0])
+		"plant": return _do_plant(player_id, args[0], args[1])
+		"pet": return _do_pet(player_id, args[0])
+		"harvest": return _do_harvest(player_id, args[0])
+		"sleep": return _do_sleep(player_id)
+	return false
+
+
+# ------------------------------------------------- rules (host side only)
+
+func _do_till(player_id: int, cell: Vector2i) -> bool:
 	if not in_bounds(cell) or is_blocked(cell) or soil.has(cell):
 		return false
 	if not _spend(player_id, COST_TILL):
@@ -146,7 +211,7 @@ func request_till(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
-func request_water(player_id: int, cell: Vector2i) -> bool:
+func _do_water(player_id: int, cell: Vector2i) -> bool:
 	if not soil.has(cell) or bool(soil[cell]["watered"]):
 		return false
 	if not _spend(player_id, COST_WATER):
@@ -158,15 +223,15 @@ func request_water(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
-func request_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
+func _do_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 	if not soil.has(cell) or plants.has(cell) or not species.has(species_id):
 		return false
 	var d: Resource = species[species_id]
 	if seed_count(species_id) <= 0:
-		notice.emit("No %s seeds left" % d.display_name)
+		_notify(player_id, "No %s seeds left" % d.display_name)
 		return false
 	if not d.seasons.has(TimeManager.season()):
-		notice.emit("%s won't wake up in %s" % [d.display_name, TimeManager.season_name()])
+		_notify(player_id, "%s won't wake up in %s" % [d.display_name, TimeManager.season_name()])
 		return false
 	if not _spend(player_id, COST_PLANT):
 		return false
@@ -179,13 +244,13 @@ func request_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 
 
 ## Affection: each player can pet each plant once per day.
-func request_pet(player_id: int, cell: Vector2i) -> bool:
+func _do_pet(player_id: int, cell: Vector2i) -> bool:
 	if not plants.has(cell):
 		return false
 	var p: Dictionary = plants[cell]
 	var key: String = str(player_id)
 	if p["petted_by"].has(key):
-		notice.emit("It already feels loved today")
+		_notify(player_id, "It already feels loved today")
 		return false
 	p["petted_by"][key] = true
 	_credit(p, player_id)
@@ -193,11 +258,11 @@ func request_pet(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
-func request_harvest(player_id: int, cell: Vector2i) -> bool:
+func _do_harvest(player_id: int, cell: Vector2i) -> bool:
 	if not plants.has(cell):
 		return false
 	if not plant_is_ripe(cell):
-		notice.emit("Not ready to pick yet")
+		_notify(player_id, "Not ready to pick yet")
 		return false
 	if not _spend(player_id, COST_HARVEST):
 		return false
@@ -216,19 +281,32 @@ func request_harvest(player_id: int, cell: Vector2i) -> bool:
 		plants.erase(cell)
 		plant_removed.emit(cell)
 	inventory_changed.emit()
-	notice.emit("Picked %s%s" % [d.display_name, " (radiant!)" if radiant else ""])
+	_notify(player_id, "Picked %s%s" % [d.display_name, " (radiant!)" if radiant else ""])
 	return true
 
 
-## Solo: sleeping ends the day at once. Co-op will wait for every player.
-func request_sleep(_player_id: int) -> bool:
-	end_day(false)
+## Getting into bed. The day ends once every player in the garden is in bed;
+## asking again while waiting gets you back up.
+func _do_sleep(player_id: int) -> bool:
+	if sleeping.has(player_id):
+		sleeping.erase(player_id)
+		sleepers_changed.emit()
+		return true
+	sleeping[player_id] = true
+	if _everyone_asleep():
+		end_day(false)
+	else:
+		sleepers_changed.emit()
 	return true
 
 
 # ------------------------------------------------------------ day rollover
 
+## `passed_out` is true when the clock hit 2am: anyone not in bed by then
+## wakes up with half energy.
 func end_day(passed_out: bool) -> void:
+	if not Net.is_host():
+		return
 	for cell: Vector2i in plants.keys():
 		_grow_plant(cell)
 	for cell: Vector2i in soil.keys():
@@ -243,12 +321,21 @@ func end_day(passed_out: bool) -> void:
 	if TimeManager.raining:
 		for cell: Vector2i in soil.keys():
 			soil[cell]["watered"] = true
+	var dozers: Array = []
 	for pid: int in energy.keys():
+		var slept: bool = not passed_out or sleeping.has(pid)
 		@warning_ignore("integer_division")
-		energy[pid] = MAX_ENERGY / 2 if passed_out else MAX_ENERGY
+		energy[pid] = MAX_ENERGY if slept else MAX_ENERGY / 2
+		if not slept:
+			dozers.append(pid)
 		energy_changed.emit(pid)
+	sleeping.clear()
+	sleepers_changed.emit()
 	save_game()
-	day_advanced.emit({"passed_out": passed_out, "raining": TimeManager.raining})
+	var summary: Dictionary = {"passed_out": dozers, "raining": TimeManager.raining}
+	day_advanced.emit(summary)
+	if _mirroring():
+		_net_day.rpc(to_snapshot(), summary)
 
 
 func _grow_plant(cell: Vector2i) -> void:
@@ -270,6 +357,8 @@ func _grow_plant(cell: Vector2i) -> void:
 			happiness += HAPPY_NEGLECTED
 		if not p["petted_by"].is_empty():
 			happiness += HAPPY_PETTED
+		if p["petted_by"].size() >= 2:
+			happiness += HAPPY_DUET
 	p["happiness"] = clampi(happiness, 0, 100)
 	p["petted_by"] = {}
 
@@ -297,10 +386,27 @@ func _credit(plant: Dictionary, player_id: int) -> void:
 	plant["caretakers"][key] = int(plant["caretakers"].get(key, 0)) + 1
 
 
+func _everyone_asleep() -> bool:
+	for slot: int in Net.slots():
+		if not sleeping.has(slot):
+			return false
+	return true
+
+
+## Show a short message to one player, wherever they are playing.
+func _notify(player_id: int, text: String) -> void:
+	if player_id == Net.local_id():
+		notice.emit(text)
+	elif _mirroring():
+		var peer_id: int = Net.peer_of(player_id)
+		if peer_id != 0:
+			_net_notice.rpc_id(peer_id, text)
+
+
 func _spend(player_id: int, cost: int) -> bool:
 	var left: int = get_energy(player_id)
 	if left < cost:
-		notice.emit("Too tired... time to rest")
+		_notify(player_id, "Too tired... time to rest")
 		return false
 	energy[player_id] = left - cost
 	energy_changed.emit(player_id)
@@ -322,6 +428,7 @@ func to_snapshot() -> Dictionary:
 	return {
 		"version": 1,
 		"day_index": TimeManager.day_index,
+		"minutes": TimeManager.minutes,
 		"raining": TimeManager.raining,
 		"soil": soil_out,
 		"plants": plants_out,
@@ -350,16 +457,20 @@ func apply_snapshot(data: Dictionary) -> void:
 		plants[_cell(key)] = p
 	seeds = _int_values(data.get("seeds", {}))
 	produce = _int_values(data.get("produce", {}))
+	energy.clear()
 	for key: String in data.get("energy", {}).keys():
 		energy[int(key)] = int(data["energy"][key])
 	TimeManager.day_index = int(data.get("day_index", 0))
-	TimeManager.minutes = TimeManager.DAY_START
+	TimeManager.minutes = int(data.get("minutes", TimeManager.DAY_START))
 	TimeManager.raining = bool(data.get("raining", false))
 	TimeManager.time_changed.emit()
 	state_reloaded.emit()
 
 
+## Only the garden's owner saves; a guest never writes the host's garden to disk.
 func save_game() -> void:
+	if not Net.is_host():
+		return
 	var file: FileAccess = FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
 		push_warning("Could not write save file: %s" % save_path)
@@ -392,3 +503,163 @@ func _int_values(source: Dictionary) -> Dictionary:
 	for k: String in source.keys():
 		out[k] = int(source[k])
 	return out
+
+
+# ------------------------------------------------------------------ co-op
+
+func is_sleeping(player_id: int) -> bool:
+	return sleeping.has(player_id)
+
+
+## True on a host with guests to keep up to date.
+func _mirroring() -> bool:
+	return Net.online and Net.is_host()
+
+
+func _on_player_joined(slot: int) -> void:
+	if not _mirroring():
+		return
+	register_player(slot)
+	_net_snapshot.rpc_id(Net.peer_of(slot), to_snapshot(), sleeping.keys())
+
+
+func _on_player_left(slot: int) -> void:
+	if not _mirroring():
+		return
+	sleeping.erase(slot)
+	if not sleeping.is_empty() and _everyone_asleep():
+		end_day(false)
+	else:
+		sleepers_changed.emit()
+
+
+## After leaving someone else's garden, go back to our own.
+func _on_session_ended(was_host: bool) -> void:
+	sleeping.clear()
+	sleepers_changed.emit()
+	if not was_host and not load_game():
+		new_game()
+
+
+## A guest asking the host to do something. Everything from the network is
+## checked before use.
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_request(action: String, args: Array) -> void:
+	if not _mirroring():
+		return
+	var slot: int = Net.slot_of(multiplayer.get_remote_sender_id())
+	if slot == 0:
+		return
+	var valid: bool = false
+	match action:
+		"till", "water", "pet", "harvest":
+			valid = args.size() == 1 and args[0] is Vector2i
+		"plant":
+			valid = args.size() == 2 and args[0] is Vector2i and args[1] is String
+		"sleep":
+			valid = args.is_empty()
+	if valid:
+		_apply(action, slot, args)
+
+
+func _mirror_cell(cell: Vector2i) -> void:
+	if _mirroring():
+		_net_cell.rpc(cell, soil.get(cell), plants.get(cell))
+
+
+func _mirror_pet(cell: Vector2i) -> void:
+	if _mirroring():
+		_net_cell.rpc(cell, soil.get(cell), plants.get(cell))
+		_net_pet.rpc(cell)
+
+
+func _mirror_inventory() -> void:
+	if _mirroring():
+		_net_inventory.rpc(seeds, produce)
+
+
+func _mirror_energy(player_id: int) -> void:
+	if _mirroring():
+		_net_energy.rpc(player_id, get_energy(player_id))
+
+
+func _mirror_sleepers() -> void:
+	if _mirroring():
+		_net_sleepers.rpc(sleeping.keys())
+
+
+func _mirror_time() -> void:
+	if _mirroring():
+		_net_time.rpc(TimeManager.day_index, TimeManager.minutes, TimeManager.raining)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_snapshot(data: Dictionary, sleepers: Array) -> void:
+	apply_snapshot(data)
+	_net_sleepers(sleepers)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_day(data: Dictionary, summary: Dictionary) -> void:
+	apply_snapshot(data)
+	_net_sleepers([])
+	day_advanced.emit(summary)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_cell(cell: Vector2i, soil_state: Variant, plant: Variant) -> void:
+	var had_plant: bool = plants.has(cell)
+	if soil_state == null:
+		soil.erase(cell)
+	else:
+		soil[cell] = soil_state
+	if plant == null:
+		plants.erase(cell)
+	else:
+		plants[cell] = plant
+	if plant != null and not had_plant:
+		plant_added.emit(cell)
+	elif plant == null and had_plant:
+		plant_removed.emit(cell)
+	else:
+		cell_changed.emit(cell)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_pet(cell: Vector2i) -> void:
+	if plants.has(cell):
+		plant_petted.emit(cell)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_inventory(new_seeds: Dictionary, new_produce: Dictionary) -> void:
+	seeds = new_seeds
+	produce = new_produce
+	inventory_changed.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_energy(player_id: int, value: int) -> void:
+	energy[player_id] = value
+	energy_changed.emit(player_id)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_sleepers(sleepers: Array) -> void:
+	sleeping.clear()
+	for slot: int in sleepers:
+		sleeping[slot] = true
+	sleepers_changed.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_time(day_index: int, minutes: int, raining: bool) -> void:
+	TimeManager.day_index = day_index
+	TimeManager.minutes = minutes
+	TimeManager.raining = raining
+	TimeManager.time_changed.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_notice(text: String) -> void:
+	notice.emit(text)
