@@ -18,6 +18,7 @@ func _ready() -> void:
 	Net.use_upnp = false
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.saves_dir = "user://menu_test_saves"
 	for old: Dictionary in GameState.list_gardens():

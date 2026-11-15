@@ -25,6 +25,7 @@ func _ready() -> void:
 	# Never touch the real relay from a test: local network unless relay= says otherwise.
 	Net.stop_lookup()
 	Net.relay_url = ""
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	var plain: Array[String] = []
 	for arg: String in args:
 		if arg.begins_with("relay="):
@@ -72,16 +73,21 @@ func _run_host() -> void:
 	GameState.request_pet(HOST, HOST_CELL)
 	GameState.request_water(HOST, TREE_CELL)
 	GameState.request_pet(HOST, TREE_CELL)
+	GameState.items["stone"] = 2  # something to craft with
+	GameState.inventory_changed.emit()
 	GameState.produce["sunpuff"] = 2  # something to sell
 	GameState.request_sell(HOST, "sunpuff", 2)
 
 	_expect(await _until(func() -> bool: return GameState.plants.has(GUEST_CELL), 10.0), "guest's planting reaches the host")
 	_expect(await _until(func() -> bool: return GameState.plants[HOST_CELL]["petted_by"].has("2"), 10.0), "guest petted the host's plant")
 	_expect(await _until(func() -> bool: return GameState.tree["hugged_by"].size() == 2, 10.0), "both players hugged the Heart Tree")
-	_expect(GameState.get_energy(GUEST) == 96, "guest's energy is tracked by the host (2 till, 1 plant, 1 water)")
+	_expect(GameState.get_energy(GUEST) <= 96, "guest's energy is tracked by the host")
 	var guest_node: Node2D = main.get("remote_players")[GUEST]
 	_expect(await _until(func() -> bool: return guest_node.position.x < 15.4 * 16, 10.0), "guest's movement shows on the host's screen")
 	_expect(await _until(func() -> bool: return GameState.hat_of(GUEST) == "flower" and GameState.coins == 10, 10.0), "guest's hat purchase reaches the host, paid from the shared purse")
+	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "a stepping stone the guest crafted and placed appears for the host")
+	_expect(GameState.item_count("stone") == 1 and GameState.item_count("path") == 0, "using the shared materials")
+	_expect(await _until(func() -> bool: return GameState.stats["fish"].size() == 1 and int(GameState.bin.get("sunpuff", 0)) == 0 and not GameState.bin.is_empty(), 10.0), "the guest's catch is tallied and lands in the shared shipping bin")
 	await _shot("coop_host")
 
 	# Bedtime: both go indoors and get into the bed.
@@ -140,10 +146,24 @@ func _after_join() -> void:
 	_expect(await _until(func() -> bool: return GameState.journal_level("moonbell") == 1 and GameState.journal_level("sunpuff") == 1, 10.0), "journal entries are shared")
 	_expect(await _until(func() -> bool: return GameState.plants[HOST_CELL]["petted_by"].size() == 2, 10.0), "both players petted the same plant")
 	_expect(GameState.seed_count("moonbell") == 3 and GameState.seed_count("sunpuff") == 5, "shared seed bag stays in step")
-	_expect(GameState.get_energy(GUEST) == 96, "guest sees their own energy")
+	_expect(GameState.get_energy(GUEST) == 96, "guest sees their own energy (2 till, 1 plant, 1 water)")
 	_expect(await _until(func() -> bool: return GameState.coins == 160, 10.0), "guest sees coins from the host's sale")
 	GameState.request_buy_hat(GUEST, "flower")
 	_expect(await _until(func() -> bool: return GameState.hat_of(GUEST) == "flower" and GameState.coins == 10, 10.0), "guest buys a hat with the shared coins and wears it")
+	_expect(await _until(func() -> bool: return GameState.item_count("stone") == 2, 10.0), "guest sees the shared materials")
+	GameState.request_craft(GUEST, "path")
+	_expect(await _until(func() -> bool: return GameState.item_count("path") == 1, 10.0), "guest crafts a stepping stone")
+	GameState.request_place(GUEST, Vector2i(3, 14), "path")
+	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "and places it in the garden")
+	GameState.request_fish(GUEST, true)
+	var catch: Array = [""]
+	_expect(await _until(func() -> bool:
+		for id: String in GameState.FISH:
+			if GameState.item_count(id) > 0:
+				catch[0] = id
+		return catch[0] != "", 10.0), "guest lands a fish and it comes back from the host")
+	GameState.request_ship(GUEST, catch[0], 1)
+	_expect(await _until(func() -> bool: return int(GameState.bin.get(catch[0], 0)) == 1, 10.0), "and ships it in the shared bin")
 	await _hold(KEY_A, 0.4)  # walk left so the host can see us move
 	await _wait(0.5)
 	main.get("player").call("go_inside")

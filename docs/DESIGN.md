@@ -77,6 +77,67 @@ blooms and radiant blooms are announced on the morning screen.
   portrait and the hat wardrobe.
 - Prices and upgrade tables live in `GameState` (`UPGRADES`, `HATS`).
 
+## Gathering, crafting, cooking, skill
+Borrowed from farm sims and cut down to what serves a shared garden.
+- **Debris:** a new garden starts with 18 branches, rocks and weeds, and one
+  to three more appear each night (30 at most, never in the yard around the
+  home). The basket clears one for 1-2 wood, stone or fiber.
+- **Crafting** from the backpack: stepping stone (1 stone), fence (2 wood),
+  rich mulch x2 (3 fiber), sprinkler (3 stone, 2 wood, level 2), garden
+  lantern (1 of each, level 3). Placed things stand on empty garden tiles
+  (not soil); the basket lifts them again. Fences, sprinklers and lanterns
+  block walking; stones and debris don't.
+- **Mulch** goes on tilled soil: 35% chance of an extra day's growth each
+  night, and the bed never reverts to grass.
+- **Sprinklers** water the four neighbouring soil tiles each morning.
+- **Cooking** needs the Cabin's stove: tea (2 moonbell, +30 energy), salad
+  (sunpuff + dewcup, +45), stew (2 gigglecap + pricklepal, +75), pie
+  (lanternsquash + snowpip, +110). Meals are eaten from the item slot.
+- **Gardening level** (shared, 1-10): +1 experience per plant cared for each
+  night, +8 per harvest (+4 if radiant), +1 per debris, +2 per craft, +20 per
+  request. Levels unlock recipes and add 2 energy each.
+- **Requests:** each morning without one, Bristle asks for 2-4 of an
+  in-season plant the garden knows and pays double.
+- Items, placed things, experience and the request are shared and saved; the
+  tool bar's sixth slot holds one placeable thing or meal.
+
+## Hands and tools
+Two actions, as in farm sims. **Use tool** (Space / left click) applies the
+held tool: hoe, watering can, seeds, held item, fishing rod. **Use hand**
+(F / right click) does whatever needs no tool: get into bed, go through a
+door, open the stall, tower or bin, hug the tree, pet a plant, pick a ripe
+one, clear debris, pick up a placed thing. On a plant the hand pets first;
+once you've petted it today, it picks if ripe. When the held tool has nothing
+to do on the tile ahead, Use tool falls back to the hand.
+
+## Fishing
+A pond in the lower right. Casting costs 2 energy and opens a small game:
+wait for the bite, press to hook within a second, then land three presses on
+a moving green band within nine seconds (a miss loses one). The host then
+rolls the fish: minnow any time; sunny bream on spring and summer days; rain
+carp in rain; moonfin from 6pm; frostfin in winter; a 5% golden koi. Fish
+sell for 15-200, cook into two meals and are tallied on the journal's Fish
+page.
+
+## Shipping bin and decor
+- The bin beside the home takes anything with a sell price; its contents are
+  sold at the night's prices and listed on the morning screen.
+- Bristle's Decor tab sells eight pieces (80-250 coins). Decor can stand on
+  the home's floor or in the garden; the rug is flat and walkable. Moving to
+  a bigger home returns any piece that would overlap the new built-in
+  furniture. There are no chests: the backpack has no size limit.
+
+## Goals and festivals
+- Eleven goals (`GameState.GOALS`) are checked every night and pay once,
+  150-500 coins each; finishing the other ten awards the Golden Laurel hat.
+- Day 14 of each season is a festival, announced the morning before and on
+  the day, with bunting across the yard: Bloom Show (50 coins per radiant
+  plant that night, up to 12), Firefly Night (petting counts double), Harvest
+  Fair (all sales x1.5), Lantern Night (three lanterns: 100 coins and winter
+  seeds).
+
+Not built (yet): mining, animals, villagers.
+
 ## Clock tower
 A tower left of the home whose face shows the garden's real time. Using it
 opens a screen to set the season, day, year, time (10-minute steps, 6am to

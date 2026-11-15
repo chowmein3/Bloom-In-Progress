@@ -21,6 +21,7 @@ signal state_reloaded
 signal sleepers_changed
 signal tree_changed
 signal journal_changed
+signal object_changed(cell: Vector2i)  # something was placed on or picked up from a garden tile
 signal time_warped  # the clock tower changed the date or time
 signal economy_changed  # coins, upgrades, hats owned or hats worn changed
 
@@ -77,7 +78,7 @@ const UPGRADES: Dictionary = {
 		{"name": "Grand Watering Can", "cost": 900, "blurb": "Waters 5 tiles in a row"},
 	],
 	"home": [
-		{"name": "Cabin", "cost": 1500, "blurb": "A roomier home. +15 energy each morning"},
+		{"name": "Cabin", "cost": 1500, "blurb": "A roomier home with a stove for cooking. +15 energy each morning"},
 		{"name": "Cottage", "cost": 5000, "blurb": "Fireplace and all. +30 energy each morning"},
 	],
 }
@@ -86,14 +87,114 @@ const HOME_NAMES: Array[String] = ["Tent", "Cabin", "Cottage"]
 
 ## Hats: bought once for the garden, then either player can wear them.
 ## The order is the frame order in assets/sprites/hats.png.
-const HAT_ORDER: Array[String] = ["straw", "flower", "sprout", "beanie", "sun"]
+const HAT_ORDER: Array[String] = ["straw", "flower", "sprout", "beanie", "sun", "laurel"]
 const HATS: Dictionary = {
 	"straw": {"name": "Straw Hat", "cost": 0},
 	"flower": {"name": "Flower Crown", "cost": 150},
 	"sprout": {"name": "Sprout", "cost": 200},
 	"beanie": {"name": "Cosy Beanie", "cost": 250},
 	"sun": {"name": "Sun Hat", "cost": 400},
+	"laurel": {"name": "Golden Laurel", "cost": 0, "reward": true},  # for finishing every goal
 }
+
+## The fishing pond, and the shipping bin between the home and the stall.
+const POND_RECT := Rect2i(21, 9, 5, 3)
+const BIN_CELL := Vector2i(16, 2)
+const COST_FISH := 2
+const XP_FISH := 3
+## Fish, most common first; _roll_fish() decides which can bite when.
+const FISH: Array[String] = ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie"]
+
+## One festival a season, on this day (1-28). Keyed by season.
+const FESTIVAL_DAY := 14
+const FESTIVALS: Dictionary = {
+	0: {"name": "Bloom Show", "today": "Radiant plants are judged tonight: 50 coins each."},
+	1: {"name": "Firefly Night", "today": "Plants petted today get twice the joy."},
+	2: {"name": "Harvest Fair", "today": "Bristle and the shipping bin pay half as much again today."},
+	3: {"name": "Lantern Night", "today": "Light three garden lanterns for a gift tonight."},
+}
+
+## Long-term goals, checked each night. Each pays its reward once.
+const GOALS: Array[Dictionary] = [
+	{"id": "blooms", "name": "First Blooms", "text": "Bring 3 kinds of plant to bloom", "coins": 150},
+	{"id": "radiant", "name": "Glowing Reviews", "text": "Make 3 kinds of plant radiant", "coins": 300},
+	{"id": "sprinkler", "name": "Hands Free", "text": "Set a sprinkler in the garden", "coins": 150},
+	{"id": "angler", "name": "Angler", "text": "Catch 4 kinds of fish", "coins": 250},
+	{"id": "chef", "name": "Home Cooking", "text": "Cook 3 different meals", "coins": 200},
+	{"id": "helper", "name": "Good Neighbour", "text": "Fill 5 of Bristle's requests", "coins": 300},
+	{"id": "cabin", "name": "Home Sweet Home", "text": "Move into the Cabin", "coins": 200},
+	{"id": "sapling", "name": "Deep Roots", "text": "Grow the Heart Tree into a sapling", "coins": 250},
+	{"id": "level5", "name": "Green Thumb", "text": "Reach gardening level 5", "coins": 400},
+	{"id": "collector", "name": "Full Journal", "text": "Plant all 8 kinds of plant", "coins": 500},
+	{"id": "master", "name": "Master Gardener", "text": "Finish every other goal", "hat": "laurel"},
+]
+
+## Things kept in the shared backpack besides seeds and harvest.
+##   material: gathered from debris, used in recipes
+##   place:    set down on an empty garden tile (solid ones block walking)
+##   soil:     spread on a tilled tile
+##   meal:     eaten for energy
+##   fish:     caught in the pond; sold or cooked
+##   decor:    bought from Bristle; set down indoors or in the garden
+## `price` is what Bristle pays for one; `cost` is what he charges.
+const ITEMS: Dictionary = {
+	"wood": {"name": "Wood", "kind": "material", "blurb": "From fallen branches."},
+	"stone": {"name": "Stone", "kind": "material", "blurb": "From rocks."},
+	"fiber": {"name": "Fiber", "kind": "material", "blurb": "From weeds."},
+	"mulch": {"name": "Rich Mulch", "kind": "soil", "blurb": "Spread on tilled soil. Plants in it often grow twice as fast, and the bed never grasses over."},
+	"path": {"name": "Stepping Stone", "kind": "place", "solid": false, "blurb": "A tidy path. Nothing sprouts on it."},
+	"fence": {"name": "Fence", "kind": "place", "solid": true, "blurb": "Marks out a bed."},
+	"sprinkler": {"name": "Sprinkler", "kind": "place", "solid": true, "blurb": "Waters the four tiles beside it every morning."},
+	"lantern": {"name": "Garden Lantern", "kind": "place", "solid": true, "blurb": "A warm glow after dark."},
+	"tea": {"name": "Moonbell Tea", "kind": "meal", "energy": 30, "blurb": "Restores 30 energy."},
+	"salad": {"name": "Garden Salad", "kind": "meal", "energy": 45, "blurb": "Restores 45 energy."},
+	"stew": {"name": "Gigglecap Stew", "kind": "meal", "energy": 75, "blurb": "Restores 75 energy."},
+	"pie": {"name": "Lantern Pie", "kind": "meal", "energy": 110, "blurb": "Restores 110 energy."},
+	"skewer": {"name": "Fish Skewer", "kind": "meal", "energy": 50, "blurb": "Restores 50 energy."},
+	"supper": {"name": "Moonfin Supper", "kind": "meal", "energy": 95, "blurb": "Restores 95 energy."},
+	"minnow": {"name": "Pond Minnow", "kind": "fish", "price": 15, "blurb": "Bites any time."},
+	"sunfish": {"name": "Sunny Bream", "kind": "fish", "price": 35, "blurb": "Spring and summer, by day."},
+	"raincarp": {"name": "Rain Carp", "kind": "fish", "price": 50, "blurb": "Only when it rains."},
+	"moonfin": {"name": "Moonfin", "kind": "fish", "price": 60, "blurb": "After six in the evening."},
+	"frostfin": {"name": "Frostfin", "kind": "fish", "price": 55, "blurb": "Winter only."},
+	"goldie": {"name": "Golden Koi", "kind": "fish", "price": 200, "blurb": "Very rare. Any time."},
+	"fern": {"name": "Potted Fern", "kind": "decor", "solid": true, "cost": 80, "blurb": "A bit of the garden indoors."},
+	"lamp": {"name": "Floor Lamp", "kind": "decor", "solid": true, "cost": 120, "blurb": "Cosy light."},
+	"rug": {"name": "Round Rug", "kind": "decor", "solid": false, "flat": true, "cost": 150, "blurb": "Soft underfoot. Can be walked on."},
+	"armchair": {"name": "Armchair", "kind": "decor", "solid": true, "cost": 200, "blurb": "For admiring the garden from."},
+	"teatable": {"name": "Tea Table", "kind": "decor", "solid": true, "cost": 180, "blurb": "Set for two."},
+	"bookcase": {"name": "Little Bookcase", "kind": "decor", "solid": true, "cost": 250, "blurb": "Mostly books about plants."},
+	"gnome": {"name": "Garden Gnome", "kind": "decor", "solid": true, "cost": 100, "blurb": "Keeps watch. Happy indoors or out."},
+	"birdbath": {"name": "Bird Bath", "kind": "decor", "solid": true, "cost": 220, "blurb": "Visitors welcome."},
+}
+## Recipes, by the item they make. `needs` may name materials or harvested
+## plants. `level` is the gardening level required; `kitchen` recipes need a
+## stove (the Cabin or better).
+const RECIPES: Dictionary = {
+	"mulch": {"needs": {"fiber": 3}, "makes": 2, "level": 1},
+	"path": {"needs": {"stone": 1}, "makes": 1, "level": 1},
+	"fence": {"needs": {"wood": 2}, "makes": 1, "level": 1},
+	"sprinkler": {"needs": {"stone": 3, "wood": 2}, "makes": 1, "level": 2},
+	"lantern": {"needs": {"wood": 1, "stone": 1, "fiber": 1}, "makes": 1, "level": 3},
+	"tea": {"needs": {"moonbell": 2}, "makes": 1, "level": 1, "kitchen": true},
+	"salad": {"needs": {"sunpuff": 1, "dewcup": 1}, "makes": 1, "level": 2, "kitchen": true},
+	"stew": {"needs": {"gigglecap": 2, "pricklepal": 1}, "makes": 1, "level": 3, "kitchen": true},
+	"pie": {"needs": {"lanternsquash": 1, "snowpip": 1}, "makes": 1, "level": 4, "kitchen": true},
+	"skewer": {"needs": {"minnow": 2}, "makes": 1, "level": 1, "kitchen": true},
+	"supper": {"needs": {"moonfin": 1, "gigglecap": 1}, "makes": 1, "level": 3, "kitchen": true},
+}
+## Wild debris that turns up in the garden, and the material each gives.
+const DEBRIS: Dictionary = {"branch": "wood", "rock": "stone", "weed": "fiber"}
+const DEBRIS_NAMES: Dictionary = {"branch": "Fallen branch", "rock": "Rock", "weed": "Weeds"}
+const MAX_DEBRIS := 30
+const YARD := Rect2i(5, 0, 17, 7)  # kept clear around the home, tower, stall and tree
+const MULCH_BOOST := 0.35  # chance of an extra day's growth each night
+## Gardening skill: total experience needed to reach each level (index 0 = level 1).
+const LEVEL_XP: Array[int] = [0, 40, 100, 190, 320, 500, 740, 1050, 1450, 2000]
+const ENERGY_PER_LEVEL := 2
+const XP_HARVEST := 8
+const XP_RADIANT := 4
+const XP_REQUEST := 20
 
 ## Inside the home. It lives far to the right of the garden in the same grid,
 ## so a position alone says whether someone is indoors. A room has two rows
@@ -103,8 +204,8 @@ const HATS: Dictionary = {
 const INTERIOR_ORIGIN := Vector2i(100, 0)
 const ROOMS: Array[Dictionary] = [
 	{"size": Vector2i(8, 5), "bed": Vector2i(1, 2), "blocked": [Vector2i(6, 2), Vector2i(7, 2)]},
-	{"size": Vector2i(10, 6), "bed": Vector2i(1, 2), "blocked": [Vector2i(5, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(9, 7)]},
-	{"size": Vector2i(12, 7), "bed": Vector2i(1, 2), "blocked": [Vector2i(4, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(11, 2), Vector2i(11, 8), Vector2i(0, 8)]},
+	{"size": Vector2i(10, 6), "bed": Vector2i(1, 2), "blocked": [Vector2i(5, 2), Vector2i(7, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(9, 7)]},
+	{"size": Vector2i(12, 7), "bed": Vector2i(1, 2), "blocked": [Vector2i(4, 2), Vector2i(6, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(11, 2), Vector2i(11, 8), Vector2i(0, 8)]},
 ]
 const COST_TILL := 2
 const COST_WATER := 1
@@ -134,6 +235,15 @@ var seeds: Dictionary = {}  # species id -> count (shared by all players)
 var produce: Dictionary = {}  # species id -> count (shared by all players)
 var energy: Dictionary = {}  # player id -> int
 var tree: Dictionary = {"love": 0, "watered": false, "hugged_by": {}}
+var items: Dictionary = {}  # item id -> count: materials, crafted things, meals (shared)
+var objects: Dictionary = {}  # Vector2i -> {"kind": item or debris id}: things standing on garden tiles
+var xp: int = 0  # gardening experience (shared)
+var wanted: Dictionary = {}  # Bristle's request: {"species", "count", "reward"}, or {} for none
+## Whether debris turns up in the garden by itself. Tests switch it off.
+var wild_growth: bool = true
+var bin: Dictionary = {}  # shipping bin: id -> count, sold overnight
+var stats: Dictionary = {"requests": 0, "cooked": {}, "fish": {}}  # tallies the goals look at
+var goals_done: Array = []  # ids of GOALS already rewarded
 var coins: int = START_COINS  # shared, like the seed bag
 var upgrades: Dictionary = {"hoe": 0, "can": 0, "home": 0}
 var hats_owned: Array = ["straw"]
@@ -156,6 +266,7 @@ func _ready() -> void:
 	tree_changed.connect(_mirror_tree)
 	journal_changed.connect(_mirror_journal)
 	economy_changed.connect(_mirror_economy)
+	object_changed.connect(_mirror_object)
 	cell_changed.connect(_mirror_cell)
 	plant_added.connect(_mirror_cell)
 	plant_removed.connect(_mirror_cell)
@@ -174,6 +285,13 @@ func new_game() -> void:
 	journal.clear()
 	tree = {"love": 0, "watered": false, "hugged_by": {}}
 	seeds = {"sunpuff": 6, "moonbell": 4, "dewcup": 3}
+	items = {}
+	objects = {}
+	xp = 0
+	wanted = {}
+	bin = {}
+	stats = {"requests": 0, "cooked": {}, "fish": {}}
+	goals_done = []
 	coins = START_COINS
 	upgrades = {"hoe": 0, "can": 0, "home": 0}
 	hats_owned = ["straw"]
@@ -208,13 +326,21 @@ func is_stall(cell: Vector2i) -> bool:
 	return STALL_RECT.has_point(cell)
 
 
+func is_pond(cell: Vector2i) -> bool:
+	return POND_RECT.has_point(cell)
+
+
+func is_bin(cell: Vector2i) -> bool:
+	return cell == BIN_CELL
+
+
 func is_tower(cell: Vector2i) -> bool:
 	return TOWER_RECT.has_point(cell)
 
 
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	return is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell)
+	return is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell)
 
 
 # ----- the home and its inside
@@ -224,7 +350,7 @@ func home_level() -> int:
 
 
 func max_energy() -> int:
-	return MAX_ENERGY + ENERGY_PER_HOME_LEVEL * home_level()
+	return MAX_ENERGY + ENERGY_PER_HOME_LEVEL * home_level() + ENERGY_PER_LEVEL * (garden_level() - 1)
 
 
 ## The garden tile of the home's door (bottom middle of its footprint).
@@ -265,10 +391,122 @@ func is_exit_mat(cell: Vector2i) -> bool:
 ## Whether a player may stand on `cell`, in the garden or indoors.
 func can_walk(cell: Vector2i) -> bool:
 	if not is_indoors(cell):
-		return in_bounds(cell) and not is_blocked(cell)
+		return in_bounds(cell) and not is_blocked(cell) and not is_solid(cell)
+	return _room_free(cell) and not is_solid(cell)
+
+
+## Indoor floor with no bed or built-in furniture on it.
+func _room_free(cell: Vector2i) -> bool:
 	if not room_floor().has_point(cell) or is_bed(cell):
 		return false
 	return not ROOMS[home_level()]["blocked"].has(cell - INTERIOR_ORIGIN)
+
+
+# ----- items, objects and crafting
+
+func item_count(id: String) -> int:
+	return int(items.get(id, 0))
+
+
+## How many of an ingredient the garden has: harvested plants or items.
+func stock_of(id: String) -> int:
+	return int(produce.get(id, 0)) if species.has(id) else item_count(id)
+
+
+func name_of(id: String) -> String:
+	if species.has(id):
+		return species[id].display_name
+	return str(ITEMS.get(id, {}).get("name", id))
+
+
+func object_kind(cell: Vector2i) -> String:
+	return str(objects[cell]["kind"]) if objects.has(cell) else ""
+
+
+## Placed things that can't be walked through (debris and paths can).
+func is_solid(cell: Vector2i) -> bool:
+	return objects.has(cell) and bool(ITEMS.get(object_kind(cell), {}).get("solid", false))
+
+
+func has_kitchen() -> bool:
+	return home_level() >= 1
+
+
+## 1 to 10, from gardening experience.
+func garden_level() -> int:
+	var level: int = 1
+	for i in LEVEL_XP.size():
+		if xp >= LEVEL_XP[i]:
+			level = i + 1
+	return level
+
+
+## Experience needed for the next level, or -1 at the top.
+func next_level_xp() -> int:
+	var level: int = garden_level()
+	return LEVEL_XP[level] if level < LEVEL_XP.size() else -1
+
+
+## "" if the recipe can be made now, otherwise why not.
+func craft_problem(recipe_id: String) -> String:
+	if not RECIPES.has(recipe_id):
+		return "No such recipe"
+	var recipe: Dictionary = RECIPES[recipe_id]
+	if garden_level() < int(recipe["level"]):
+		return "Needs gardening level %d" % int(recipe["level"])
+	if bool(recipe.get("kitchen", false)) and not has_kitchen():
+		return "Needs a stove (the Cabin has one)"
+	for id: String in recipe["needs"].keys():
+		if stock_of(id) < int(recipe["needs"][id]):
+			return "Not enough %s" % name_of(id)
+	return ""
+
+
+## What Bristle (or the shipping bin) pays for one of `id` today; 0 if it
+## can't be sold.
+func sell_price_of(id: String) -> int:
+	var price: int = int(species[id].sell_price) if species.has(id) else int(ITEMS.get(id, {}).get("price", 0))
+	if festival_today() == 2:  # Harvest Fair
+		price = int(price * 1.5)
+	return price
+
+
+## The season (0-3) whose festival is today, or -1.
+func festival_today() -> int:
+	return TimeManager.season() if TimeManager.day_of_season() == FESTIVAL_DAY else -1
+
+
+## Whether a goal's condition holds right now.
+func goal_met(id: String) -> bool:
+	match id:
+		"blooms": return _journal_count(JOURNAL_BLOOMED) >= 3
+		"radiant": return _journal_count(JOURNAL_RADIANT) >= 3
+		"collector": return _journal_count(JOURNAL_PLANTED) >= species.size()
+		"sprinkler":
+			for cell: Vector2i in objects.keys():
+				if object_kind(cell) == "sprinkler":
+					return true
+			return false
+		"angler": return stats["fish"].size() >= 4
+		"chef": return stats["cooked"].size() >= 3
+		"helper": return int(stats["requests"]) >= 5
+		"cabin": return home_level() >= 1
+		"sapling": return tree_stage() >= 2
+		"level5": return garden_level() >= 5
+		"master":
+			for goal: Dictionary in GOALS:
+				if goal["id"] != "master" and not goals_done.has(goal["id"]):
+					return false
+			return true
+	return false
+
+
+func _journal_count(at_least: int) -> int:
+	var count: int = 0
+	for id: String in journal.keys():
+		if journal_level(id) >= at_least:
+			count += 1
+	return count
 
 
 # ----- the shop
@@ -355,6 +593,8 @@ func describe_cell(cell: Vector2i) -> String:
 	if is_indoors(cell):
 		if is_bed(cell):
 			return "Bed: tuck in to end the day"
+		if objects.has(cell):
+			return name_of(object_kind(cell))
 		if is_exit_mat(cell):
 			return "Door mat: walk down to go outside"
 		return ""
@@ -364,6 +604,15 @@ func describe_cell(cell: Vector2i) -> String:
 		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
+	if is_pond(cell):
+		return "Pond: cast here with the fishing rod (5)"
+	if is_bin(cell):
+		return "Shipping bin: what's inside is sold overnight"
+	if objects.has(cell):
+		var kind: String = object_kind(cell)
+		if DEBRIS.has(kind):
+			return "%s: clear it for %s" % [DEBRIS_NAMES[kind], name_of(DEBRIS[kind]).to_lower()]
+		return name_of(kind)
 	if is_tree(cell):
 		var goal: int = tree_next_goal()
 		var progress: String = "love %d/%d" % [int(tree["love"]), goal] if goal > 0 else "fully grown"
@@ -386,7 +635,7 @@ func describe_cell(cell: Vector2i) -> String:
 			text += ", thirsty"
 		return text
 	if soil.has(cell):
-		return "Tilled soil (%s)" % ("watered" if bool(soil[cell]["watered"]) else "dry")
+		return "Tilled soil (%s%s)" % ["watered" if bool(soil[cell]["watered"]) else "dry", ", mulched" if bool(soil[cell].get("mulch", false)) else ""]
 	return ""
 
 
@@ -422,6 +671,40 @@ func request_buy_hat(player_id: int, hat_id: String) -> bool:
 
 func request_wear(player_id: int, hat_id: String) -> bool:
 	return _request("wear", player_id, [hat_id])
+
+
+## Put an item from the backpack on a garden tile (or mulch on soil).
+func request_place(player_id: int, cell: Vector2i, item_id: String) -> bool:
+	return _request("place", player_id, [cell, item_id])
+
+
+func request_craft(player_id: int, recipe_id: String) -> bool:
+	return _request("craft", player_id, [recipe_id])
+
+
+func request_eat(player_id: int, item_id: String) -> bool:
+	return _request("eat", player_id, [item_id])
+
+
+## Hand over what Bristle asked for (see `wanted`).
+func request_deliver(player_id: int) -> bool:
+	return _request("deliver", player_id, [])
+
+
+## One cast of the fishing rod. `landed` is whether the player won the
+## reeling game; the host decides which fish it was.
+func request_fish(player_id: int, landed: bool) -> bool:
+	return _request("fish", player_id, [landed])
+
+
+## Buy `count` of a decor item from Bristle.
+func request_buy_item(player_id: int, item_id: String, count: int) -> bool:
+	return _request("buy_item", player_id, [item_id, count])
+
+
+## Move `count` of a sellable thing into the shipping bin (negative: take back).
+func request_ship(player_id: int, id: String, count: int) -> bool:
+	return _request("ship", player_id, [id, count])
 
 
 ## The clock tower: jump to any day (counted from the garden's first day) and
@@ -463,6 +746,13 @@ func _apply(action: String, player_id: int, args: Array) -> bool:
 		"buy_hat": return _do_buy_hat(player_id, args[0])
 		"wear": return _do_wear(player_id, args[0])
 		"set_time": return _do_set_time(args[0], args[1], args[2])
+		"place": return _do_place(player_id, args[0], args[1])
+		"craft": return _do_craft(player_id, args[0])
+		"eat": return _do_eat(player_id, args[0])
+		"deliver": return _do_deliver(player_id)
+		"fish": return _do_fish(player_id, args[0])
+		"buy_item": return _do_buy_item(player_id, args[0], args[1])
+		"ship": return _do_ship(args[0], args[1])
 		"plant": return _do_plant(player_id, args[0], args[1])
 		"pet": return _do_pet(player_id, args[0])
 		"harvest": return _do_harvest(player_id, args[0])
@@ -493,7 +783,7 @@ func _do_reach(player_id: int, tool: String, cell: Vector2i, facing: Vector2i) -
 
 
 func _do_till(cell: Vector2i) -> bool:
-	if not in_bounds(cell) or is_blocked(cell) or soil.has(cell):
+	if not in_bounds(cell) or is_blocked(cell) or soil.has(cell) or objects.has(cell):
 		return false
 	soil[cell] = {"watered": TimeManager.raining}
 	cell_changed.emit(cell)
@@ -559,7 +849,10 @@ func _do_pet(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
+## The basket: picks a ripe plant, clears debris, or lifts a placed thing.
 func _do_harvest(player_id: int, cell: Vector2i) -> bool:
+	if objects.has(cell):
+		return _do_gather(player_id, cell)
 	if not plants.has(cell):
 		return false
 	if not plant_is_ripe(cell):
@@ -572,6 +865,7 @@ func _do_harvest(player_id: int, cell: Vector2i) -> bool:
 	var d: Resource = species[id]
 	var radiant: bool = plant_is_radiant(cell)
 	produce[id] = int(produce.get(id, 0)) + (2 if radiant else 1)
+	_gain_xp(XP_HARVEST + (XP_RADIANT if radiant else 0))
 	if d.regrows:
 		if radiant:
 			seeds[id] = seed_count(id) + 1
@@ -586,14 +880,82 @@ func _do_harvest(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
-func _do_sell(player_id: int, species_id: String, count: int) -> bool:
-	if not species.has(species_id) or count < 1 or int(produce.get(species_id, 0)) < count:
+func _do_sell(_player_id: int, id: String, count: int) -> bool:
+	var price: int = sell_price_of(id)
+	if price <= 0 or count < 1 or stock_of(id) < count:
 		return false
-	produce[species_id] = int(produce[species_id]) - count
-	coins += int(species[species_id].sell_price) * count
+	_take(id, count)
+	coins += price * count
 	inventory_changed.emit()
 	economy_changed.emit()
 	return true
+
+
+## Removes `count` of a harvested plant or an item from the backpack.
+func _take(id: String, count: int) -> void:
+	if species.has(id):
+		produce[id] = int(produce.get(id, 0)) - count
+	else:
+		items[id] = item_count(id) - count
+
+
+func _do_ship(id: String, count: int) -> bool:
+	if sell_price_of(id) <= 0 or count == 0:
+		return false
+	if count > 0:
+		if stock_of(id) < count:
+			return false
+		_take(id, count)
+		bin[id] = int(bin.get(id, 0)) + count
+	else:
+		if int(bin.get(id, 0)) < -count:
+			return false
+		_take(id, count)  # a negative count puts them back
+		bin[id] = int(bin[id]) + count
+		if int(bin[id]) <= 0:
+			bin.erase(id)
+	inventory_changed.emit()
+	return true
+
+
+func _do_buy_item(player_id: int, item_id: String, count: int) -> bool:
+	var cost: int = int(ITEMS.get(item_id, {}).get("cost", 0))
+	if cost <= 0 or count < 1 or not _pay(player_id, cost * count):
+		return false
+	items[item_id] = item_count(item_id) + count
+	inventory_changed.emit()
+	return true
+
+
+func _do_fish(player_id: int, landed: bool) -> bool:
+	if not _spend(player_id, COST_FISH):
+		return false
+	if not landed:
+		return true
+	var id: String = _roll_fish()
+	items[id] = item_count(id) + 1
+	stats["fish"][id] = int(stats["fish"].get(id, 0)) + 1
+	inventory_changed.emit()
+	_notify(player_id, "Caught a %s!" % name_of(id))
+	_gain_xp(XP_FISH)
+	return true
+
+
+## Which fish takes the bait, given the season, hour and weather.
+func _roll_fish() -> String:
+	if rng.randf() < 0.05:
+		return "goldie"
+	var pool: Array = ["minnow", "minnow", "minnow"]
+	var evening: bool = TimeManager.minutes >= 18 * 60
+	if TimeManager.season() <= 1 and not evening:
+		pool.append_array(["sunfish", "sunfish", "sunfish"])
+	if evening:
+		pool.append_array(["moonfin", "moonfin", "moonfin"])
+	if TimeManager.raining:
+		pool.append_array(["raincarp", "raincarp", "raincarp", "raincarp"])
+	if TimeManager.season() == 3:
+		pool.append_array(["frostfin", "frostfin", "frostfin"])
+	return pool[rng.randi_range(0, pool.size() - 1)]
 
 
 func _do_buy_seeds(player_id: int, species_id: String, count: int) -> bool:
@@ -611,6 +973,15 @@ func _do_buy_upgrade(player_id: int, kind: String) -> bool:
 	if next.is_empty() or not _pay(player_id, int(next["cost"])):
 		return false
 	upgrades[kind] = upgrade_level(kind) + 1
+	if kind == "home":
+		# The new room has its own built-in furniture: anything of ours now
+		# standing where that is goes back in the backpack.
+		for cell: Vector2i in objects.keys():
+			if is_indoors(cell) and not _room_free(cell):
+				items[object_kind(cell)] = item_count(object_kind(cell)) + 1
+				objects.erase(cell)
+				object_changed.emit(cell)
+		inventory_changed.emit()
 	economy_changed.emit()
 	return true
 
@@ -632,6 +1003,195 @@ func _do_wear(player_id: int, hat_id: String) -> bool:
 	outfits[str(player_id)] = hat_id
 	economy_changed.emit()
 	return true
+
+
+func _do_gather(player_id: int, cell: Vector2i) -> bool:
+	var kind: String = object_kind(cell)
+	if DEBRIS.has(kind):
+		if not _spend(player_id, COST_HARVEST):
+			return false
+		var material: String = DEBRIS[kind]
+		var amount: int = rng.randi_range(1, 2)
+		items[material] = item_count(material) + amount
+		_notify(player_id, "+%d %s" % [amount, name_of(material)])
+		_gain_xp(1)
+	else:
+		items[kind] = item_count(kind) + 1
+	objects.erase(cell)
+	object_changed.emit(cell)
+	inventory_changed.emit()
+	return true
+
+
+func _do_place(player_id: int, cell: Vector2i, item_id: String) -> bool:
+	var info: Dictionary = ITEMS.get(item_id, {})
+	if info.is_empty() or item_count(item_id) < 1:
+		return false
+	match str(info["kind"]):
+		"soil":
+			if not soil.has(cell) or bool(soil[cell].get("mulch", false)):
+				_notify(player_id, "%s goes on tilled soil" % info["name"])
+				return false
+			soil[cell]["mulch"] = true
+			cell_changed.emit(cell)
+		"place", "decor":
+			var fits: bool = in_bounds(cell) and not is_blocked(cell) and not soil.has(cell)
+			if str(info["kind"]) == "decor" and is_indoors(cell):
+				fits = _room_free(cell) and not is_exit_mat(cell)
+			if not fits or objects.has(cell):
+				_notify(player_id, "There's no room for it there")
+				return false
+			objects[cell] = {"kind": item_id}
+			object_changed.emit(cell)
+		_:
+			return false
+	items[item_id] = item_count(item_id) - 1
+	inventory_changed.emit()
+	return true
+
+
+func _do_craft(player_id: int, recipe_id: String) -> bool:
+	var problem: String = craft_problem(recipe_id)
+	if problem != "":
+		_notify(player_id, problem)
+		return false
+	var recipe: Dictionary = RECIPES[recipe_id]
+	for id: String in recipe["needs"].keys():
+		var amount: int = recipe["needs"][id]
+		if species.has(id):
+			produce[id] = int(produce[id]) - amount
+		else:
+			items[id] = item_count(id) - amount
+	items[recipe_id] = item_count(recipe_id) + int(recipe["makes"])
+	if bool(recipe.get("kitchen", false)):
+		stats["cooked"][recipe_id] = true
+	inventory_changed.emit()
+	_gain_xp(2)
+	return true
+
+
+func _do_eat(player_id: int, item_id: String) -> bool:
+	var info: Dictionary = ITEMS.get(item_id, {})
+	if str(info.get("kind", "")) != "meal" or item_count(item_id) < 1:
+		return false
+	if get_energy(player_id) >= max_energy():
+		_notify(player_id, "You're full of energy already")
+		return false
+	items[item_id] = item_count(item_id) - 1
+	energy[player_id] = mini(get_energy(player_id) + int(info["energy"]), max_energy())
+	energy_changed.emit(player_id)
+	inventory_changed.emit()
+	_notify(player_id, "Delicious! +%d energy" % int(info["energy"]))
+	return true
+
+
+func _do_deliver(player_id: int) -> bool:
+	if wanted.is_empty():
+		return false
+	var id: String = wanted["species"]
+	var count: int = wanted["count"]
+	if int(produce.get(id, 0)) < count:
+		_notify(player_id, "Bristle wants %d %s" % [count, name_of(id)])
+		return false
+	produce[id] = int(produce[id]) - count
+	coins += int(wanted["reward"])
+	wanted = {}
+	stats["requests"] = int(stats["requests"]) + 1
+	inventory_changed.emit()
+	_gain_xp(XP_REQUEST)
+	economy_changed.emit()
+	return true
+
+
+## Judges the festival of the day that is ending. Returns lines for the
+## morning screen.
+func _end_festival() -> Array:
+	match festival_today():
+		0:  # Bloom Show
+			var radiant: int = 0
+			for cell: Vector2i in plants.keys():
+				if plant_is_radiant(cell) and not bool(plants[cell]["dormant"]):
+					radiant += 1
+			var prize: int = mini(radiant, 12) * 50
+			coins += prize
+			return ["Bloom Show: %d radiant plants won %d coins" % [radiant, prize]] if radiant > 0 else ["Bloom Show: no radiant plants this year"]
+		3:  # Lantern Night
+			var lanterns: int = 0
+			for cell: Vector2i in objects.keys():
+				if object_kind(cell) == "lantern":
+					lanterns += 1
+			if lanterns >= 3:
+				coins += 100
+				for id: String in ["frostwhisker", "snowpip"]:
+					seeds[id] = seed_count(id) + 3
+				return ["Lantern Night: your lanterns earned 100 coins and winter seeds"]
+			return ["Lantern Night: %d of 3 lanterns were lit" % lanterns]
+	return []
+
+
+## Pays out any goals newly met. Returns lines for the morning screen.
+func _check_goals() -> Array:
+	var lines: Array = []
+	for goal: Dictionary in GOALS:
+		var id: String = goal["id"]
+		if goals_done.has(id) or not goal_met(id):
+			continue
+		goals_done.append(id)
+		var prize: String = ""
+		if goal.has("coins"):
+			coins += int(goal["coins"])
+			prize = "%d coins" % int(goal["coins"])
+		if goal.has("hat") and not hats_owned.has(goal["hat"]):
+			hats_owned.append(goal["hat"])
+			prize = "the %s" % HATS[goal["hat"]]["name"]
+		lines.append("Goal met: %s! You earned %s" % [goal["name"], prize])
+	return lines
+
+
+## Adds gardening experience and announces a new level to everyone.
+func _gain_xp(amount: int) -> void:
+	var before: int = garden_level()
+	xp += amount
+	economy_changed.emit()
+	if garden_level() > before:
+		var news: String = "Gardening level %d! Check the backpack for new recipes." % garden_level()
+		notice.emit(news)
+		if _mirroring():
+			_net_notice.rpc(news)
+
+
+## Scatters up to `count` pieces of debris on free ground away from the yard.
+func scatter_debris(count: int) -> void:
+	var have: int = 0
+	for cell: Vector2i in objects.keys():
+		if DEBRIS.has(object_kind(cell)):
+			have += 1
+	for i in count:
+		if have >= MAX_DEBRIS:
+			return
+		for attempt in 12:
+			var cell := Vector2i(rng.randi_range(0, WORLD_SIZE.x - 1), rng.randi_range(0, WORLD_SIZE.y - 1))
+			if is_blocked(cell) or YARD.has_point(cell) or soil.has(cell) or objects.has(cell):
+				continue
+			var roll: float = rng.randf()
+			objects[cell] = {"kind": "weed" if roll < 0.5 else ("branch" if roll < 0.75 else "rock")}
+			object_changed.emit(cell)
+			have += 1
+			break
+
+
+## Bristle asks for a plant the garden can grow and pays double for it.
+func _new_request() -> void:
+	var choices: Array = []
+	for id: String in species.keys():
+		if seed_in_stock(id) and species[id].seasons.has(TimeManager.season()):
+			choices.append(id)
+	if choices.is_empty():
+		return
+	var id: String = choices[rng.randi_range(0, choices.size() - 1)]
+	var count: int = rng.randi_range(2, 4)
+	wanted = {"species": id, "count": count, "reward": int(species[id].sell_price) * count * 2}
+	economy_changed.emit()
 
 
 ## Sets the calendar and clock without living through the days between:
@@ -686,6 +1246,14 @@ func _do_sleep(player_id: int) -> bool:
 func end_day(passed_out: bool) -> void:
 	if not Net.is_host():
 		return
+	var night_news: Array = _end_festival()
+	var shipped: int = 0
+	for id: String in bin.keys():
+		shipped += sell_price_of(id) * int(bin[id])
+	if shipped > 0:
+		coins += shipped
+		night_news.append("The shipping bin earned %d coins" % shipped)
+	bin = {}
 	var tree_news: Dictionary = _grow_tree()
 	var discoveries: Array = []
 	for cell: Vector2i in plants.keys():
@@ -697,7 +1265,7 @@ func end_day(passed_out: bool) -> void:
 			_note(id, level)
 	for cell: Vector2i in soil.keys():
 		soil[cell]["watered"] = false
-		if not plants.has(cell) and rng.randf() < SOIL_REVERT_CHANCE:
+		if not plants.has(cell) and not bool(soil[cell].get("mulch", false)) and rng.randf() < SOIL_REVERT_CHANCE:
 			soil.erase(cell)
 	TimeManager.start_next_day()
 	var season: int = TimeManager.season()
@@ -707,6 +1275,15 @@ func end_day(passed_out: bool) -> void:
 	if TimeManager.raining:
 		for cell: Vector2i in soil.keys():
 			soil[cell]["watered"] = true
+	for cell: Vector2i in objects.keys():  # sprinklers do the morning watering
+		if object_kind(cell) == "sprinkler":
+			for side: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+				if soil.has(cell + side):
+					soil[cell + side]["watered"] = true
+	if wild_growth:
+		scatter_debris(rng.randi_range(1, 3))
+	if wanted.is_empty():
+		_new_request()
 	tree["watered"] = TimeManager.raining
 	tree["hugged_by"] = {}
 	tree_changed.emit()
@@ -721,7 +1298,16 @@ func end_day(passed_out: bool) -> void:
 	sleeping.clear()
 	sleepers_changed.emit()
 	save_game()
+	night_news.append_array(_check_goals())
+	var festival: int = festival_today()
+	if festival != -1:
+		night_news.append("Today is the %s! %s" % [FESTIVALS[festival]["name"], FESTIVALS[festival]["today"]])
+	elif TimeManager.day_of_season() == FESTIVAL_DAY - 1:
+		night_news.append("Tomorrow is the %s" % FESTIVALS[TimeManager.season()]["name"])
+	inventory_changed.emit()
+	economy_changed.emit()
 	var summary: Dictionary = {
+		"news": night_news,
 		"passed_out": dozers,
 		"raining": TimeManager.raining,
 		"tree": tree_news,
@@ -740,6 +1326,8 @@ func _grow_tree() -> Dictionary:
 		var p: Dictionary = plants[cell]
 		if not bool(p["dormant"]) and (bool(soil[cell]["watered"]) or not p["petted_by"].is_empty()):
 			cared += 1
+	if cared > 0:
+		_gain_xp(mini(cared, TREE_LOVE_PLANT_CAP))  # a point for every plant looked after today
 	var gained: int = mini(cared, TREE_LOVE_PLANT_CAP) * TREE_LOVE_PER_PLANT
 	if bool(tree["watered"]):
 		gained += TREE_LOVE_WATERED
@@ -771,13 +1359,15 @@ func _grow_plant(cell: Vector2i) -> void:
 				# Well-loved plants sometimes put on a growth spurt.
 				if happiness >= RADIANT_AT and rng.randf() < 0.25:
 					p["days_grown"] = int(p["days_grown"]) + 1
+				if bool(soil[cell].get("mulch", false)) and rng.randf() < MULCH_BOOST:
+					p["days_grown"] = int(p["days_grown"]) + 1
 			elif int(p["regrow_wait"]) > 0:
 				p["regrow_wait"] = int(p["regrow_wait"]) - 1
 			happiness += HAPPY_WATERED
 		else:
 			happiness += HAPPY_NEGLECTED
 		if not p["petted_by"].is_empty():
-			happiness += HAPPY_PETTED
+			happiness += HAPPY_PETTED * (2 if festival_today() == 1 else 1)  # Firefly Night
 		if p["petted_by"].size() >= 2:
 			happiness += HAPPY_DUET
 	p["happiness"] = clampi(happiness, 0, 100)
@@ -871,6 +1461,13 @@ func to_snapshot() -> Dictionary:
 		"upgrades": upgrades,
 		"hats_owned": hats_owned,
 		"outfits": outfits,
+		"items": items,
+		"objects": _keyed(objects),
+		"xp": xp,
+		"wanted": wanted,
+		"bin": bin,
+		"stats": stats,
+		"goals_done": goals_done,
 		"energy": energy_out,
 	}
 
@@ -880,6 +1477,8 @@ func apply_snapshot(data: Dictionary) -> void:
 	plants.clear()
 	for key: String in data.get("soil", {}).keys():
 		soil[_cell(key)] = {"watered": bool(data["soil"][key]["watered"])}
+		if bool(data["soil"][key].get("mulch", false)):
+			soil[_cell(key)]["mulch"] = true
 	for key: String in data.get("plants", {}).keys():
 		var src: Dictionary = data["plants"][key]
 		var p: Dictionary = _new_plant(str(src["species"]))
@@ -913,6 +1512,37 @@ func apply_snapshot(data: Dictionary) -> void:
 	for key: String in data.get("outfits", {}).keys():
 		if hats_owned.has(str(data["outfits"][key])):
 			outfits[key] = str(data["outfits"][key])
+	items = {}
+	for id: String in data.get("items", {}).keys():
+		if ITEMS.has(id):
+			items[id] = int(data["items"][id])
+	objects = {}
+	for key: String in data.get("objects", {}).keys():
+		var kind: String = str(data["objects"][key].get("kind", ""))
+		var at: Vector2i = _cell(key)
+		var fits: bool = in_bounds(at) and not is_blocked(at) and not soil.has(at)
+		if is_indoors(at):
+			fits = room_floor().has_point(at)
+		if (ITEMS.has(kind) or DEBRIS.has(kind)) and fits:
+			objects[at] = {"kind": kind}
+	xp = int(data.get("xp", 0))
+	bin = {}
+	for id: String in data.get("bin", {}).keys():
+		if species.has(id) or ITEMS.has(id):
+			bin[id] = int(data["bin"][id])
+	var saved_stats: Dictionary = data.get("stats", {})
+	stats = {"requests": int(saved_stats.get("requests", 0)), "cooked": {}, "fish": {}}
+	for id: String in saved_stats.get("cooked", {}).keys():
+		stats["cooked"][id] = true
+	for id: String in saved_stats.get("fish", {}).keys():
+		stats["fish"][id] = int(saved_stats["fish"][id])
+	goals_done = []
+	for id: Variant in data.get("goals_done", []):
+		goals_done.append(str(id))
+	wanted = {}
+	var asked: Dictionary = data.get("wanted", {})
+	if species.has(str(asked.get("species", ""))):
+		wanted = {"species": str(asked["species"]), "count": int(asked.get("count", 1)), "reward": int(asked.get("reward", 0))}
 	var saved_tree: Dictionary = data.get("tree", {})
 	tree = {"love": int(saved_tree.get("love", 0)), "watered": bool(saved_tree.get("watered", false)), "hugged_by": {}}
 	for k: String in saved_tree.get("hugged_by", {}).keys():
@@ -991,6 +1621,8 @@ func create_garden(new_name: String) -> void:
 	if garden_name == "":
 		garden_name = "My Garden"
 	garden_code = new_code()
+	if wild_growth:
+		scatter_debris(18)  # a new plot starts a little wild
 	var number: int = 1
 	while FileAccess.file_exists(saves_dir.path_join("garden_%d.json" % number)):
 		number += 1
@@ -1037,6 +1669,14 @@ func _adopt_legacy_save() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(saves_dir)
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(LEGACY_SAVE), ProjectSettings.globalize_path(saves_dir.path_join("garden_0.json")))
+
+
+## A copy of a Vector2i-keyed dictionary with "x,y" keys, for saving and sending.
+func _keyed(by_cell: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for cell: Vector2i in by_cell.keys():
+		out[_key(cell)] = by_cell[cell]
+	return out
 
 
 func _key(cell: Vector2i) -> String:
@@ -1107,6 +1747,18 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 2 and args[0] is Vector2i and args[1] is Vector2i and WAYS.has(args[1])
 		"sell", "buy_seeds":
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 999
+		"place":
+			valid = args.size() == 2 and args[0] is Vector2i and args[1] is String
+		"fish":
+			valid = args.size() == 1 and args[0] is bool
+		"buy_item":
+			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 99
+		"ship":
+			valid = args.size() == 2 and args[0] is String and args[1] is int and absi(args[1]) <= 999
+		"craft", "eat":
+			valid = args.size() == 1 and args[0] is String
+		"deliver":
+			valid = args.is_empty()
 		"set_time":
 			valid = args.size() == 3 and args[0] is int and args[1] is int and args[2] is bool and args[0] >= 0
 		"buy_upgrade", "buy_hat", "wear":
@@ -1127,13 +1779,31 @@ func _net_warp(data: Dictionary) -> void:
 	time_warped.emit()
 
 
-func _mirror_economy() -> void:
+func _mirror_object(cell: Vector2i) -> void:
 	if _mirroring():
-		_net_economy.rpc(coins, upgrades, hats_owned, outfits)
+		_net_object.rpc(cell, objects.get(cell))
 
 
 @rpc("authority", "call_remote", "reliable")
-func _net_economy(new_coins: int, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary) -> void:
+func _net_object(cell: Vector2i, thing: Variant) -> void:
+	if thing == null:
+		objects.erase(cell)
+	else:
+		objects[cell] = thing
+	object_changed.emit(cell)
+
+
+func _mirror_economy() -> void:
+	if _mirroring():
+		_net_economy.rpc(coins, upgrades, hats_owned, outfits, xp, wanted, stats, goals_done)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_economy(new_coins: int, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary, new_xp: int, new_wanted: Dictionary, new_stats: Dictionary, new_goals: Array) -> void:
+	stats = new_stats
+	goals_done = new_goals
+	xp = new_xp
+	wanted = new_wanted
 	coins = new_coins
 	upgrades = new_upgrades
 	hats_owned = new_hats
@@ -1176,7 +1846,7 @@ func _mirror_pet(cell: Vector2i) -> void:
 
 func _mirror_inventory() -> void:
 	if _mirroring():
-		_net_inventory.rpc(seeds, produce)
+		_net_inventory.rpc(seeds, produce, items, bin)
 
 
 func _mirror_energy(player_id: int) -> void:
@@ -1233,9 +1903,11 @@ func _net_pet(cell: Vector2i) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _net_inventory(new_seeds: Dictionary, new_produce: Dictionary) -> void:
+func _net_inventory(new_seeds: Dictionary, new_produce: Dictionary, new_items: Dictionary, new_bin: Dictionary) -> void:
+	bin = new_bin
 	seeds = new_seeds
 	produce = new_produce
+	items = new_items
 	inventory_changed.emit()
 
 

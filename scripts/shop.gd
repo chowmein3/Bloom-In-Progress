@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
-const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Hats"]
+const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Decor", "Hats"]
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
@@ -126,6 +126,7 @@ func _rebuild() -> void:
 		"Seeds": _fill_seeds()
 		"Tools": _fill_upgrades(["hoe", "can"])
 		"Home": _fill_upgrades(["home"])
+		"Decor": _fill_decor()
 		"Hats": _fill_hats()
 
 
@@ -174,17 +175,27 @@ func _item_icon(id: String, seeds: bool) -> TextureRect:
 func _fill_sell() -> void:
 	var me: int = player.get("player_id")
 	var any: bool = false
-	for id: String in GameState.species.keys():
-		var count: int = int(GameState.produce.get(id, 0))
-		if count <= 0:
+	if not GameState.wanted.is_empty():  # Bristle's request pays double
+		var asked: String = GameState.wanted["species"]
+		var amount: int = GameState.wanted["count"]
+		var have: int = int(GameState.produce.get(asked, 0))
+		_row(_item_icon(asked, false), "Wanted: %d %s" % [amount, GameState.name_of(asked)], "Bristle pays double. You have %d." % have, str(int(GameState.wanted["reward"])), [
+			_button("Deliver", have >= amount, func() -> void: GameState.request_deliver(me), "Just what I was after. Thank you!"),
+		])
+	var sellable: Array = GameState.species.keys() + GameState.ITEMS.keys()
+	for id: String in sellable:
+		var each: int = GameState.sell_price_of(id)
+		var count: int = GameState.stock_of(id)
+		if each <= 0 or count <= 0:
 			continue
 		any = true
-		var d: Resource = GameState.species[id]
-		var each: int = d.sell_price
-		_row(_item_icon(id, false), "%s x%d" % [d.display_name, count], "", "%d each" % each, [
-			_button("Sell 1", true, func() -> void: GameState.request_sell(me, id, 1), "A fine %s!" % d.display_name),
+		var title: String = GameState.name_of(id)
+		_row(_item_icon(id, false), "%s x%d" % [title, count], "", "%d each" % each, [
+			_button("Sell 1", true, func() -> void: GameState.request_sell(me, id, 1), "A fine %s!" % title),
 			_button("Sell all (%d)" % (each * count), true, func() -> void: GameState.request_sell(me, id, count), "Lovely, I'll take the lot."),
 		])
+	if GameState.festival_today() == 2:
+		_list.add_child(Ui.label("Harvest Fair today: everything sells for half as much again!", Ui.ACCENT, 5))
 	if not any:
 		_list.add_child(Ui.label("Nothing to sell yet.\nPick grown plants with the basket (5),\nthen bring them here.", Ui.FAINT))
 
@@ -232,10 +243,25 @@ func _fill_upgrades(kinds: Array) -> void:
 		])
 
 
+func _fill_decor() -> void:
+	var me: int = player.get("player_id")
+	for id: String in GameState.ITEMS.keys():
+		var info: Dictionary = GameState.ITEMS[id]
+		var cost: int = int(info.get("cost", 0))
+		if cost <= 0:
+			continue
+		var note: String = "%s You have %d." % [info["blurb"], GameState.item_count(id)]
+		_row(_item_icon(id, false), info["name"], note, str(cost), [
+			_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_item(me, id, 1), "It'll look lovely. Hold it (4) and press Space to set it down."),
+		])
+
+
 func _fill_hats() -> void:
 	var me: int = player.get("player_id")
 	for hat: String in GameState.HAT_ORDER:
 		var info: Dictionary = GameState.HATS[hat]
+		if bool(info.get("reward", false)) and not GameState.hats_owned.has(hat):
+			continue  # earned, not sold
 		var icon: TextureRect = Ui.picture(_hats, Rect2(GameState.HAT_ORDER.find(hat) * 16, 0, 16, 12))
 		var cost: int = info["cost"]
 		if GameState.hats_owned.has(hat):

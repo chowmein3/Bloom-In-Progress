@@ -14,6 +14,7 @@ func _ready() -> void:
 	TimeManager.paused = true
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://screenshot_save.json"
 	GameState.new_game()
@@ -35,8 +36,7 @@ func _ready() -> void:
 	await _tap(KEY_2)
 	await _tap(KEY_SPACE)
 	_expect(bool(GameState.soil[start]["watered"]), "key press watered it")
-	await _tap(KEY_4)
-	await _tap(KEY_SPACE)
+	await _tap(KEY_F)
 	_expect(not GameState.plants[start]["petted_by"].is_empty(), "key press petted it")
 	await _frames(8)
 	await _shot("1_first_seed")

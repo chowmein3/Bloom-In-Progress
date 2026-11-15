@@ -4,7 +4,7 @@ extends Node
 
 const Assets := preload("res://scripts/assets.gd")
 
-const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page", "warp"]
+const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page", "warp", "step"]
 const MUSIC_DB := -16.0
 const EFFECT_DB := -8.0
 
@@ -45,6 +45,7 @@ func _ready() -> void:
 	GameState.tree_changed.connect(_on_tree_changed)
 	GameState.day_advanced.connect(_on_day_advanced)
 	GameState.time_warped.connect(func() -> void: play("warp"))
+	GameState.object_changed.connect(func(cell: Vector2i) -> void: play("soil" if GameState.objects.has(cell) else "pick"))
 	_remember()
 
 

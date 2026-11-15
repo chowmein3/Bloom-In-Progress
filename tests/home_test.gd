@@ -17,6 +17,7 @@ func _ready() -> void:
 		out_dir = args[0]
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://home_test_save.json"
 	GameState.new_game()
@@ -108,7 +109,7 @@ func _ready() -> void:
 	_expect(bag.visible and bool(player.get("reading")), "E opens the backpack")
 	await _wait(0.1)
 	await _shot("home_6_backpack")
-	var slots: Array[Node] = bag.find_children("*", "Button", true, false)
+	var slots: Array[Node] = bag.find_children("*", "GridContainer", true, false)[0].get_children()
 	(slots[1] as Button).emit_signal("pressed")  # the second seed packet
 	_expect(str(player.get("seed_id")) == "moonbell" and int(player.get("tool_index")) == 2, "clicking a seed packet holds those seeds")
 	await _tap(KEY_J)
@@ -122,6 +123,148 @@ func _ready() -> void:
 	var front: Vector2i = player.call("target_cell")
 	await _tap(KEY_SPACE)
 	_expect(GameState.soil.has(front) and GameState.soil.has(front + Vector2i(0, 1)) and GameState.soil.has(front + Vector2i(0, 2)), "one swing of the Sturdy Hoe tills three tiles ahead")
+
+	print("crafting, placing, cooking")
+	GameState.items = {"stone": 4, "wood": 4, "fiber": 3}  # as if gathered
+	GameState.produce["moonbell"] = 2
+	GameState.xp = 40  # gardening level 2
+	GameState.inventory_changed.emit()
+	await _tap(KEY_E)
+	_click(bag, "Crafting")
+	await _wait(0.1)
+	await _shot("home_6b_crafting")
+	_expect(_row_button(bag, "Garden Lantern").disabled and not _row_button(bag, "Sprinkler").disabled, "recipes above the gardening level are locked; the sprinkler is open at level 2")
+	_row_button(bag, "Sprinkler").emit_signal("pressed")
+	_row_button(bag, "Fence").emit_signal("pressed")
+	_expect(GameState.item_count("sprinkler") == 1 and GameState.item_count("fence") == 1 and GameState.item_count("stone") == 1 and GameState.item_count("wood") == 0, "Make turns materials into a sprinkler and a fence")
+	_click(bag, "Kitchen")
+	await _wait(0.1)
+	_row_button(bag, "Moonbell Tea").emit_signal("pressed")
+	_expect(GameState.item_count("tea") == 1, "with the Cabin's stove, two moonbells cook into tea")
+	await _shot("home_6c_kitchen")
+	_click(bag, "Items")
+	await _wait(0.1)
+	for slot: Node in bag.find_children("*", "GridContainer", true, false)[0].get_children():
+		if slot is Button and (slot as Button).icon != null and str((slot as Button).icon.resource_path).ends_with("sprinkler.png"):
+			slot.emit_signal("pressed")
+	_expect(str(player.get("item_id")) == "sprinkler" and int(player.get("tool_index")) == 3, "clicking the sprinkler holds it in the item slot")
+	await _tap(KEY_E)
+	await _hold(KEY_A, 0.15)
+	var spot: Vector2i = player.call("target_cell")
+	await _tap(KEY_SPACE)
+	_expect(GameState.object_kind(spot) == "sprinkler" and GameState.item_count("sprinkler") == 0, "Space sets the held sprinkler down on the tile ahead")
+	_expect(not GameState.can_walk(spot), "and it stands in the way like any solid thing")
+	await _tap(KEY_Q)
+	_expect(str(player.get("item_id")) != "sprinkler", "Q moves on to the next thing in the backpack")
+	player.call("hold_item", "tea")
+	GameState.energy[P] = 50
+	await _tap(KEY_SPACE)
+	_expect(GameState.get_energy(P) == 80 and GameState.item_count("tea") == 0, "Space with a meal in hand eats it for energy")
+	await _wait(0.2)
+	await _shot("home_6d_sprinkler")
+	await _tap(KEY_F)
+	_expect(not GameState.objects.has(spot) and GameState.item_count("sprinkler") == 1, "F picks the sprinkler back up by hand")
+	await _tap(KEY_4)
+	await _hold(KEY_S, 0.15)
+
+	print("hands")
+	var pet_spot := Vector2i(6, 12)
+	GameState.request_till(P, pet_spot)
+	GameState.request_plant(P, pet_spot, "sunpuff")
+	GameState.plants[pet_spot]["days_grown"] = 9  # fully grown, for the test
+	GameState.cell_changed.emit(pet_spot)
+	player.position = Vector2((pet_spot.x + 0.5) * 16, pet_spot.y * 16 - 14)  # in the tile above it
+	await _hold(KEY_S, 0.15)
+	_expect(player.call("target_cell") == pet_spot and str(player.call("hand_hint")) == "pet", "facing a plant, the hand offers to pet it")
+	await _tap(KEY_F)
+	_expect(GameState.plants[pet_spot]["petted_by"].has("1"), "F pets it with no tool chosen for the job")
+	_expect(str(player.call("hand_hint")) == "pick", "once petted, a ripe plant can be picked")
+	await _wait(0.3)
+	await _shot("home_6e_hand_hint")
+	await _tap(KEY_1)
+	await _tap(KEY_SPACE)
+	_expect(not GameState.plants.has(pet_spot) and int(GameState.produce.get("sunpuff", 0)) >= 1, "Space with the hoe in hand picks it too, since the hoe has nothing to do there")
+
+	print("fishing")
+	player.position = Vector2((GameState.POND_RECT.position.x - 0.5) * 16, (GameState.POND_RECT.position.y + 1) * 16 + 10)
+	await _hold(KEY_D, 0.15)
+	_expect(GameState.is_pond(player.call("target_cell")), "standing at the pond's edge, facing the water")
+	await _tap(KEY_5)
+	GameState.energy[P] = 60
+	var rod: CanvasLayer = _screen("fishing.gd")
+	await _tap(KEY_SPACE)
+	_expect(str(rod.get("stage")) == "wait" and bool(player.get("reading")), "Space with the rod casts a line")
+	for i in 100:
+		if str(rod.get("stage")) == "bite":
+			break
+		await _wait(0.05)
+	await _shot("home_6f_bite")
+	await _tap(KEY_SPACE)
+	_expect(str(rod.get("stage")) == "reel", "Space on the bite hooks the fish")
+	await _shot("home_6g_reel")
+	for i in 600:  # press only when the marker is on the green
+		if str(rod.get("stage")) != "reel":
+			break
+		if absf(float(rod.get("_marker")) - float(rod.get("_zone"))) < 0.05:
+			_key(KEY_SPACE, true)
+			await get_tree().process_frame
+			_key(KEY_SPACE, false)
+		await get_tree().process_frame
+	await _wait(0.2)
+	var caught: String = ""
+	for id: String in GameState.FISH:
+		if GameState.item_count(id) > 0:
+			caught = id
+	_expect(caught != "" and str(rod.get("stage")) == "" and not bool(player.get("reading")), "three good pulls land a fish (%s)" % caught)
+	_expect(GameState.get_energy(P) == 58, "a cast costs 2 energy")
+
+	print("shipping bin")
+	player.position = Vector2((GameState.BIN_CELL.x + 0.5) * 16, (GameState.BIN_CELL.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	_expect(GameState.is_bin(player.call("target_cell")), "standing below the shipping bin")
+	await _tap(KEY_F)
+	var bin_screen: CanvasLayer = _screen("bin.gd")
+	_expect(bin_screen.visible, "F opens the bin")
+	_click(bin_screen, "Add all")
+	await _wait(0.1)
+	await _shot("home_6h_bin")
+	_expect(not GameState.bin.is_empty(), "Add all drops something in")
+	await _tap(KEY_ESCAPE)
+	var owed: int = 0
+	for id: String in GameState.bin.keys():
+		owed += GameState.sell_price_of(id) * int(GameState.bin[id])
+	var purse_then: int = GameState.coins
+	GameState.goals_done = []
+	for goal: Dictionary in GameState.GOALS:
+		GameState.goals_done.append(goal["id"])  # keep goal prizes out of this sum
+	GameState.end_day(false)
+	_expect(GameState.coins == purse_then + owed and owed > 0, "overnight the bin pays out (%d coins)" % owed)
+	await _wait(2.6)
+	GameState.goals_done = ["cabin"]
+
+	print("decor and goals")
+	GameState.coins = 1000
+	GameState.request_buy_item(P, "armchair", 1)
+	GameState.request_buy_item(P, "rug", 1)
+	GameState.request_buy_item(P, "lamp", 1)
+	var floor_at: Vector2i = GameState.room_floor().position
+	GameState.request_place(P, floor_at + Vector2i(6, 3), "rug")
+	GameState.request_place(P, floor_at + Vector2i(7, 3), "armchair")
+	GameState.request_place(P, floor_at + Vector2i(4, 1), "lamp")
+	player.call("go_inside")
+	await _wait(0.3)
+	await _shot("home_6i_decor")
+	_expect(GameState.can_walk(floor_at + Vector2i(6, 3)) and not GameState.can_walk(floor_at + Vector2i(7, 3)), "indoors, the rug is walkable and the armchair is not")
+	player.call("go_outside")
+	await _tap(KEY_J)
+	var journal: CanvasLayer = _screen("journal.gd")
+	_click(journal, "Goals")
+	await _wait(0.1)
+	await _shot("home_6j_goals")
+	_expect(journal.find_children("*", "Label", true, false).any(func(l: Node) -> bool: return str(l.get("text")).begins_with("Home Sweet Home  (done)")), "the journal's Goals page marks the Cabin goal done")
+	_click(journal, "Fish")
+	await _wait(0.1)
+	await _tap(KEY_J)
 
 	print("the cabin")
 	await _wait(0.2)
@@ -206,6 +349,17 @@ func _button(screen: Node, text: String) -> Button:
 	for node: Node in screen.find_children("*", "Button", true, false):
 		if not node.is_queued_for_deletion() and str(node.get("text")).begins_with(text):
 			return node
+	return null
+
+
+## The button on the list row of `screen` whose title starts with `title`.
+func _row_button(screen: Node, title: String) -> Button:
+	for node: Node in screen.find_children("*", "Button", true, false):
+		if node.is_queued_for_deletion() or not node.get_parent() is HBoxContainer:
+			continue
+		for label: Node in node.get_parent().find_children("*", "Label", true, false):
+			if str(label.get("text")).begins_with(title):
+				return node
 	return null
 
 

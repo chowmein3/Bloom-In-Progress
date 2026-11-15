@@ -6,6 +6,11 @@ START
            The first time, Windows may say "Windows protected your PC".
            Click "More info", then "Run anyway". (The game is not signed,
            which costs money; that is all the warning means.)
+  Mac:     right-click (or Control-click) "Bloom In Progress" and choose
+           Open, then Open again. On newer macOS, if there is no Open
+           button: System Settings > Privacy & Security > Open Anyway.
+           (Same reason: the game is not signed.) If macOS asks to let the
+           game find devices on your network, click Allow.
   Linux:   run BloomInProgress.x86_64
 
 PLAY TOGETHER
@@ -30,19 +35,35 @@ PLAY TOGETHER
             the host forwards UDP port 24565 in their router's settings.
 
 KEYS
-  WASD / arrows  move            E    backpack (seeds, coins, hats)
-  Shift (hold)   run
-  Space / F      use tool        J    garden journal
-  1-5            choose tool     M    map on/off
-  Q              change seed     N    music on/off
-  Esc            pause menu      H    help card
+  WASD / arrows  move            E    backpack (seeds, crafting, hats)
+  Shift (hold)   run             J    journal (plants, goals, fish)
+  Space / click  use held tool   M    map on/off
+  F / right click  use hand      N    music on/off
+  1-5            choose tool     H    help card
+  Q              change seed     Esc  pause menu
+
+  Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod.
+  Your hand (F) pets, picks, picks up, clears and opens things, so those
+  never need a tool. If the held tool has nothing to do, Space uses the
+  hand too.
 
 GOOD TO KNOW
   Sleep:   walk into your tent's door, face the bed, press Space. The day
            ends when everyone is in bed. The garden is saved every night.
-  Coins:   pick grown plants with the basket (5) and sell them to Bristle,
+  Coins:   pick grown plants by hand (F) and sell them to Bristle,
            the hedgehog at the stall next to your home (face the stall,
            press Space). Buy seeds, better tools, a bigger home and hats.
+  Making:  clear branches, rocks and weeds by hand (F) for wood,
+           stone and fiber. In the backpack (E), the Crafting tab turns
+           them into paths, fences, mulch, sprinklers and lanterns. Click
+           one to hold it, press 4, then Space to set it down.
+  Cooking: with the Cabin's stove, the Kitchen tab turns harvest into
+           meals. Hold one (4) and press Space to eat it for energy.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or
            wilts for the time you skip.
+  Fishing: face the pond with the rod (5), press Space, wait for the "!",
+           press Space, then press Space whenever the marker is on green.
+  Bin:     the crate by your home sells what you put in it overnight.
+  Goals:   the journal (J) lists goals that pay coins; day 14 of each
+           season is a festival.

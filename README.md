@@ -7,19 +7,33 @@ garden alone or host it for a partner to join online.
 ![screenshot](docs/screenshot.png)
 ![inside the tent](docs/screenshot-home.png)
 ![the shop](docs/screenshot-shop.png)
+![crafting](docs/screenshot-crafting.png)
 ![journal screenshot](docs/screenshot-journal.png)
 ![fall screenshot](docs/screenshot-fall.png)
 
 ## Download and play
-**[Download for Windows](https://github.com/chowmein3/Bloom-In-Progress/raw/downloads/BloomInProgress-windows.zip)**
-([Linux](https://github.com/chowmein3/Bloom-In-Progress/raw/downloads/BloomInProgress-linux.zip))
+- **[Download for Windows](https://github.com/chowmein3/Bloom-In-Progress/raw/downloads/BloomInProgress-windows.zip)**
+- **[Download for Mac](https://github.com/chowmein3/Bloom-In-Progress/raw/downloads/BloomInProgress-macos.zip)** (Intel and Apple Silicon)
+- [Download for Linux](https://github.com/chowmein3/Bloom-In-Progress/raw/downloads/BloomInProgress-linux.zip)
 
-1. Unzip it.
-2. Double-click **BloomInProgress.exe**. The first time, Windows may say it
-   doesn't recognise the app: click **More info**, then **Run anyway**.
+Unzip it and open the game. Nothing else to install. The game isn't signed
+with a paid developer certificate, so the first launch needs one extra step:
 
-Nothing else to install. To play together you each download it; see
-[Playing together](#playing-together).
+- **Windows:** double-click **BloomInProgress.exe**. If Windows says it
+  doesn't recognise the app, click **More info**, then **Run anyway**.
+- **Mac:** right-click (or Control-click) **Bloom In Progress** and choose
+  **Open**, then **Open** again. On newer macOS, if there is no Open button,
+  go to **System Settings > Privacy & Security**, scroll down and click
+  **Open Anyway**. If macOS says the app is damaged, run this in Terminal,
+  with the app's real location, and open it again:
+
+  ```bash
+  xattr -cr "/Applications/Bloom In Progress.app"
+  ```
+
+Windows and Mac players can play together; see
+[Playing together](#playing-together). The downloads are rebuilt every time
+`main` changes.
 
 ## Run it from source
 1. Install [Godot 4.4 or newer](https://godotengine.org/download). Get the
@@ -43,10 +57,11 @@ godot --path .
 |---|---|
 | WASD / arrows | Move |
 | Shift (hold) | Run |
-| Space / F | Use the current tool on the highlighted tile, open doors, talk to the shopkeeper |
-| 1-5 | Hoe, Watering Can, Seeds, Hands (pet), Basket (harvest) |
+| Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
+| F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
+| 1-5 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod |
 | Tab | Next tool |
-| Q | Next seed type |
+| Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
 | J | Garden journal |
 | M | Show or hide the minimap |
@@ -81,6 +96,35 @@ quitting mid-day loses that day's progress.
 - **Bristle's stall** (the hedgehog beside your home): sell picked plants for
   coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
   cabin and then a cottage (more room, more energy each morning), and hats.
+- **Hands:** no tool is needed to pet, pick or pick things up. Face it and
+  press F. A plant you haven't petted today gets petted; a ripe plant you
+  already petted gets picked. The line above the tool bar shows what F will do.
+- **Fishing:** face the pond with the rod (5) and press Space. Wait for the
+  "!", press Space to hook it, then press Space each time the marker crosses
+  the green band. Which fish bite depends on season, hour and rain. Sell them,
+  ship them or cook them.
+- **Shipping bin** (the crate between your home and the stall): drop harvest
+  and fish in; they're sold overnight at Bristle's prices.
+- **Decor:** buy furniture from Bristle's Decor tab, hold it (4) and set it
+  down inside your home or in the garden.
+- **Goals** (journal, Goals page): eleven long-term goals that pay coins when
+  met, and a special hat for finishing them all.
+- **Festivals:** day 14 of each season. Bloom Show (radiant plants win coins),
+  Firefly Night (petting counts double), Harvest Fair (everything sells for
+  half as much again), Lantern Night (three lanterns bring a gift).
+- **Gathering:** branches, rocks and weeds turn up around the garden. Clear
+  them by hand (F) for wood, stone and fiber.
+- **Crafting** (backpack, Crafting tab): stepping stones, fences, rich mulch
+  (plants in it often grow twice as fast), sprinklers (water the four tiles
+  beside them every morning) and garden lanterns. Click a made thing in the
+  backpack to hold it, then press 4 and Space to set it down; F picks it
+  back up.
+- **Cooking** (backpack, Kitchen tab, needs the Cabin's stove): turn harvest
+  into meals. Hold a meal and press Space to eat it for energy.
+- **Gardening level:** caring for plants and harvesting earn experience.
+  Levels unlock recipes and add a little energy.
+- **Bristle's requests:** each morning he asks for a plant you can grow and
+  pays double for it (Sell tab at the stall).
 - **Clock tower** (left of your home): face it and press Space to set any
   season, day, year, time of day and weather, to see how the garden looks
   then. Nothing grows or wilts for the time skipped. Expect a scene.
@@ -161,7 +205,7 @@ With Godot's export templates installed (Editor > Manage Export Templates):
 tools/build.sh godot
 ```
 
-This writes `export/BloomInProgress-windows.zip` and the Linux one.
+This writes `export/BloomInProgress-windows.zip`, `-macos.zip` and `-linux.zip`.
 `tools/publish_downloads.sh` then puts them on the `downloads` branch, which is
 where the links above point. `.github/workflows/release.yml` does both on every
 push to `main` when GitHub Actions is available for the account.

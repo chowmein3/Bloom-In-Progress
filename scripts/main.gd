@@ -24,6 +24,10 @@ const BedView := preload("res://scripts/bed_view.gd")
 const Inventory := preload("res://scripts/inventory.gd")
 const Shop := preload("res://scripts/shop.gd")
 const Clock := preload("res://scripts/clock.gd")
+const ObjectView := preload("res://scripts/object_view.gd")
+const PondView := preload("res://scripts/pond_view.gd")
+const Fishing := preload("res://scripts/fishing.gd")
+const Bin := preload("res://scripts/bin.gd")
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -39,6 +43,8 @@ var _camera: Camera2D
 var _weather: CanvasLayer
 var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
+var _things: Dictionary = {}  # Vector2i -> ObjectView
+var _flats: Node2D
 var _light: CanvasModulate
 
 
@@ -47,6 +53,10 @@ func _ready() -> void:
 	add_child(Ground.new())
 	_interior = Interior.new()
 	add_child(_interior)
+	var pond := PondView.new()
+	add_child(pond)
+	_flats = Node2D.new()  # rugs and other flat things: above the floor, under everyone
+	add_child(_flats)
 
 	var cursor := ColorRect.new()
 	cursor.color = Color(1, 1, 1, 0.22)
@@ -75,6 +85,12 @@ func _ready() -> void:
 	stall.position = Vector2((GameState.STALL_RECT.position.x + GameState.STALL_RECT.size.x / 2.0) * TILE, GameState.STALL_RECT.end.y * TILE)
 	_entities.add_child(stall)
 	_entities.add_child(BedView.new())
+	var bin_box := Sprite2D.new()
+	bin_box.texture = Assets.texture("res://assets/sprites/items/bin.png")
+	bin_box.centered = false
+	bin_box.offset = Vector2(-8, -16)
+	bin_box.position = Vector2(GameState.BIN_CELL * TILE) + Vector2(8, 16)
+	_entities.add_child(bin_box)
 	var tower := TowerView.new()
 	tower.position = Vector2((GameState.TOWER_RECT.position.x + GameState.TOWER_RECT.size.x / 2.0) * TILE, GameState.TOWER_RECT.end.y * TILE)
 	_entities.add_child(tower)
@@ -119,6 +135,15 @@ func _ready() -> void:
 	clock.player = player
 	add_child(clock)
 	player.clock_requested.connect(clock.open)
+	var bin_screen := Bin.new()
+	bin_screen.player = player
+	add_child(bin_screen)
+	player.bin_requested.connect(bin_screen.open)
+	var fishing := Fishing.new()
+	fishing.player = player
+	fishing.pond = pond
+	add_child(fishing)
+	player.fish_requested.connect(fishing.cast)
 	var warp := TimeWarp.new()
 	warp.player = player
 	add_child(warp)
@@ -165,6 +190,7 @@ func _ready() -> void:
 		if _views.has(cell):
 			_views[cell].show_love())
 	GameState.cell_changed.connect(_refresh_view)
+	GameState.object_changed.connect(_refresh_thing)
 	GameState.day_advanced.connect(_on_day_advanced)
 	GameState.economy_changed.connect(_on_area_changed)
 	GameState.state_reloaded.connect(_on_area_changed)
@@ -405,6 +431,29 @@ func _rebuild_views() -> void:
 	_views.clear()
 	for cell: Vector2i in GameState.plants.keys():
 		_add_view(cell)
+	for cell: Vector2i in _things.keys():
+		_things[cell].queue_free()
+	_things.clear()
+	for cell: Vector2i in GameState.objects.keys():
+		_refresh_thing(cell)
+
+
+## Keeps the standing things (debris, fences, sprinklers, lanterns) in step.
+func _refresh_thing(cell: Vector2i) -> void:
+	if _things.has(cell):
+		_things[cell].queue_free()
+		_things.erase(cell)
+	var kind: String = GameState.object_kind(cell)
+	if kind == "" or kind == "path":  # stepping stones are drawn flat by the ground
+		return
+	var thing := ObjectView.new()
+	thing.kind = kind
+	thing.position = Vector2(cell * TILE) + Vector2(8, 16)
+	if bool(GameState.ITEMS.get(kind, {}).get("flat", false)):
+		_flats.add_child(thing)
+	else:
+		_entities.add_child(thing)
+	_things[cell] = thing
 
 
 func _add_view(cell: Vector2i) -> void:
@@ -431,9 +480,13 @@ func _refresh_all() -> void:
 		_views[cell].refresh()
 
 
+func _process(_delta: float) -> void:
+	_update_light()  # every frame, so dusk deepens smoothly between clock ticks
+
+
 ## Warm daylight, purple dusk from 5pm, blue night from 8pm.
 func _update_light() -> void:
-	var m: float = float(TimeManager.minutes)
+	var m: float = TimeManager.exact_minutes()
 	var day := Color(1, 1, 1)
 	var dusk := Color(0.85, 0.7, 0.85)
 	var night := Color(0.45, 0.5, 0.78)
@@ -454,7 +507,10 @@ func _setup_input() -> void:
 	_bind("move_right", [KEY_D, KEY_RIGHT])
 	_bind("move_up", [KEY_W, KEY_UP])
 	_bind("move_down", [KEY_S, KEY_DOWN])
-	_bind("use", [KEY_SPACE, KEY_F])
+	_bind("use", [KEY_SPACE])
+	_bind("interact", [KEY_F])
+	_bind_mouse("use", MOUSE_BUTTON_LEFT)
+	_bind_mouse("interact", MOUSE_BUTTON_RIGHT)
 	_bind("toggle_inventory", [KEY_E, KEY_I])
 	_bind("sprint", [KEY_SHIFT])
 	_bind("next_seed", [KEY_Q])
@@ -466,6 +522,15 @@ func _setup_input() -> void:
 	_bind("close", [KEY_ESCAPE])
 	for i in 5:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
+
+
+func _bind_mouse(action: String, button: MouseButton) -> void:
+	for event: InputEvent in InputMap.action_get_events(action):
+		if event is InputEventMouseButton:
+			return
+	var click := InputEventMouseButton.new()
+	click.button_index = button
+	InputMap.action_add_event(action, click)
 
 
 func _bind(action: String, keys: Array) -> void:
