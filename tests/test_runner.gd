@@ -178,6 +178,7 @@ func _ready() -> void:
 	var first: String = GameState.save_path
 	check(GameState.garden_name == "Rose Corner" and FileAccess.file_exists(first), "a new garden is named and saved straight away")
 	GameState.request_till(P, Vector2i(2, 2))
+	GameState.request_plant(P, Vector2i(2, 2), "sunpuff")  # planted soil never reverts to grass
 	GameState.end_day(false)
 	GameState.create_garden("")
 	var second: String = GameState.save_path

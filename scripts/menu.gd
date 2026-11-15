@@ -21,6 +21,7 @@ const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
 const INK := Color(0.3, 0.18, 0.12)
 const ACCENT := Color(0.75, 0.28, 0.2)
+const SETTINGS := "user://settings.json"
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var screen: String = ""  # which screen is showing: title, new, load, coop, join, pause
@@ -34,6 +35,7 @@ var _busy: bool = false
 var _name_field: LineEdit
 var _address: String = ""
 var _confirm_delete: String = ""
+var _found_box: VBoxContainer
 
 
 func _ready() -> void:
@@ -69,6 +71,7 @@ func _ready() -> void:
 	_status.add_theme_color_override("font_color", ACCENT)
 	_status.visible = false
 	column.add_child(_status)
+	Net.gardens_changed.connect(_list_found)
 	show_title()
 
 
@@ -175,7 +178,7 @@ func _show_coop() -> void:
 	_button("Host", _show_coop_host).grab_focus()
 	_button("Join", _show_join)
 	_button("Back", show_title)
-	_note("The host owns the garden and its save.\nThe partner joins with the host's address.")
+	_note("The host owns the garden and its save.\nOn the same Wi-Fi, Join finds it by itself.")
 
 
 func _show_coop_host() -> void:
@@ -186,7 +189,13 @@ func _show_coop_host() -> void:
 func _show_join() -> void:
 	_open("join", 0.72)
 	_heading("Join a garden", 10)
-	_note("Your partner's address:")
+	_note("Gardens on your network:")
+	_found_box = VBoxContainer.new()
+	_found_box.add_theme_constant_override("separation", 2)
+	_box.add_child(_found_box)
+	_note("Or type your partner's address:")
+	if _address == "":
+		_address = _remembered_address()
 	var field := LineEdit.new()
 	field.text = _address
 	field.placeholder_text = "e.g. 192.168.1.20"
@@ -195,7 +204,31 @@ func _show_join() -> void:
 	_box.add_child(field)
 	_button("Join", _confirm_join)
 	_button("Back", _show_coop)
-	field.grab_focus()
+	Net.start_discovery()
+	_list_found()
+
+
+## Hosts announce themselves on the local network; each gets a one-click button.
+func _list_found() -> void:
+	if screen != "join" or _found_box == null:
+		return
+	for child: Node in _found_box.get_children():
+		_found_box.remove_child(child)
+		child.queue_free()
+	for address: String in Net.found_gardens.keys():
+		var found: Dictionary = Net.found_gardens[address]
+		var button := Button.new()
+		button.text = "%s%s" % [found["name"], "  (full)" if bool(found["full"]) else ""]
+		button.disabled = _busy or bool(found["full"])
+		var target: String = "%s:%d" % [address, int(found["port"])]
+		button.pressed.connect(func() -> void: join_chosen.emit(target))
+		_found_box.add_child(button)
+	if Net.found_gardens.is_empty():
+		var waiting := Label.new()
+		waiting.text = "Looking..."
+		waiting.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		waiting.add_theme_color_override("font_color", Color(0.6, 0.5, 0.42))
+		_found_box.add_child(waiting)
 
 
 func _confirm_join() -> void:
@@ -203,7 +236,19 @@ func _confirm_join() -> void:
 	if address == "":
 		set_status("Type your partner's address first")
 		return
+	_remember_address(address)
 	join_chosen.emit(address)
+
+
+func _remembered_address() -> String:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS)) if FileAccess.file_exists(SETTINGS) else null
+	return str(parsed.get("last_address", "")) if typeof(parsed) == TYPE_DICTIONARY else ""
+
+
+func _remember_address(address: String) -> void:
+	var file: FileAccess = FileAccess.open(SETTINGS, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify({"last_address": address}))
 
 
 # ----------------------------------------------------------------- pieces
@@ -211,6 +256,9 @@ func _confirm_join() -> void:
 func _open(new_screen: String, dim: float) -> void:
 	if new_screen != "load":
 		_confirm_delete = ""
+	if new_screen != "join":
+		Net.stop_discovery()
+		_found_box = null
 	screen = new_screen
 	visible = true
 	_dim.color = Color(0.08, 0.06, 0.14, dim)

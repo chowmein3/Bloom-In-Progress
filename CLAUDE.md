@@ -6,7 +6,11 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - `scripts/game_state.gd` (autoload `GameState`): all garden data and rules.
 - `scripts/time_manager.gd` (autoload `TimeManager`): clock, seasons, rain.
 - `scripts/net.gd` (autoload `Net`): host/join over ENet, player slots
-  (host 1, guest 2), remote player positions.
+  (host 1, guest 2), remote player positions, finding hosts on the local
+  network (UDP beacon) and opening the router port (UPnP) while hosting.
+- `export_presets.cfg`, `tools/build.sh`, `packaging/`: the downloadable
+  Windows/Linux builds. `.github/workflows/release.yml` tests, builds and
+  publishes them as the "latest" release on every push to `main`.
 - `scripts/main.gd`: builds the scene in code and starts solo/host/join games.
   `menu.gd`, `ground.gd`, `plant_view.gd`, `tree_view.gd`, `player.gd`,
   `hud.gd`, `minimap.gd`, `journal.gd`, `rain.gd` (weather) and `effects.gd`
@@ -51,4 +55,6 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   Run it after touching `net.gd`, `game_state.gd` or the player/main scripts.
 - Menus: `godot --headless --path . res://tests/menu_test.tscn` (must print
   MENU TEST PASSED). Run it after touching `menu.gd` or how games start.
+- Download build: `tools/build.sh <godot binary>` (needs export templates).
+  Tests, tools, docs and packaging are left out of the exported game.
 - Visual smoke test: `godot --path . res://tests/screenshot.tscn -- <output folder>`.

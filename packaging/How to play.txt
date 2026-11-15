@@ -1,0 +1,39 @@
+BLOOM IN PROGRESS
+a garden for two
+
+START
+  Windows: double-click BloomInProgress.exe
+           The first time, Windows may say "Windows protected your PC".
+           Click "More info", then "Run anyway". (The game is not signed,
+           which costs money; that is all the warning means.)
+  Linux:   run BloomInProgress.x86_64
+
+PLAY TOGETHER
+  One of you hosts, the other joins. You each need the game.
+
+  Host:     Co-op > Host > pick a garden (or "Host a new garden").
+            If Windows asks about the firewall, click "Allow access".
+  Partner:  Co-op > Join.
+
+  Same home / same Wi-Fi:
+            The host's garden shows up on the Join screen by itself.
+            Click it.
+
+  Different homes:
+            The host's game asks their router to let the partner in. If it
+            works, the host's help card (press H) shows a line starting
+            "Elsewhere:". The partner types that address on the Join screen.
+            The game remembers it for next time.
+            If no "Elsewhere:" line appears, the router said no. Then either
+            forward UDP port 24565 to the host's computer in the router's
+            settings, or both install Tailscale (free) and use the host's
+            Tailscale address.
+
+KEYS
+  WASD / arrows  move            J    garden journal
+  Space / E      use tool        M    map on/off
+  1-5            choose tool     N    music on/off
+  Q              change seed     H    help card
+  Esc            pause menu
+
+  Face the tent and press Space to sleep. The garden is saved every night.
