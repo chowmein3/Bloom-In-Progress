@@ -15,6 +15,7 @@ const HELP_ROWS: Array = [
 	["M", "Map"],
 	["N", "Music"],
 	["H", "Help"],
+	["Esc", "Menu"],
 ]
 const ICON := 12  # size of one frame in assets/sprites/ui_icons.png
 const ICON_SUN := 5

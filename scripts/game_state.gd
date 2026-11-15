@@ -65,7 +65,13 @@ const HAPPY_NEGLECTED := -12
 const HAPPY_DUET := 6  # extra when two different players pet a plant the same day
 const SOIL_REVERT_CHANCE := 0.1
 
-var save_path: String = "user://garden_save.json"
+const LEGACY_SAVE := "user://garden_save.json"  # the single save older versions used
+
+## Folder holding one JSON file per saved garden.
+var saves_dir: String = "user://saves"
+## File of the garden being played; "" while none is open (nothing is saved).
+var save_path: String = ""
+var garden_name: String = "My Garden"
 var species: Dictionary = {}  # id -> PlantData
 var soil: Dictionary = {}  # Vector2i -> {"watered": bool}
 var plants: Dictionary = {}  # Vector2i -> plant Dictionary (see _new_plant)
@@ -97,8 +103,7 @@ func _ready() -> void:
 	inventory_changed.connect(_mirror_inventory)
 	energy_changed.connect(_mirror_energy)
 	sleepers_changed.connect(_mirror_sleepers)
-	if not load_game():
-		new_game()
+	new_game()  # an empty garden behind the title menu until one is chosen
 
 
 func new_game() -> void:
@@ -551,6 +556,8 @@ func to_snapshot() -> Dictionary:
 		energy_out[str(pid)] = energy[pid]
 	return {
 		"version": 1,
+		"name": garden_name,
+		"saved_at": int(Time.get_unix_time_from_system()),
 		"day_index": TimeManager.day_index,
 		"minutes": TimeManager.minutes,
 		"raining": TimeManager.raining,
@@ -600,6 +607,7 @@ func apply_snapshot(data: Dictionary) -> void:
 	energy.clear()
 	for key: String in data.get("energy", {}).keys():
 		energy[int(key)] = int(data["energy"][key])
+	garden_name = str(data.get("name", "My Garden"))
 	TimeManager.day_index = int(data.get("day_index", 0))
 	TimeManager.minutes = int(data.get("minutes", TimeManager.DAY_START))
 	TimeManager.raining = bool(data.get("raining", false))
@@ -609,7 +617,7 @@ func apply_snapshot(data: Dictionary) -> void:
 
 ## Only the garden's owner saves; a guest never writes the host's garden to disk.
 func save_game() -> void:
-	if not Net.is_host():
+	if not Net.is_host() or save_path == "":
 		return
 	var file: FileAccess = FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
@@ -619,7 +627,7 @@ func save_game() -> void:
 
 
 func load_game() -> bool:
-	if not FileAccess.file_exists(save_path):
+	if save_path == "" or not FileAccess.file_exists(save_path):
 		return false
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_path))
 	if typeof(parsed) != TYPE_DICTIONARY:
@@ -627,6 +635,73 @@ func load_game() -> bool:
 		return false
 	apply_snapshot(parsed)
 	return true
+
+
+# ------------------------------------------------------------ save files
+
+## Every saved garden, newest first:
+## {"path", "name", "day_index", "love", "saved_at"}.
+func list_gardens() -> Array[Dictionary]:
+	_adopt_legacy_save()
+	var found: Array[Dictionary] = []
+	for file_name: String in DirAccess.get_files_at(saves_dir):
+		if not file_name.ends_with(".json"):
+			continue
+		var path: String = saves_dir.path_join(file_name)
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if typeof(parsed) != TYPE_DICTIONARY:
+			continue
+		var data: Dictionary = parsed
+		found.append({
+			"path": path,
+			"name": str(data.get("name", "My Garden")),
+			"day_index": int(data.get("day_index", 0)),
+			"love": int(data.get("tree", {}).get("love", 0)),
+			"saved_at": int(data.get("saved_at", 0)),
+		})
+	found.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["saved_at"]) > int(b["saved_at"]))
+	return found
+
+
+## Starts a brand new garden with its own save file and opens it.
+func create_garden(new_name: String) -> void:
+	DirAccess.make_dir_recursive_absolute(saves_dir)
+	new_game()
+	garden_name = new_name.strip_edges().left(24)
+	if garden_name == "":
+		garden_name = "My Garden"
+	var number: int = 1
+	while FileAccess.file_exists(saves_dir.path_join("garden_%d.json" % number)):
+		number += 1
+	save_path = saves_dir.path_join("garden_%d.json" % number)
+	save_game()
+
+
+func open_garden(path: String) -> bool:
+	save_path = path
+	if load_game():
+		return true
+	close_garden()
+	return false
+
+
+## Back to an empty, unsaved garden (the title menu's backdrop).
+func close_garden() -> void:
+	save_path = ""
+	garden_name = "My Garden"
+	new_game()
+
+
+func delete_garden(path: String) -> void:
+	if path.begins_with(saves_dir) and FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _adopt_legacy_save() -> void:
+	if saves_dir != "user://saves" or not FileAccess.file_exists(LEGACY_SAVE):
+		return
+	DirAccess.make_dir_recursive_absolute(saves_dir)
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(LEGACY_SAVE), ProjectSettings.globalize_path(saves_dir.path_join("garden_0.json")))
 
 
 func _key(cell: Vector2i) -> String:
@@ -677,8 +752,8 @@ func _on_player_left(slot: int) -> void:
 func _on_session_ended(was_host: bool) -> void:
 	sleeping.clear()
 	sleepers_changed.emit()
-	if not was_host and not load_game():
-		new_game()
+	if not was_host:
+		close_garden()
 
 
 ## A guest asking the host to do something. Everything from the network is

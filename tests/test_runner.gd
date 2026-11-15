@@ -169,6 +169,37 @@ func _ready() -> void:
 	GameState.tree["love"] = 1000
 	check(GameState.tree_stage() == 4 and GameState.tree_next_goal() == -1, "tree tops out at full bloom")
 
+	print("save files")
+	GameState.saves_dir = "user://test_saves"
+	for old: Dictionary in GameState.list_gardens():
+		GameState.delete_garden(old["path"])
+	check(GameState.list_gardens().is_empty(), "no gardens to begin with")
+	GameState.create_garden("  Rose Corner  ")
+	var first: String = GameState.save_path
+	check(GameState.garden_name == "Rose Corner" and FileAccess.file_exists(first), "a new garden is named and saved straight away")
+	GameState.request_till(P, Vector2i(2, 2))
+	GameState.end_day(false)
+	GameState.create_garden("")
+	var second: String = GameState.save_path
+	check(second != first and GameState.garden_name == "My Garden", "a second garden gets its own file and a default name")
+	check(GameState.soil.is_empty() and TimeManager.day_index == 0, "and starts empty")
+	var listed: Array[Dictionary] = GameState.list_gardens()
+	check(listed.size() == 2, "both gardens are listed")
+	var rose: Dictionary = listed[0] if listed[0]["name"] == "Rose Corner" else listed[1]
+	check(int(rose["day_index"]) == 1, "the list shows each garden's day")
+	check(GameState.open_garden(first) and GameState.soil.has(Vector2i(2, 2)) and GameState.garden_name == "Rose Corner", "loading brings a garden back")
+	GameState.close_garden()
+	check(GameState.save_path == "" and GameState.soil.is_empty(), "closing leaves an empty unsaved garden")
+	GameState.request_till(P, Vector2i(5, 5))
+	GameState.end_day(false)
+	check(GameState.list_gardens().size() == 2, "nothing is saved while no garden is open")
+	check(not GameState.open_garden("user://test_saves/missing.json") and GameState.save_path == "", "a missing file is refused")
+	GameState.delete_garden(first)
+	GameState.delete_garden(second)
+	check(GameState.list_gardens().is_empty(), "gardens can be deleted")
+	GameState.save_path = "user://test_save.json"
+	GameState.new_game()
+
 	print("curfew and energy")
 	GameState.energy[P] = 1
 	check(not GameState.request_till(P, Vector2i(8, 8)), "too tired to till")

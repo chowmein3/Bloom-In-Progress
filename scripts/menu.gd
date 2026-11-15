@@ -1,92 +1,292 @@
 extends CanvasLayer
-## Start screen: tend the garden alone, host it for a partner, or join theirs.
+## Title menu and pause menu.
+##
+## Title:  New | Load | Co-op | Exit
+##   New    -> name the garden -> play
+##   Load   -> pick a saved garden (or delete one) -> play
+##   Co-op  -> Host (a saved garden or a new one) | Join (by address)
+## Pause (Esc in game):  Resume | Return to title | Exit
 
-signal solo_pressed
-signal host_pressed
-signal join_pressed(address: String)
+signal new_chosen(garden_name: String)
+signal load_chosen(path: String)
+signal host_new_chosen(garden_name: String)
+signal host_load_chosen(path: String)
+signal join_chosen(address: String)
+signal resume_chosen
+signal title_chosen
+signal exit_chosen
 
+const PAPER := Color(0.98, 0.91, 0.74)
+const SLOT := Color(0.93, 0.8, 0.58)
+const WOOD := Color(0.42, 0.26, 0.15)
+const INK := Color(0.3, 0.18, 0.12)
+const ACCENT := Color(0.75, 0.28, 0.2)
+const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
+
+var screen: String = ""  # which screen is showing: title, new, load, coop, join, pause
+
+var _root: Control
+var _dim: ColorRect
+var _box: VBoxContainer
 var _status: Label
-var _address: LineEdit
-var _buttons: Array[Button] = []
+var _hosting: bool = false  # whether New/Load were reached through Co-op > Host
+var _busy: bool = false
+var _name_field: LineEdit
+var _address: String = ""
+var _confirm_delete: String = ""
 
 
 func _ready() -> void:
 	layer = 20
-	var theme := Theme.new()
-	theme.default_font_size = 8
-	var root := Control.new()
-	root.theme = theme
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	_root = Control.new()
+	_root.theme = _make_theme()
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_root)
 
-	var dim := ColorRect.new()
-	dim.color = Color(0.08, 0.06, 0.14, 0.72)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(dim)
+	_dim = ColorRect.new()
+	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(_dim)
 
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	root.add_child(box)
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	box.custom_minimum_size.x = 170
+	var panel := PanelContainer.new()
+	var style := _box_style(PAPER)
+	style.set_content_margin_all(6)
+	panel.add_theme_stylebox_override("panel", style)
+	var centre := CenterContainer.new()  # keeps the panel centred as its content changes
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(centre)
+	centre.add_child(panel)
 
-	var title := Label.new()
-	title.text = "Bloom In Progress"
-	title.add_theme_font_size_override("font_size", 16)
-	title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.4))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "a garden for two"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(subtitle)
-
-	_button(box, "Tend the garden alone").pressed.connect(func() -> void: solo_pressed.emit())
-	_button(box, "Host my garden for a partner").pressed.connect(func() -> void: host_pressed.emit())
-
-	var join_label := Label.new()
-	join_label.text = "Or join your partner's garden:"
-	box.add_child(join_label)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	_address = LineEdit.new()
-	_address.placeholder_text = "e.g. 192.168.1.20"
-	_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_address.text_submitted.connect(func(_t: String) -> void: _join())
-	row.add_child(_address)
-	_button(row, "Join").pressed.connect(_join)
-	box.add_child(row)
-
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 3)
+	column.custom_minimum_size.x = 130
+	panel.add_child(column)
+	_box = VBoxContainer.new()
+	_box.add_theme_constant_override("separation", 2)
+	column.add_child(_box)
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
-	box.add_child(_status)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.add_theme_color_override("font_color", ACCENT)
+	_status.visible = false
+	column.add_child(_status)
+	show_title()
 
 
-func _button(parent: Control, text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	parent.add_child(button)
-	_buttons.append(button)
-	return button
+# ---------------------------------------------------------------- screens
+
+func show_title(status: String = "") -> void:
+	_open("title", 0.72)
+	_heading("Bloom In Progress", 14)
+	_note("a garden for two")
+	_button("New", func() -> void:
+		_hosting = false
+		_show_new()).grab_focus()
+	_button("Load", func() -> void:
+		_hosting = false
+		_show_load())
+	_button("Co-op", _show_coop)
+	_button("Exit", func() -> void: exit_chosen.emit())
+	set_status(status)
 
 
-func _join() -> void:
-	var address: String = _address.text.strip_edges()
+func show_pause() -> void:
+	_open("pause", 0.45)
+	_heading("Paused", 10)
+	_button("Resume", func() -> void: resume_chosen.emit()).grab_focus()
+	_button("Return to title", func() -> void: title_chosen.emit())
+	_button("Exit game", func() -> void: exit_chosen.emit())
+	_note("The garden is saved each night when you\nsleep. Leaving now loses today's progress.")
+
+
+func _show_new() -> void:
+	_open("new", 0.72)
+	_heading("Host a new garden" if _hosting else "New garden", 10)
+	_note("Give your garden a name:")
+	_name_field = LineEdit.new()
+	_name_field.text = "Our Garden"
+	_name_field.max_length = 24
+	_name_field.select_all_on_focus = true
+	_name_field.text_submitted.connect(func(_t: String) -> void: _confirm_new())
+	_box.add_child(_name_field)
+	_button("Start", _confirm_new)
+	_button("Back", _show_coop_host if _hosting else show_title)
+	_name_field.grab_focus()
+
+
+func _confirm_new() -> void:
+	if _hosting:
+		host_new_chosen.emit(_name_field.text)
+	else:
+		new_chosen.emit(_name_field.text)
+
+
+func _show_load() -> void:
+	_open("load", 0.72)
+	_heading("Host a garden" if _hosting else "Load garden", 10)
+	if _hosting:
+		_button("Host a new garden", _show_new)
+	var gardens: Array[Dictionary] = GameState.list_gardens()
+	if gardens.is_empty():
+		_note("No saved gardens yet.")
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 2)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for garden: Dictionary in gardens:
+		var path: String = garden["path"]
+		var day: int = garden["day_index"]
+		@warning_ignore("integer_division")
+		var when: String = "%s %d, Year %d" % [SEASONS[(day / 28) % 4], day % 28 + 1, day / 112 + 1]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+		var pick := Button.new()
+		pick.text = "%s\n%s" % [garden["name"], when]
+		pick.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pick.pressed.connect(func() -> void:
+			if _hosting:
+				host_load_chosen.emit(path)
+			else:
+				load_chosen.emit(path))
+		row.add_child(pick)
+		var remove := Button.new()
+		remove.text = "Sure?" if _confirm_delete == path else "Delete"
+		remove.pressed.connect(func() -> void:
+			if _confirm_delete == path:
+				GameState.delete_garden(path)
+				_confirm_delete = ""
+			else:
+				_confirm_delete = path
+			_show_load())
+		row.add_child(remove)
+		list.add_child(row)
+	if not gardens.is_empty():
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.custom_minimum_size = Vector2(150, minf(gardens.size() * 26.0, 80.0))
+		scroll.add_child(list)
+		_box.add_child(scroll)
+	_button("Back", _show_coop if _hosting else show_title).grab_focus()
+
+
+func _show_coop() -> void:
+	_confirm_delete = ""
+	_open("coop", 0.72)
+	_heading("Co-op", 10)
+	_button("Host", _show_coop_host).grab_focus()
+	_button("Join", _show_join)
+	_button("Back", show_title)
+	_note("The host owns the garden and its save.\nThe partner joins with the host's address.")
+
+
+func _show_coop_host() -> void:
+	_hosting = true
+	_show_load()
+
+
+func _show_join() -> void:
+	_open("join", 0.72)
+	_heading("Join a garden", 10)
+	_note("Your partner's address:")
+	var field := LineEdit.new()
+	field.text = _address
+	field.placeholder_text = "e.g. 192.168.1.20"
+	field.text_changed.connect(func(text: String) -> void: _address = text)
+	field.text_submitted.connect(func(_t: String) -> void: _confirm_join())
+	_box.add_child(field)
+	_button("Join", _confirm_join)
+	_button("Back", _show_coop)
+	field.grab_focus()
+
+
+func _confirm_join() -> void:
+	var address: String = _address.strip_edges()
 	if address == "":
 		set_status("Type your partner's address first")
 		return
-	join_pressed.emit(address)
+	join_chosen.emit(address)
+
+
+# ----------------------------------------------------------------- pieces
+
+func _open(new_screen: String, dim: float) -> void:
+	if new_screen != "load":
+		_confirm_delete = ""
+	screen = new_screen
+	visible = true
+	_dim.color = Color(0.08, 0.06, 0.14, dim)
+	for child: Node in _box.get_children():
+		_box.remove_child(child)
+		child.queue_free()
+	set_status("")
+
+
+func _heading(text: String, font_size: int) -> void:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", ACCENT)
+	_box.add_child(label)
+
+
+func _note(text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_box.add_child(label)
+
+
+func _button(text: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.disabled = _busy
+	button.pressed.connect(action)
+	_box.add_child(button)
+	return button
 
 
 func set_status(text: String) -> void:
 	_status.text = text
+	_status.visible = text != ""
 
 
 ## Greyed out while a connection attempt is in progress.
 func set_busy(busy: bool) -> void:
-	for button: Button in _buttons:
-		button.disabled = busy
-	_address.editable = not busy
+	_busy = busy
+	for node: Node in _box.find_children("*", "BaseButton", true, false):
+		(node as BaseButton).disabled = busy
+
+
+func _box_style(fill: Color, edge: Color = WOOD) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.set_corner_radius_all(1)
+	box.set_border_width_all(1)
+	box.border_color = edge
+	box.content_margin_left = 4
+	box.content_margin_right = 4
+	box.content_margin_top = 1
+	box.content_margin_bottom = 1
+	return box
+
+
+## Parchment-and-wood look for buttons and text fields, matching the HUD.
+func _make_theme() -> Theme:
+	var theme := Theme.new()
+	theme.default_font_size = 7
+	theme.set_color("font_color", "Label", INK)
+	theme.set_stylebox("normal", "Button", _box_style(SLOT))
+	theme.set_stylebox("hover", "Button", _box_style(Color(1.0, 0.95, 0.8)))
+	theme.set_stylebox("pressed", "Button", _box_style(Color(0.85, 0.7, 0.48)))
+	theme.set_stylebox("focus", "Button", _box_style(Color(0, 0, 0, 0), ACCENT))
+	theme.set_stylebox("disabled", "Button", _box_style(Color(0.88, 0.82, 0.7), Color(0.65, 0.55, 0.45)))
+	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		theme.set_color(state, "Button", INK)
+	theme.set_color("font_disabled_color", "Button", Color(0.6, 0.5, 0.42))
+	theme.set_stylebox("normal", "LineEdit", _box_style(Color(1.0, 0.98, 0.9)))
+	theme.set_stylebox("focus", "LineEdit", _box_style(Color(0, 0, 0, 0), ACCENT))
+	theme.set_color("font_color", "LineEdit", INK)
+	theme.set_color("font_placeholder_color", "LineEdit", Color(0.6, 0.5, 0.42))
+	theme.set_color("caret_color", "LineEdit", INK)
+	theme.set_color("selection_color", "LineEdit", Color(0.75, 0.28, 0.2, 0.3))
+	return theme

@@ -30,6 +30,10 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   mirrored to guests by the `_net_*()` functions) or add a mirrored one.
   Player ids are slots from `Net.local_id()`, never network peer ids.
 - Only the host saves, ends the day and runs the clock.
+- Saves are one JSON file per garden in `GameState.saves_dir`. A garden must be
+  opened (`create_garden` / `open_garden`) before play; while `save_path` is ""
+  nothing is saved. `main.gd` does this from the menu's signals, then calls
+  `start_solo()` or `start_host()`.
 - Garden state is plain dictionaries (not nodes) so it can be saved and sent
   over the network. Views read it and redraw on GameState signals.
 - The window uses `canvas_items` stretch: positions and font sizes are in
@@ -45,4 +49,6 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - Add a test there for every new rule.
 - Co-op: `tests/run_coop_test.sh <godot binary>` (must print CO-OP TEST PASSED).
   Run it after touching `net.gd`, `game_state.gd` or the player/main scripts.
+- Menus: `godot --headless --path . res://tests/menu_test.tscn` (must print
+  MENU TEST PASSED). Run it after touching `menu.gd` or how games start.
 - Visual smoke test: `godot --path . res://tests/screenshot.tscn -- <output folder>`.

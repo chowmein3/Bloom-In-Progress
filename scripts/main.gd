@@ -2,6 +2,9 @@ extends Node2D
 ## Builds the garden scene in code: ground, plants, players, camera, HUD and
 ## the start menu, and starts solo / hosted / joined games.
 ##
+## The title menu picks the garden (GameState.create_garden / open_garden)
+## before start_solo() or start_host() begins play in it.
+##
 ## To skip the menu, pass a mode after "--" on the command line:
 ##   godot --path . -- --solo | --host | --join=192.168.1.20
 
@@ -19,6 +22,7 @@ var player: Node2D
 var hud: CanvasLayer
 var menu: CanvasLayer
 var remote_players: Dictionary = {}  # slot -> Player node
+var _leaving: bool = false
 var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
 var _light: CanvasModulate
@@ -84,9 +88,26 @@ func _ready() -> void:
 
 	menu = Menu.new()
 	add_child(menu)
-	menu.solo_pressed.connect(start_solo)
-	menu.host_pressed.connect(start_host)
-	menu.join_pressed.connect(start_join)
+	menu.new_chosen.connect(func(garden_name: String) -> void:
+		GameState.create_garden(garden_name)
+		start_solo())
+	menu.load_chosen.connect(func(path: String) -> void:
+		if GameState.open_garden(path):
+			start_solo()
+		else:
+			menu.call("show_title", "That garden's save file couldn't be read"))
+	menu.host_new_chosen.connect(func(garden_name: String) -> void:
+		GameState.create_garden(garden_name)
+		start_host())
+	menu.host_load_chosen.connect(func(path: String) -> void:
+		if GameState.open_garden(path):
+			start_host()
+		else:
+			menu.call("show_title", "That garden's save file couldn't be read"))
+	menu.join_chosen.connect(start_join)
+	menu.resume_chosen.connect(_resume)
+	menu.title_chosen.connect(return_to_title)
+	menu.exit_chosen.connect(func() -> void: get_tree().quit())
 	Net.welcomed.connect(_on_welcomed)
 	Net.join_failed.connect(_on_join_failed)
 	Net.session_ended.connect(_on_session_ended)
@@ -108,13 +129,62 @@ func _ready() -> void:
 	_rebuild_views()
 	_update_light()
 
+	# Shortcuts past the menu: --solo and --host use the most recent garden
+	# (or make one), --join=<address> joins a partner.
 	for arg: String in OS.get_cmdline_user_args():
-		if arg == "--solo":
-			start_solo()
-		elif arg == "--host":
-			start_host()
+		if arg == "--solo" or arg == "--host":
+			var gardens: Array[Dictionary] = GameState.list_gardens()
+			if gardens.is_empty() or not GameState.open_garden(gardens[0]["path"]):
+				GameState.create_garden("My Garden")
+			if arg == "--solo":
+				start_solo()
+			else:
+				start_host()
 		elif arg.begins_with("--join="):
 			start_join(arg.trim_prefix("--join="))
+
+
+## Esc in game opens the pause menu (unless something else, like the journal,
+## used the key first).
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("close") and not menu.visible and not bool(player.get("reading")):
+		menu.call("show_pause")
+		player.set("in_menu", true)
+		if not Net.online:
+			TimeManager.paused = true  # in co-op the day carries on, as your partner is still playing
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("close") and menu.visible and str(menu.get("screen")) == "pause":
+		_resume()
+		get_viewport().set_input_as_handled()
+
+
+func _resume() -> void:
+	menu.visible = false
+	player.set("in_menu", false)
+	TimeManager.paused = not Net.is_host()
+
+
+## Leave the garden (and any co-op session) and show the title menu.
+func return_to_title(status: String = "") -> void:
+	_leaving = true
+	Net.leave()
+	_leaving = false
+	_clear_remote_players()
+	GameState.close_garden()
+	player.set("player_id", Net.local_id())
+	player.set("in_menu", true)
+	player.position = Vector2(13.5 * TILE, 5 * TILE)
+	player.queue_redraw()
+	TimeManager.paused = true
+	hud.visible = false
+	menu.call("set_busy", false)
+	menu.call("show_title", status)
+
+
+func _clear_remote_players() -> void:
+	for slot: int in remote_players.keys():
+		remote_players[slot].queue_free()
+	remote_players.clear()
 
 
 # ------------------------------------------------------------ starting play
@@ -126,7 +196,7 @@ func start_solo() -> void:
 func start_host() -> void:
 	var err: Error = Net.host_game()
 	if err != OK:
-		menu.call("set_status", "Couldn't host. Is another copy already hosting?")
+		return_to_title("Couldn't host. Is another copy already hosting?")
 		return
 	_begin()
 	var addresses: Array[String] = Net.lan_addresses()
@@ -136,6 +206,7 @@ func start_host() -> void:
 
 
 func start_join(address: String) -> void:
+	GameState.close_garden()
 	if Net.join_game(address) != OK:
 		menu.call("set_status", "That address doesn't look right")
 		return
@@ -169,18 +240,11 @@ func _on_join_failed() -> void:
 
 
 func _on_session_ended(was_host: bool) -> void:
-	for slot: int in remote_players.keys():
-		remote_players[slot].queue_free()
-	remote_players.clear()
-	if was_host:
-		return
-	player.set("player_id", Net.local_id())
-	player.set("in_menu", true)
-	TimeManager.paused = true
-	menu.visible = true
-	hud.visible = false
-	menu.call("set_busy", false)
-	menu.call("set_status", "The connection to your partner's garden was lost")
+	if _leaving:
+		return  # we chose to leave; return_to_title is handling it
+	_clear_remote_players()
+	if not was_host:
+		return_to_title("The connection to your partner's garden was lost")
 
 
 func _on_player_joined(slot: int) -> void:
