@@ -22,6 +22,9 @@ var main: Node
 
 func _ready() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
+	# Never touch the real relay from a test: local network unless relay= says otherwise.
+	Net.stop_lookup()
+	Net.relay_url = ""
 	var plain: Array[String] = []
 	for arg: String in args:
 		if arg.begins_with("relay="):

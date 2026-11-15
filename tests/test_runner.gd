@@ -16,6 +16,8 @@ func check(cond: bool, label: String) -> void:
 
 func _ready() -> void:
 	TimeManager.paused = true
+	Net.stop_lookup()
+	Net.relay_url = ""  # never touch the real relay from a test
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://test_save.json"
 	GameState.register_player(P)

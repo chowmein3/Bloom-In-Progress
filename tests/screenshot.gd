@@ -12,6 +12,8 @@ func _ready() -> void:
 	if args.size() > 0:
 		out_dir = args[0]
 	TimeManager.paused = true
+	Net.stop_lookup()
+	Net.relay_url = ""  # never touch the real relay from a test
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://screenshot_save.json"
 	GameState.new_game()
