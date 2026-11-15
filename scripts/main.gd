@@ -75,6 +75,7 @@ func _ready() -> void:
 
 	hud = Hud.new()
 	hud.player = player
+	hud.remote_players = remote_players
 	add_child(hud)
 
 	var journal := Journal.new()
@@ -269,7 +270,8 @@ func _setup_input() -> void:
 	_bind("cycle_tool", [KEY_TAB])
 	_bind("toggle_help", [KEY_H])
 	_bind("toggle_journal", [KEY_J])
-	_bind("toggle_music", [KEY_M])
+	_bind("toggle_music", [KEY_N])
+	_bind("toggle_map", [KEY_M])
 	_bind("close", [KEY_ESCAPE])
 	for i in 5:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])

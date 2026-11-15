@@ -59,6 +59,12 @@ blooms and radiant blooms are announced on the morning screen.
 - Seasons change the ground and the air: petals, fireflies on summer
   evenings, falling leaves, snow.
 
+## HUD
+Kept small so the garden stays in view: a toggleable minimap top left (M), an
+info box top right (date, time and weather, Heart Tree love), a vertical
+energy bar bottom right, and an icon tool bar bottom centre. There is no money
+in the game; Heart Tree love sits where a farm sim would show gold.
+
 ## Co-op (built in Milestone 2)
 - Two players. One hosts and owns the garden and its save; the other joins by
   address. Players have stable slots (host 1, guest 2) so plants remember them.

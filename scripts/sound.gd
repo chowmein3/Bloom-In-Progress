@@ -1,6 +1,6 @@
 extends Node
 ## Music and sound effects (autoload `Sound`). It only listens to GameState's
-## signals, so in co-op you hear your partner's gardening too. M toggles music.
+## signals, so in co-op you hear your partner's gardening too. N toggles music.
 
 const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page"]
 const MUSIC_DB := -16.0

@@ -2,10 +2,11 @@ extends CanvasLayer
 ## The shared garden journal (J): the Heart Tree's progress and one entry per
 ## plant, filled in as the garden discovers it.
 
-const INK := Color(0.11, 0.09, 0.17, 0.95)
-const CREAM := Color(1.0, 0.97, 0.88)
-const GOLD := Color(1.0, 0.84, 0.4)
-const DIM := Color(0.6, 0.58, 0.68)
+const PAPER := Color(0.98, 0.91, 0.74)
+const WOOD := Color(0.42, 0.26, 0.15)
+const CREAM := Color(0.3, 0.18, 0.12)  # main text
+const GOLD := Color(0.75, 0.28, 0.2)  # headings and earned milestones
+const DIM := Color(0.55, 0.42, 0.32)
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 const MILESTONES: Array[String] = ["Planted", "Bloomed", "Radiant"]
 
@@ -33,10 +34,10 @@ func _ready() -> void:
 	_root.add_child(dim)
 
 	var style := StyleBoxFlat.new()
-	style.bg_color = INK
+	style.bg_color = PAPER
 	style.set_corner_radius_all(3)
 	style.set_border_width_all(1)
-	style.border_color = GOLD
+	style.border_color = WOOD
 	style.set_content_margin_all(5)
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", style)
@@ -65,7 +66,7 @@ func _ready() -> void:
 	_tree_label = _text("", CREAM)
 	tree_row.add_child(_tree_label)
 	var bar := ColorRect.new()
-	bar.color = Color(0.25, 0.22, 0.32)
+	bar.color = Color(0.82, 0.7, 0.52)
 	bar.custom_minimum_size = Vector2(80, 5)
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_tree_fill = ColorRect.new()
@@ -142,7 +143,7 @@ func _entry(id: String) -> Control:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	icon.custom_minimum_size = Vector2(16, 24)
 	if level < GameState.JOURNAL_BLOOMED:
-		icon.modulate = Color(0.05, 0.04, 0.1, 0.8)
+		icon.modulate = Color(0.3, 0.18, 0.12, 0.55)
 	row.add_child(icon)
 
 	var lines := VBoxContainer.new()
@@ -158,7 +159,7 @@ func _entry(id: String) -> Control:
 		var pip := ColorRect.new()
 		pip.custom_minimum_size = Vector2(4, 4)
 		pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pip.color = GOLD if level > i else Color(0.3, 0.27, 0.38)
+		pip.color = GOLD if level > i else Color(0.82, 0.7, 0.52)
 		pip.tooltip_text = MILESTONES[i]
 		top.add_child(pip)
 	lines.add_child(top)

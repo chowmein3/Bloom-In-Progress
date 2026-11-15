@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "dewcup"
 display_name = "Dewcup"
-blurb = "Catches one perfect dewdrop each morning."
+blurb = "Catches a perfect dewdrop each dawn."
 days_per_stage = Array[int]([1, 2, 2])
 seasons = Array[int]([0])
 regrows = false

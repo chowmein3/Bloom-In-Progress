@@ -32,7 +32,8 @@ godot --path .
 | Tab | Next tool |
 | Q | Next seed type |
 | J | Garden journal |
-| M | Music on/off |
+| M | Show or hide the minimap |
+| N | Music on/off |
 | H | Show or hide the help card |
 
 Face the tent and press Space to sleep. Plants grow overnight if they were
