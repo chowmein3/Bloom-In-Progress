@@ -2,6 +2,8 @@ extends CanvasLayer
 ## The shared garden journal (J): the Heart Tree's progress and one entry per
 ## plant, filled in as the garden discovers it.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const PAPER := Color(0.98, 0.91, 0.74)
 const WOOD := Color(0.42, 0.26, 0.15)
 const CREAM := Color(0.3, 0.18, 0.12)  # main text
@@ -137,7 +139,7 @@ func _entry(id: String) -> Control:
 	# The bloom frame of its sprite sheet; a dark shape until it has bloomed.
 	var icon := TextureRect.new()
 	var frame := AtlasTexture.new()
-	frame.atlas = load("res://assets/sprites/plants/%s.png" % id)
+	frame.atlas = Assets.texture("res://assets/sprites/plants/%s.png" % id)
 	frame.region = Rect2(d.days_per_stage.size() * 16, 0, 16, 24)
 	icon.texture = frame
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED

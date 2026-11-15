@@ -21,7 +21,7 @@ const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
 const INK := Color(0.3, 0.18, 0.12)
 const ACCENT := Color(0.75, 0.28, 0.2)
-const SETTINGS := "user://settings.json"
+const Settings := preload("res://scripts/settings.gd")
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var screen: String = ""  # which screen is showing: title, new, load, coop, join, pause
@@ -36,6 +36,7 @@ var _name_field: LineEdit
 var _address: String = ""
 var _confirm_delete: String = ""
 var _found_box: VBoxContainer
+var _code: String = ""
 
 
 func _ready() -> void:
@@ -72,6 +73,7 @@ func _ready() -> void:
 	_status.visible = false
 	column.add_child(_status)
 	Net.gardens_changed.connect(_list_found)
+	Net.open_gardens_changed.connect(_list_known)
 	show_title()
 
 
@@ -178,7 +180,10 @@ func _show_coop() -> void:
 	_button("Host", _show_coop_host).grab_focus()
 	_button("Join", _show_join)
 	_button("Back", show_title)
-	_note("The host owns the garden and its save.\nOn the same Wi-Fi, Join finds it by itself.")
+	if Net.relay_enabled():
+		_note("The host owns the garden and its save.\nThe partner joins with its invite code once;\nafter that it is one click.")
+	else:
+		_note("The host owns the garden and its save.\nOn the same Wi-Fi, Join finds it by itself.")
 
 
 func _show_coop_host() -> void:
@@ -189,13 +194,33 @@ func _show_coop_host() -> void:
 func _show_join() -> void:
 	_open("join", 0.72)
 	_heading("Join a garden", 10)
+	if Net.relay_enabled():
+		# Through the relay: gardens joined before are one click; a new one
+		# needs its invite code once.
+		_note("Your partner's gardens:")
+		_found_box = VBoxContainer.new()
+		_found_box.add_theme_constant_override("separation", 2)
+		_box.add_child(_found_box)
+		_note("New invite code:")
+		var code_field := LineEdit.new()
+		code_field.text = _code
+		code_field.placeholder_text = "ABC-DEF"
+		code_field.max_length = 9
+		code_field.text_changed.connect(func(text: String) -> void: _code = text)
+		code_field.text_submitted.connect(func(_t: String) -> void: _confirm_code())
+		_box.add_child(code_field)
+		_button("Join", _confirm_code)
+		_button("Back", _show_coop)
+		Net.start_lookup(Settings.known_gardens().keys())
+		_list_known()
+		return
 	_note("Gardens on your network:")
 	_found_box = VBoxContainer.new()
 	_found_box.add_theme_constant_override("separation", 2)
 	_box.add_child(_found_box)
 	_note("Or type your partner's address:")
 	if _address == "":
-		_address = _remembered_address()
+		_address = str(Settings.read().get("last_address", ""))
 	var field := LineEdit.new()
 	field.text = _address
 	field.placeholder_text = "e.g. 192.168.1.20"
@@ -208,9 +233,44 @@ func _show_join() -> void:
 	_list_found()
 
 
+## Gardens this player has visited before, lit up when their host has them open.
+func _list_known() -> void:
+	if screen != "join" or _found_box == null or not Net.relay_enabled():
+		return
+	for child: Node in _found_box.get_children():
+		_found_box.remove_child(child)
+		child.queue_free()
+	var known: Dictionary = Settings.known_gardens()
+	for code: String in known.keys():
+		var open: bool = Net.open_gardens.has(code)
+		var full: bool = open and bool(Net.open_gardens[code]["full"])
+		var button := Button.new()
+		button.text = "%s%s" % [Net.open_gardens[code]["name"] if open else known[code], "" if open and not full else ("  (full)" if full else "  (not open)")]
+		button.disabled = _busy or not open or full
+		button.pressed.connect(func() -> void: join_chosen.emit("code:" + code))
+		_found_box.add_child(button)
+	if known.is_empty():
+		var none := Label.new()
+		none.text = "None yet. Ask your partner for\ntheir garden's invite code."
+		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		none.add_theme_color_override("font_color", Color(0.6, 0.5, 0.42))
+		_found_box.add_child(none)
+
+
+func _confirm_code() -> void:
+	var code: String = ""
+	for letter: String in _code.to_upper():
+		if (letter >= "A" and letter <= "Z") or (letter >= "0" and letter <= "9"):
+			code += letter
+	if code.length() != 6:
+		set_status("Invite codes are six letters, like ABC-DEF")
+		return
+	join_chosen.emit("code:" + code)
+
+
 ## Hosts announce themselves on the local network; each gets a one-click button.
 func _list_found() -> void:
-	if screen != "join" or _found_box == null:
+	if screen != "join" or _found_box == null or Net.relay_enabled():
 		return
 	for child: Node in _found_box.get_children():
 		_found_box.remove_child(child)
@@ -236,19 +296,8 @@ func _confirm_join() -> void:
 	if address == "":
 		set_status("Type your partner's address first")
 		return
-	_remember_address(address)
+	Settings.put("last_address", address)
 	join_chosen.emit(address)
-
-
-func _remembered_address() -> String:
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS)) if FileAccess.file_exists(SETTINGS) else null
-	return str(parsed.get("last_address", "")) if typeof(parsed) == TYPE_DICTIONARY else ""
-
-
-func _remember_address(address: String) -> void:
-	var file: FileAccess = FileAccess.open(SETTINGS, FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify({"last_address": address}))
 
 
 # ----------------------------------------------------------------- pieces
@@ -258,6 +307,7 @@ func _open(new_screen: String, dim: float) -> void:
 		_confirm_delete = ""
 	if new_screen != "join":
 		Net.stop_discovery()
+		Net.stop_lookup()
 		_found_box = null
 	screen = new_screen
 	visible = true

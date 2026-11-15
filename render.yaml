@@ -1,0 +1,10 @@
+# Lets Render (render.com) deploy the co-op relay in relay/ with one click.
+services:
+  - type: web
+    name: bloom-in-progress-relay
+    runtime: node
+    plan: free
+    rootDir: relay
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /

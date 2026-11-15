@@ -16,6 +16,10 @@ TimeManager="*res://scripts/time_manager.gd"
 GameState="*res://scripts/game_state.gd"
 Sound="*res://scripts/sound.gd"
 
+[bloom]
+
+relay_url=""
+
 [display]
 
 window/size/viewport_width=320

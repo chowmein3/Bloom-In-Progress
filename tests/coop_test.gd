@@ -2,6 +2,8 @@ extends Node
 ## Two-player check using the real game scene. Start two copies, host first:
 ##   godot --headless --path . res://tests/coop_test.tscn -- host
 ##   godot --headless --path . res://tests/coop_test.tscn -- guest
+## Add relay=ws://127.0.0.1:8799 to connect through a relay (relay/server.js)
+## by invite code, the way players in different homes do.
 ## Add an output folder as a second argument (and drop --headless) to also
 ## save a picture from each side. tests/run_coop_test.sh does all of this.
 
@@ -20,10 +22,16 @@ var main: Node
 
 func _ready() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
-	if args.size() > 0:
-		role = args[0]
-	if args.size() > 1:
-		out_dir = args[1]
+	var plain: Array[String] = []
+	for arg: String in args:
+		if arg.begins_with("relay="):
+			Net.relay_url = arg.trim_prefix("relay=")
+		else:
+			plain.append(arg)
+	if plain.size() > 0:
+		role = plain[0]
+	if plain.size() > 1:
+		out_dir = plain[1]
 	Net.port = 24999
 	Net.use_upnp = false  # no router to talk to in a test
 	TimeManager.rain_chance = 0.0
@@ -46,7 +54,10 @@ func _run_host() -> void:
 	# Something already in the garden, to prove a late joiner receives it.
 	GameState.request_till(HOST, Vector2i(10, 8))
 	GameState.garden_name = "Test Garden"
+	GameState.garden_code = "TESTAB"
 	main.call("start_host")
+	if Net.relay_enabled():
+		_expect(await _until(func() -> bool: return Net.via_relay and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED, 15.0), "host opened the garden on the relay")
 	TimeManager.paused = true
 	_expect(await _until(func() -> bool: return Net.slots().size() == 2, 30.0), "guest joined")
 	_expect(main.get("remote_players").has(GUEST), "guest's character appears on the host's screen")
@@ -77,6 +88,22 @@ func _run_host() -> void:
 
 
 func _run_guest() -> void:
+	if Net.relay_enabled():
+		await _join_by_code()
+	else:
+		await _join_by_discovery()
+	await _after_join()
+
+
+func _join_by_code() -> void:
+	# See the garden is open, then join with nothing but its invite code.
+	Net.start_lookup(["TESTAB", "NOSUCH"])
+	_expect(await _until(func() -> bool: return Net.open_gardens.has("TESTAB"), 20.0), "guest sees the garden is open, by invite code")
+	_expect(not Net.open_gardens.has("NOSUCH") and Net.open_gardens.get("TESTAB", {}).get("name", "") == "Test Garden", "with its name, and no garden for an unknown code")
+	main.call("start_join", "code:TESTAB")
+
+
+func _join_by_discovery() -> void:
 	# Find the host the way the Join screen does, without typing an address.
 	Net.start_discovery()
 	_expect(await _until(func() -> bool: return not Net.found_gardens.is_empty(), 10.0), "guest finds the host on the network by itself")
@@ -84,6 +111,9 @@ func _run_guest() -> void:
 	var found: Dictionary = Net.found_gardens.get(address, {"name": "", "port": 24999, "full": false})
 	_expect(found["name"] == "Test Garden" and not bool(found["full"]), "and sees its name and that there is room")
 	main.call("start_join", "%s:%d" % [address, int(found["port"])])
+
+
+func _after_join() -> void:
 	_expect(await _until(func() -> bool: return Net.local_id() == GUEST, 15.0), "joined and given slot 2")
 	_expect(await _until(func() -> bool: return GameState.soil.has(Vector2i(10, 8)), 5.0), "late joiner receives the existing garden")
 	_expect(main.get("remote_players").has(HOST), "host's character appears on the guest's screen")

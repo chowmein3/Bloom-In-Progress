@@ -104,6 +104,27 @@ func _ready() -> void:
 	_click("Back")
 	_click("Back")
 
+	print("invite codes (relay set up)")
+	const Settings := preload("res://scripts/settings.gd")
+	Net.relay_url = "ws://127.0.0.1:9"  # nothing listens here; only the screens are checked
+	Settings.remember_garden("ABCDEF", "Partner Plot")
+	_click("Co-op")
+	_click("Join")
+	_expect(_has("Partner Plot  (not open)"), "a garden joined before is listed, marked not open")
+	_expect(_buttons().any(func(b: Node) -> bool: return str(b.get("text")).begins_with("Partner Plot") and bool(b.get("disabled"))), "and can't be clicked until its host opens it")
+	_expect(_field().placeholder_text == "ABC-DEF", "a new garden is joined by invite code, not address")
+	_field().text_changed.emit("abc")
+	_click("Join")
+	_expect(_status().begins_with("Invite codes are six"), "a short code is refused")
+	Net.open_gardens = {"ABCDEF": {"name": "Partner Plot", "full": false}}
+	Net.open_gardens_changed.emit()
+	_expect(_buttons().any(func(b: Node) -> bool: return str(b.get("text")) == "Partner Plot" and not bool(b.get("disabled"))), "when the host opens it, it becomes one click")
+	Settings.forget_garden("ABCDEF")
+	_click("Back")
+	_click("Back")
+	Net.stop_lookup()
+	Net.relay_url = ""
+
 	print("delete")
 	_click("Load")
 	_expect(GameState.list_gardens().size() == 2, "both gardens are on the list")

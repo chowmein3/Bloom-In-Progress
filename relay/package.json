@@ -1,0 +1,16 @@
+{
+  "name": "bloom-in-progress-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Meeting point that lets two Bloom In Progress players connect without port forwarding.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

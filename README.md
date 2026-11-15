@@ -21,7 +21,9 @@ Nothing else to install. To play together you each download it; see
 every time `main` changes.
 
 ## Run it from source
-1. Install [Godot 4.4 or newer](https://godotengine.org/download) (standard version).
+1. Install [Godot 4.4 or newer](https://godotengine.org/download). Get the
+   **standard** build, not the ".NET" one: the .NET build asks for a .NET SDK
+   this game doesn't use.
 2. Open Godot, choose **Import**, pick this folder's `project.godot`, then press **F5**.
 
 Or from a terminal in this folder (the first command is only needed once after
@@ -73,21 +75,56 @@ quitting mid-day loses that day's progress.
 
 ## Playing together
 One of you hosts; the garden and its save file live on the host's computer.
+You each need the game.
 
-1. **Host:** on the title menu choose **Co-op > Host**, then a saved garden or
-   "Host a new garden". The help card shows the address to share.
-2. **Partner:** choose **Co-op > Join**, type that address and press Join.
+### With the relay set up (no router settings, no addresses)
+1. **Host:** title menu > **Co-op > Host** > pick a garden. The game shows the
+   garden's invite code (like `ABC-DEF`) and copies it; send it to your partner.
+2. **Partner, first time:** **Co-op > Join**, paste the code, press Join.
+3. **Every time after:** the partner's Join screen lists the garden and lights
+   it up whenever the host has it open. One click.
 
+This needs the relay to be deployed once and its address put in the game; see
+[Setting up the relay](#setting-up-the-relay).
+
+### Without the relay
 - **Same Wi-Fi:** the host's garden appears on the partner's Join screen by
   itself; click it. If Windows asks about the firewall, click **Allow access**.
 - **Different homes:** the host's game asks their router to let the partner in
   (UPnP). When that works, the host's help card (H) shows an "Elsewhere:"
-  address for the partner to type; the game remembers it afterwards. If no
-  such line appears, the host forwards **UDP port 24565** on their router, or
-  you both install a free tool such as Tailscale and use the host's address
-  from it.
-- The day ends when you are both in the tent. Petting the same plant on the
-  same day gives it a duet mood bonus.
+  address for the partner to type. Otherwise the host forwards **UDP port
+  24565** on their router.
+
+In both cases the day ends when you are both in the tent, and petting the same
+plant on the same day gives it a duet mood bonus.
+
+## Setting up the relay
+The relay is a tiny server (`relay/server.js`) that both games connect out to,
+so neither player opens a router port. It only passes messages between the two
+of you and stores nothing. Deploying it on Render's free plan takes a few minutes:
+
+1. Open <https://render.com/deploy?repo=https://github.com/chowmein3/Bloom-In-Progress>
+   and sign in with GitHub.
+2. Accept the suggested service (`bloom-in-progress-relay`, free plan) and
+   press **Deploy**. Wait until it says **Live**.
+3. Copy the service's address from the top of its page. It looks like
+   `https://bloom-in-progress-relay.onrender.com`. Opening it in a browser
+   should show "Bloom In Progress relay is running".
+4. Put that address in `project.godot`, in the `[bloom]` section:
+   `relay_url="https://bloom-in-progress-relay.onrender.com"`, then rebuild
+   the download (or run from source). Both players need a build with it.
+
+   To try it without rebuilding, put a text file named `override.cfg` next to
+   `BloomInProgress.exe` on both computers, containing:
+
+   ```
+   [bloom]
+   relay_url="https://bloom-in-progress-relay.onrender.com"
+   ```
+
+A free Render service goes to sleep after 15 minutes without visitors, so the
+first connection of the day can take up to a minute while it wakes. The game
+starts waking it as soon as it launches.
 
 To try co-op on one computer, start two copies and join `127.0.0.1`:
 

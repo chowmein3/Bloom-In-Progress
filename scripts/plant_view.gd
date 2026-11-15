@@ -3,6 +3,8 @@ extends Node2D
 ## at assets/sprites/plants/<species id>.png (16x24 frames: seed, growing
 ## stages, in bloom, radiant, resting). Origin is the bottom-centre of the tile.
 
+const Assets := preload("res://scripts/assets.gd")
+
 const Effects := preload("res://scripts/effects.gd")
 const FRAME := Vector2(16, 24)
 const DORMANT_TINT := Color(0.62, 0.6, 0.68)
@@ -20,7 +22,7 @@ var _blink: int = 0
 func _ready() -> void:
 	_phase = float(hash(cell) % 100) / 10.0
 	if GameState.plants.has(cell):
-		_texture = load("res://assets/sprites/plants/%s.png" % GameState.plants[cell]["species"])
+		_texture = Assets.texture("res://assets/sprites/plants/%s.png" % GameState.plants[cell]["species"])
 		_was_watered = bool(GameState.soil[cell]["watered"])
 
 
