@@ -53,3 +53,18 @@ jobs:
 
       - name: Publish to the downloads branch
         run: tools/publish_downloads.sh
+
+      # Keep the "latest" release on the Releases page in step, so an old
+      # build is never left there.
+      - name: Update the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest export/BloomInProgress-windows.zip export/BloomInProgress-linux.zip --clobber
+            gh release edit latest --target "$GITHUB_SHA" --notes "Built from $GITHUB_SHA. Unzip **BloomInProgress-windows.zip** and double-click **BloomInProgress.exe**. The first time, Windows may warn that it doesn't recognise the app: click **More info**, then **Run anyway**."
+          else
+            gh release create latest export/BloomInProgress-windows.zip export/BloomInProgress-linux.zip \
+              --target "$GITHUB_SHA" --title "Bloom In Progress (latest build)" \
+              --notes "Built from $GITHUB_SHA. Unzip **BloomInProgress-windows.zip** and double-click **BloomInProgress.exe**."
+          fi
