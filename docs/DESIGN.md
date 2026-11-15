@@ -33,9 +33,22 @@ sims; the name, plants, characters and art are our own.
 | Gigglecap | fall | 6 | mushroom |
 | Frostwhisker | winter | 8 | |
 
+## Co-op (built in Milestone 2)
+- Two players. One hosts and owns the garden and its save; the other joins by
+  address. Players have stable slots (host 1, guest 2) so plants remember them.
+- The host is in charge: a guest's actions are requests the host checks and
+  applies, then every change is mirrored back. The host also runs the clock.
+- A late joiner receives the whole garden.
+- The day ends when both players are in the tent. At the 2am curfew, anyone
+  not in bed wakes with half energy.
+- **Duet:** if two different players pet the same plant on one day it gets +6
+  mood on top of the normal +8.
+- Seeds, produce and the garden are shared; energy is per player.
+
 ## Next
-- **Milestone 2, online co-op:** host/join, host is in charge of the garden,
-  day ends when everyone sleeps, late joiners get the whole garden. Then one
-  co-op bonus (duet care, or a plant that needs two caretakers).
+- **Easier connecting:** a relay or Steam networking so joining over the
+  internet needs no router setup.
+- **More co-op play:** plants that only reach a rare form with two carers,
+  seeing which tool your partner is using, emotes.
 - **Milestone 3, whimsy:** real pixel art, more species, the Heart Tree
   (one shared long-term plant), garden journal, music, light/shade needs.

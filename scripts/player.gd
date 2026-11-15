@@ -1,6 +1,7 @@
 extends Node2D
-## The local gardener. Origin is at the feet. All world changes go through
-## GameState.request_*().
+## A gardener. Origin is at the feet. The local one reads the keyboard and
+## makes world changes through GameState.request_*(); a remote one (the
+## partner in co-op) just follows the positions sent over the network.
 
 signal loadout_changed
 
@@ -12,14 +13,32 @@ var player_id: int = 1
 var facing := Vector2i(0, 1)
 var tool_index: int = 0
 var seed_id: String = "sunpuff"
-var frozen: bool = false
+var frozen: bool = false  # during the night fade
+var in_menu: bool = true  # until a game is started
+var is_remote: bool = false
 var cursor: Node2D  # highlights the tile the player will act on
 
 var _walk: float = 0.0
+var _send_in: float = 0.0
+var _remote_pos: Vector2
+var _remote_moving: bool = false
+
+const OVERALLS: Array[Color] = [Color(0.3, 0.5, 0.8), Color(0.85, 0.45, 0.62), Color(0.4, 0.7, 0.5), Color(0.8, 0.6, 0.3)]
 
 
 func _ready() -> void:
-	GameState.register_player(player_id)
+	_remote_pos = position
+	if not is_remote:
+		GameState.register_player(player_id)
+
+
+## Latest position of a remote player, from the network.
+func remote_update(pos: Vector2, new_facing: Vector2i, moving: bool) -> void:
+	_remote_pos = pos
+	_remote_moving = moving
+	if new_facing != facing:
+		facing = new_facing
+		queue_redraw()
 
 
 func cell() -> Vector2i:
@@ -31,9 +50,26 @@ func target_cell() -> Vector2i:
 
 
 func _process(delta: float) -> void:
-	if frozen:
+	# Players in bed are inside the tent.
+	visible = not GameState.is_sleeping(player_id)
+	if is_remote:
+		position = position.lerp(_remote_pos, minf(1.0, delta * 15.0))
+		if _remote_moving:
+			_walk += delta
+			queue_redraw()
 		return
-	var dir := Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_up", "move_down"))
+	var busy: bool = frozen or in_menu or not visible
+	var dir := Vector2.ZERO
+	if not busy:
+		dir = Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_up", "move_down"))
+	_send_in -= delta
+	if _send_in <= 0.0:
+		_send_in = 0.05
+		Net.send_player_state(position, facing, dir != Vector2.ZERO)
+	if busy:
+		if cursor != null:
+			cursor.visible = false
+		return
 	if dir != Vector2.ZERO:
 		if absf(dir.x) > absf(dir.y):
 			facing = Vector2i(int(signf(dir.x)), 0)
@@ -61,7 +97,11 @@ func _try_move(step: Vector2) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if frozen:
+	if is_remote or frozen or in_menu:
+		return
+	if GameState.is_sleeping(player_id):
+		if event.is_action_pressed("use"):
+			GameState.request_sleep(player_id)  # get back up
 		return
 	if event.is_action_pressed("use"):
 		use_tool()
@@ -113,7 +153,7 @@ func _draw() -> void:
 	draw_rect(Rect2(-5, -1, 10, 2), Color(0, 0, 0, 0.2))  # shadow
 	draw_rect(Rect2(-3, -3 - step, 2, 3), Color(0.4, 0.28, 0.2))  # boots
 	draw_rect(Rect2(1, -4 + step, 2, 3), Color(0.4, 0.28, 0.2))
-	draw_rect(Rect2(-4, -10, 8, 7), Color(0.3, 0.5, 0.8))  # overalls
+	draw_rect(Rect2(-4, -10, 8, 7), OVERALLS[(maxi(player_id, 1) - 1) % OVERALLS.size()])  # overalls
 	draw_rect(Rect2(-4, -17, 8, 7), skin)  # head
 	draw_rect(Rect2(-6, -18, 12, 2), Color(0.95, 0.85, 0.45))  # straw hat brim
 	draw_rect(Rect2(-4, -21, 8, 3), Color(0.95, 0.85, 0.45))

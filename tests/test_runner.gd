@@ -27,7 +27,7 @@ func _ready() -> void:
 	check(not GameState.request_plant(P, a, "sunpuff"), "can't plant on untilled ground")
 	check(GameState.request_till(P, a), "till")
 	check(not GameState.request_till(P, a), "can't till twice")
-	check(not GameState.request_till(P, Vector2i(21, 1)), "can't till under the tent")
+	check(not GameState.request_till(P, Vector2i(13, 1)), "can't till under the tent")
 	check(not GameState.request_till(P, Vector2i(-1, 0)), "can't till out of bounds")
 	check(not GameState.request_plant(P, a, "frostwhisker"), "winter plant refused in spring")
 	check(GameState.request_plant(P, a, "sunpuff"), "plant sunpuff")
@@ -108,6 +108,20 @@ func _ready() -> void:
 	GameState.end_day(false)
 	check(GameState.plants.has(b), "dormant plant survives")
 	check(int(GameState.plants[b]["happiness"]) == mood + 4, "dormant plant isn't hurt by neglect")
+
+	print("duet and sleeping together")
+	var c := Vector2i(6, 6)
+	GameState.request_till(P, c)
+	GameState.request_plant(P, c, "sunpuff")
+	GameState.request_water(P, c)
+	GameState.request_pet(P, c)
+	check(GameState.request_pet(2, c), "a second player can pet the same plant")
+	GameState.end_day(false)
+	check(int(GameState.plants[c]["happiness"]) == 50 + 4 + 8 + 6, "two carers in one day give a duet bonus")
+	check(GameState.plants[c]["caretakers"].has("2"), "the second carer is remembered")
+	var today: int = TimeManager.day_index
+	GameState.request_sleep(P)
+	check(TimeManager.day_index == today + 1 and GameState.sleeping.is_empty(), "alone, sleeping ends the day at once")
 
 	print("curfew and energy")
 	GameState.energy[P] = 1
