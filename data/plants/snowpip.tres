@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "snowpip"
+display_name = "Snowpip"
+blurb = "A tiny tree that thinks it's very tall."
+days_per_stage = Array[int]([2, 2, 2])
+seasons = Array[int]([3])
+regrows = true
+regrow_days = 3
+shape = "pine"

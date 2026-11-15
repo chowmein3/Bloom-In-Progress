@@ -15,6 +15,7 @@ var tool_index: int = 0
 var seed_id: String = "sunpuff"
 var frozen: bool = false  # during the night fade
 var in_menu: bool = true  # until a game is started
+var reading: bool = false  # while the journal is open
 var is_remote: bool = false
 var cursor: Node2D  # highlights the tile the player will act on
 
@@ -22,8 +23,8 @@ var _walk: float = 0.0
 var _send_in: float = 0.0
 var _remote_pos: Vector2
 var _remote_moving: bool = false
-
-const OVERALLS: Array[Color] = [Color(0.3, 0.5, 0.8), Color(0.85, 0.45, 0.62), Color(0.4, 0.7, 0.5), Color(0.8, 0.6, 0.3)]
+var _texture: Texture2D
+var _texture_slot: int = -1
 
 
 func _ready() -> void:
@@ -58,7 +59,7 @@ func _process(delta: float) -> void:
 			_walk += delta
 			queue_redraw()
 		return
-	var busy: bool = frozen or in_menu or not visible
+	var busy: bool = frozen or in_menu or reading or not visible
 	var dir := Vector2.ZERO
 	if not busy:
 		dir = Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_up", "move_down"))
@@ -80,6 +81,9 @@ func _process(delta: float) -> void:
 		_try_move(Vector2(0, step.y))
 		_walk += delta
 		queue_redraw()
+	elif _walk != 0.0:
+		_walk = 0.0
+		queue_redraw()
 	if cursor != null:
 		cursor.position = Vector2(target_cell() * TILE)
 		cursor.visible = GameState.in_bounds(target_cell())
@@ -97,7 +101,7 @@ func _try_move(step: Vector2) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_remote or frozen or in_menu:
+	if is_remote or frozen or in_menu or reading:
 		return
 	if GameState.is_sleeping(player_id):
 		if event.is_action_pressed("use"):
@@ -135,8 +139,11 @@ func cycle_seed() -> void:
 
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
-	if GameState.is_blocked(target):
+	if GameState.is_tent(target):
 		GameState.request_sleep(player_id)
+		return
+	if GameState.is_tree(target) and tool_index != 1 and tool_index != 3:
+		GameState.notice.emit("The Heart Tree likes water (2) and hugs (4)")
 		return
 	match tool_index:
 		0: GameState.request_till(player_id, target)
@@ -146,20 +153,19 @@ func use_tool() -> void:
 		4: GameState.request_harvest(player_id, target)
 
 
+## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 2 columns
+## (standing, stepping) by 4 rows (facing down, up, left, right).
 func _draw() -> void:
-	var step: int = int(_walk * 8.0) % 2
-	var skin := Color(1, 0.84, 0.7)
-	var dark := Color(0.16, 0.12, 0.2)
-	draw_rect(Rect2(-5, -1, 10, 2), Color(0, 0, 0, 0.2))  # shadow
-	draw_rect(Rect2(-3, -3 - step, 2, 3), Color(0.4, 0.28, 0.2))  # boots
-	draw_rect(Rect2(1, -4 + step, 2, 3), Color(0.4, 0.28, 0.2))
-	draw_rect(Rect2(-4, -10, 8, 7), OVERALLS[(maxi(player_id, 1) - 1) % OVERALLS.size()])  # overalls
-	draw_rect(Rect2(-4, -17, 8, 7), skin)  # head
-	draw_rect(Rect2(-6, -18, 12, 2), Color(0.95, 0.85, 0.45))  # straw hat brim
-	draw_rect(Rect2(-4, -21, 8, 3), Color(0.95, 0.85, 0.45))
-	draw_rect(Rect2(-4, -19, 8, 1), Color(0.85, 0.4, 0.4))  # hat band
-	if facing == Vector2i(0, 1):
-		draw_rect(Rect2(-3, -14, 1, 2), dark)
-		draw_rect(Rect2(2, -14, 1, 2), dark)
-	elif facing.x != 0:
-		draw_rect(Rect2(2 * facing.x - (0 if facing.x > 0 else 1), -14, 1, 2), dark)
+	if _texture == null or _texture_slot != player_id:
+		_texture_slot = player_id
+		_texture = load("res://assets/sprites/player_%d.png" % clampi(player_id, 1, 2))
+	var row: int = 0
+	if facing == Vector2i(0, -1):
+		row = 1
+	elif facing.x < 0:
+		row = 2
+	elif facing.x > 0:
+		row = 3
+	var column: int = int(_walk * 8.0) % 2
+	draw_rect(Rect2(-5, -2, 10, 3), Color(0, 0, 0, 0.18))  # shadow
+	draw_texture_rect_region(_texture, Rect2(-8, -23, 16, 24), Rect2(column * 16, row * 24, 16, 24))

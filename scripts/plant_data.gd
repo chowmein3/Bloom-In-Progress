@@ -10,11 +10,11 @@ extends Resource
 ## Regrowing plants stay after harvest and become ripe again after regrow_days.
 @export var regrows: bool = false
 @export var regrow_days: int = 3
-## Placeholder-art shape: "flower", "bush" or "mushroom".
+## Which drawing the art generator uses (tools/make_art.py). The game itself
+## only needs the sprite sheet at assets/sprites/plants/<id>.png.
 @export var shape: String = "flower"
-@export var leaf_color: Color = Color(0.3, 0.6, 0.3)
-@export var bloom_color: Color = Color(1, 0.8, 0.3)
-@export var radiant_color: Color = Color(1, 1, 0.8)
+## One line for the garden journal.
+@export var blurb: String = ""
 
 
 func total_days() -> int:

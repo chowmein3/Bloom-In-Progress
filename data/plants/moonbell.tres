@@ -6,11 +6,9 @@
 script = ExtResource("1")
 id = "moonbell"
 display_name = "Moonbell"
+blurb = "Its berries chime softly after dark."
 days_per_stage = Array[int]([2, 2, 3])
 seasons = Array[int]([0, 2])
 regrows = true
 regrow_days = 3
 shape = "bush"
-leaf_color = Color(0.25, 0.5, 0.42, 1)
-bloom_color = Color(0.55, 0.6, 1, 1)
-radiant_color = Color(0.85, 0.75, 1, 1)

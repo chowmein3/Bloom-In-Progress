@@ -11,6 +11,8 @@ const Player := preload("res://scripts/player.gd")
 const Hud := preload("res://scripts/hud.gd")
 const Rain := preload("res://scripts/rain.gd")
 const Menu := preload("res://scripts/menu.gd")
+const TreeView := preload("res://scripts/tree_view.gd")
+const Journal := preload("res://scripts/journal.gd")
 const TILE := 16
 
 var player: Node2D
@@ -39,6 +41,17 @@ func _ready() -> void:
 	_entities.y_sort_enabled = true
 	add_child(_entities)
 
+	# The tent and the Heart Tree stand in the same layer, sorted by their base.
+	var tent := Sprite2D.new()
+	tent.texture = load("res://assets/sprites/tent.png")
+	tent.centered = false
+	tent.offset = Vector2(-24, -48)
+	tent.position = Vector2((GameState.TENT_RECT.position.x + GameState.TENT_RECT.size.x / 2.0) * TILE, GameState.TENT_RECT.end.y * TILE)
+	_entities.add_child(tent)
+	var tree := TreeView.new()
+	tree.position = Vector2((GameState.TREE_RECT.position.x + GameState.TREE_RECT.size.x / 2.0) * TILE, GameState.TREE_RECT.end.y * TILE)
+	_entities.add_child(tree)
+
 	player = Player.new()
 	player.player_id = Net.local_id()
 	player.cursor = cursor_holder
@@ -63,6 +76,10 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.player = player
 	add_child(hud)
+
+	var journal := Journal.new()
+	journal.player = player
+	add_child(journal)
 
 	menu = Menu.new()
 	add_child(menu)
@@ -251,6 +268,9 @@ func _setup_input() -> void:
 	_bind("next_seed", [KEY_Q])
 	_bind("cycle_tool", [KEY_TAB])
 	_bind("toggle_help", [KEY_H])
+	_bind("toggle_journal", [KEY_J])
+	_bind("toggle_music", [KEY_M])
+	_bind("close", [KEY_ESCAPE])
 	for i in 5:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
 

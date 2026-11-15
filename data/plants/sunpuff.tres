@@ -6,11 +6,9 @@
 script = ExtResource("1")
 id = "sunpuff"
 display_name = "Sunpuff"
+blurb = "Turns to face whoever watered it last."
 days_per_stage = Array[int]([1, 2, 2])
 seasons = Array[int]([0, 1])
 regrows = false
 regrow_days = 0
 shape = "flower"
-leaf_color = Color(0.3, 0.62, 0.28, 1)
-bloom_color = Color(1, 0.8, 0.25, 1)
-radiant_color = Color(1, 0.95, 0.7, 1)

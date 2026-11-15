@@ -8,6 +8,7 @@ extends Node
 const HOST := 1
 const GUEST := 2
 const HOST_CELL := Vector2i(13, 5)  # the tile in front of the host's start spot
+const TREE_CELL := Vector2i(9, 4)
 const GUEST_CELL := Vector2i(15, 5)  # the tile in front of the guest's start spot
 
 var role: String = "host"
@@ -51,9 +52,12 @@ func _run_host() -> void:
 	GameState.request_plant(HOST, HOST_CELL, "sunpuff")
 	GameState.request_water(HOST, HOST_CELL)
 	GameState.request_pet(HOST, HOST_CELL)
+	GameState.request_water(HOST, TREE_CELL)
+	GameState.request_pet(HOST, TREE_CELL)
 
 	_expect(await _until(func() -> bool: return GameState.plants.has(GUEST_CELL), 10.0), "guest's planting reaches the host")
 	_expect(await _until(func() -> bool: return GameState.plants[HOST_CELL]["petted_by"].has("2"), 10.0), "guest petted the host's plant")
+	_expect(await _until(func() -> bool: return GameState.tree["hugged_by"].size() == 2, 10.0), "both players hugged the Heart Tree")
 	_expect(GameState.get_energy(GUEST) == 96, "guest's energy is tracked by the host (2 till, 1 plant, 1 water)")
 	var guest_node: Node2D = main.get("remote_players")[GUEST]
 	_expect(await _until(func() -> bool: return guest_node.position.x < 15.4 * 16, 10.0), "guest's movement shows on the host's screen")
@@ -81,6 +85,9 @@ func _run_guest() -> void:
 	_expect(await _until(func() -> bool: return GameState.plants.has(GUEST_CELL), 5.0), "guest's plant comes back from the host")
 	_expect(await _until(func() -> bool: return GameState.plants.has(HOST_CELL), 10.0), "host's planting reaches the guest")
 	GameState.request_pet(GUEST, HOST_CELL)
+	_expect(await _until(func() -> bool: return bool(GameState.tree["watered"]), 10.0), "guest sees the host water the Heart Tree")
+	GameState.request_pet(GUEST, TREE_CELL)
+	_expect(await _until(func() -> bool: return GameState.journal_level("moonbell") == 1 and GameState.journal_level("sunpuff") == 1, 10.0), "journal entries are shared")
 	_expect(await _until(func() -> bool: return GameState.plants[HOST_CELL]["petted_by"].size() == 2, 10.0), "both players petted the same plant")
 	_expect(GameState.seed_count("moonbell") == 3 and GameState.seed_count("sunpuff") == 5, "shared seed bag stays in step")
 	_expect(GameState.get_energy(GUEST) == 96, "guest sees their own energy")
@@ -106,6 +113,7 @@ func _check_morning() -> void:
 	_expect(int(GameState.plants[GUEST_CELL]["happiness"]) == 54, "guest's plant: watered, not petted (mood 54)")
 	_expect(GameState.get_energy(GUEST) == 100 and GameState.get_energy(HOST) == 100, "both wake with full energy")
 	_expect(GameState.sleeping.is_empty(), "nobody is marked asleep in the morning")
+	_expect(int(GameState.tree["love"]) == 2 + 3 + 2 + 2, "Heart Tree love: 2 plants + watered + two hugs")
 
 
 func _expect(cond: bool, label: String) -> void:
