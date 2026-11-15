@@ -77,17 +77,19 @@ quitting mid-day loses that day's progress.
 One of you hosts; the garden and its save file live on the host's computer.
 You each need the game.
 
-### With the relay set up (no router settings, no addresses)
+### Through the relay (no router settings, no addresses)
 1. **Host:** title menu > **Co-op > Host** > pick a garden. The game shows the
    garden's invite code (like `ABC-DEF`) and copies it; send it to your partner.
 2. **Partner, first time:** **Co-op > Join**, paste the code, press Join.
 3. **Every time after:** the partner's Join screen lists the garden and lights
    it up whenever the host has it open. One click.
 
-This needs the relay to be deployed once and its address put in the game; see
-[Setting up the relay](#setting-up-the-relay).
+The game is set up to use the relay at
+`https://bloom-in-progress-relay.onrender.com`. The first connection of the
+day can take up to a minute while the relay wakes. See
+[Setting up the relay](#setting-up-the-relay) to run your own.
 
-### Without the relay
+### Without the relay (`relay_url=""` in `project.godot`)
 - **Same Wi-Fi:** the host's garden appears on the partner's Join screen by
   itself; click it. If Windows asks about the firewall, click **Allow access**.
 - **Different homes:** the host's game asks their router to let the partner in

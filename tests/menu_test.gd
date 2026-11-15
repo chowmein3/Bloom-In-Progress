@@ -16,6 +16,8 @@ func _ready() -> void:
 		out_dir = args[0]
 	Net.port = 24998
 	Net.use_upnp = false
+	Net.stop_lookup()
+	Net.relay_url = ""  # never touch the real relay from a test
 	TimeManager.rain_chance = 0.0
 	GameState.saves_dir = "user://menu_test_saves"
 	for old: Dictionary in GameState.list_gardens():

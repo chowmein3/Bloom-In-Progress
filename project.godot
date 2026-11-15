@@ -18,7 +18,7 @@ Sound="*res://scripts/sound.gd"
 
 [bloom]
 
-relay_url=""
+relay_url="https://bloom-in-progress-relay.onrender.com"
 
 [display]
 
