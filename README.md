@@ -5,6 +5,8 @@ A cozy pixel-art co-op gardening game made with Godot 4. You can tend the
 garden alone or host it for a partner to join online.
 
 ![screenshot](docs/screenshot.png)
+![inside the tent](docs/screenshot-home.png)
+![the shop](docs/screenshot-shop.png)
 ![journal screenshot](docs/screenshot-journal.png)
 ![fall screenshot](docs/screenshot-fall.png)
 
@@ -40,18 +42,20 @@ godot --path .
 | Key | Action |
 |---|---|
 | WASD / arrows | Move |
-| Space / E | Use the current tool on the highlighted tile |
+| Space / F | Use the current tool on the highlighted tile, open doors, talk to the shopkeeper |
 | 1-5 | Hoe, Watering Can, Seeds, Hands (pet), Basket (harvest) |
 | Tab | Next tool |
 | Q | Next seed type |
+| E / I | Backpack: seeds, harvest, coins, hats |
 | J | Garden journal |
 | M | Show or hide the minimap |
 | N | Music on/off |
 | H | Show or hide the help card |
 | Esc | Pause menu (resume, return to title, exit) |
 
-Face the tent and press Space to sleep. Plants grow overnight if they were
-watered, and the game saves each night.
+Walk into your home's door to go inside, face the bed and press Space to
+tuck in. Plants grow overnight if they were watered, and the game saves each
+night.
 
 ## Title menu
 - **New:** name a garden and start it. Each garden has its own save file.
@@ -71,6 +75,15 @@ quitting mid-day loses that day's progress.
 - The **journal** (J) fills in as you plant, bloom and make radiant each of
   the eight kinds of plant.
 - Plants sleep through seasons they don't like; they don't die.
+- **Home:** the tent has a room inside with a bed for two. The day ends when
+  everyone is in bed; in co-op you can see each other tucked in.
+- **Bristle's stall** (the hedgehog beside your home): sell picked plants for
+  coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
+  cabin and then a cottage (more room, more energy each morning), and hats.
+- **Backpack** (E): the garden's shared seeds and harvest, your coins, and the
+  hats you own. Click a seed packet to hold it; click a hat to wear it.
+- Coins, seeds, harvest, tools, the home and the hat wardrobe are shared by
+  both players. Each player picks their own hat to wear.
 
 ## Playing together
 One of you hosts; the garden and its save file live on the host's computer.
@@ -176,6 +189,12 @@ Menus (title, new, load, host, join, pause):
 
 ```bash
 godot --headless --path . res://tests/menu_test.tscn
+```
+
+Home, bed, shop and backpack, played with key presses:
+
+```bash
+godot --headless --path . res://tests/home_test.tscn
 ```
 
 Co-op (starts a host and a guest on this machine; needs bash):

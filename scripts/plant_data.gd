@@ -15,6 +15,9 @@ extends Resource
 @export var shape: String = "flower"
 ## One line for the garden journal.
 @export var blurb: String = ""
+## Coins the shopkeeper pays for one harvested plant, and charges for one seed.
+@export var sell_price: int = 20
+@export var seed_price: int = 10
 
 
 func total_days() -> int:

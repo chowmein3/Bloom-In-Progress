@@ -23,7 +23,9 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - `scripts/main.gd`: builds the scene in code and starts solo/host/join games.
   `menu.gd`, `ground.gd`, `plant_view.gd`, `tree_view.gd`, `player.gd`,
   `hud.gd`, `minimap.gd`, `journal.gd`, `rain.gd` (weather) and `effects.gd`
-  (mood icons) are the visuals. HUD panels share one parchment-and-wood style
+  (mood icons) are the visuals. `interior.gd` and `bed_view.gd` draw the
+  inside of the home; `inventory.gd` (backpack) and `shop.gd` are pop-up
+  screens styled by `ui_style.gd`. HUD panels share one parchment-and-wood style
   (`_style()` in `hud.gd`); icons come from `assets/sprites/ui_icons.png`.
 - `scripts/sound.gd` (autoload `Sound`): music and effects, driven by
   GameState signals.
@@ -35,6 +37,14 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `tools/make_art.py` (then re-run it), and usually to `GameState.TREE_GIFTS`.
 
 ## Rules
+- The inside of the home is at `GameState.INTERIOR_ORIGIN` in the same tile
+  grid as the garden, so a position alone says whether someone is indoors.
+  Use `GameState.can_walk(cell)` for movement. Room sizes and furniture in
+  `GameState.ROOMS` must match the room pictures drawn by `tools/make_art.py`.
+- Coins, upgrades and hats change only through `request_sell`, `request_buy_*`
+  and `request_wear`; they emit `economy_changed`, which is mirrored to guests.
+- A pop-up screen sets `player.reading` while open and must not open when it
+  is already true.
 - Every change to the world goes through `GameState.request_*()`. Never edit
   `soil`, `plants`, `seeds` or `produce` from other scripts. Co-op depends on it.
 - Co-op is host-authoritative. A rule lives in a `_do_*()` function that only
@@ -64,6 +74,9 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   It runs over the local network, then through a local relay when Node.js is
   installed.
   Run it after touching `net.gd`, `game_state.gd` or the player/main scripts.
+- Home, bed, shop, backpack: `godot --headless --path . res://tests/home_test.tscn`
+  (must print HOME TEST PASSED). Run it after touching the player, interior,
+  shop or inventory scripts.
 - Menus: `godot --headless --path . res://tests/menu_test.tscn` (must print
   MENU TEST PASSED). Run it after touching `menu.gd` or how games start.
 - Download build: `tools/build.sh <godot binary>` (needs export templates).

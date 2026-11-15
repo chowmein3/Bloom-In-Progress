@@ -43,8 +43,10 @@ jobs:
           grep -q "ALL TESTS PASSED" rules.log
           "$GODOT" --headless --path . res://tests/menu_test.tscn | tee menu.log
           grep -q "MENU TEST PASSED" menu.log
+          "$GODOT" --headless --path . res://tests/home_test.tscn | tee home.log
+          grep -q "HOME TEST PASSED" home.log
           tests/run_coop_test.sh "$GODOT"
-          rm rules.log menu.log
+          rm rules.log menu.log home.log
 
       - name: Build the downloads
         run: tools/build.sh "$GODOT"

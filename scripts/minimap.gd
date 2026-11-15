@@ -40,6 +40,8 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2(cell) * SCALE, Vector2(SCALE, SCALE)), color)
 	var tent := Rect2(GameState.TENT_RECT)
 	draw_rect(Rect2(tent.position * SCALE, tent.size * SCALE), Color(0.94, 0.54, 0.47))
+	var stall := Rect2(GameState.STALL_RECT)
+	draw_rect(Rect2(stall.position * SCALE, stall.size * SCALE), Color(0.25, 0.65, 0.63))
 	var tree := Rect2(GameState.TREE_RECT)
 	draw_rect(Rect2(tree.position * SCALE, tree.size * SCALE), Color(0.25, 0.55, 0.35))
 	draw_rect(Rect2(tree.position * SCALE + Vector2(1, 1), Vector2(2, 2)), Color(1.0, 0.56, 0.7))
@@ -50,8 +52,8 @@ func _draw() -> void:
 
 
 func _marker(who: Node2D, slot: int) -> void:
-	if not who.visible:
-		return
+	if not who.visible or who.position.x > GameState.WORLD_SIZE.x * TILE:
+		return  # in bed, or indoors
 	var at: Vector2 = (who.position / TILE * SCALE).floor() - Vector2(1, 2)
 	draw_rect(Rect2(at - Vector2(1, 1), Vector2(4, 4)), DARK)
 	draw_rect(Rect2(at, Vector2(2, 2)), PLAYER_COLORS[(maxi(slot, 1) - 1) % PLAYER_COLORS.size()])

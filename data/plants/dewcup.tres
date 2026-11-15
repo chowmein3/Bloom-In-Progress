@@ -12,3 +12,5 @@ seasons = Array[int]([0])
 regrows = false
 regrow_days = 0
 shape = "tulip"
+sell_price = 35
+seed_price = 12
