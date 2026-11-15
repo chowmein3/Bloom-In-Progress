@@ -1,5 +1,5 @@
 # Bloom-In-Progress
-Grow a Garden Multiplayer Video Game for Couples
+Grow a Garden Multiplayer Video Game
 
 A cozy pixel-art co-op gardening game made with Godot 4. You can tend the
 garden alone or host it for a partner to join online.
