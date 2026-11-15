@@ -30,10 +30,15 @@ PLAY TOGETHER
             the host forwards UDP port 24565 in their router's settings.
 
 KEYS
-  WASD / arrows  move            J    garden journal
-  Space / E      use tool        M    map on/off
-  1-5            choose tool     N    music on/off
-  Q              change seed     H    help card
-  Esc            pause menu
+  WASD / arrows  move            E    backpack (seeds, coins, hats)
+  Space / F      use tool        J    garden journal
+  1-5            choose tool     M    map on/off
+  Q              change seed     N    music on/off
+  Esc            pause menu      H    help card
 
-  Face the tent and press Space to sleep. The garden is saved every night.
+GOOD TO KNOW
+  Sleep:   walk into your tent's door, face the bed, press Space. The day
+           ends when everyone is in bed. The garden is saved every night.
+  Coins:   pick grown plants with the basket (5) and sell them to Bristle,
+           the hedgehog at the stall next to your home (face the stall,
+           press Space). Buy seeds, better tools, a bigger home and hats.

@@ -19,6 +19,10 @@ const Menu := preload("res://scripts/menu.gd")
 const Settings := preload("res://scripts/settings.gd")
 const TreeView := preload("res://scripts/tree_view.gd")
 const Journal := preload("res://scripts/journal.gd")
+const Interior := preload("res://scripts/interior.gd")
+const BedView := preload("res://scripts/bed_view.gd")
+const Inventory := preload("res://scripts/inventory.gd")
+const Shop := preload("res://scripts/shop.gd")
 const TILE := 16
 
 var player: Node2D
@@ -26,6 +30,10 @@ var hud: CanvasLayer
 var menu: CanvasLayer
 var remote_players: Dictionary = {}  # slot -> Player node
 var _leaving: bool = false
+var _interior: Node2D
+var _home: Sprite2D
+var _camera: Camera2D
+var _weather: CanvasLayer
 var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
 var _light: CanvasModulate
@@ -34,6 +42,8 @@ var _light: CanvasModulate
 func _ready() -> void:
 	_setup_input()
 	add_child(Ground.new())
+	_interior = Interior.new()
+	add_child(_interior)
 
 	var cursor := ColorRect.new()
 	cursor.color = Color(1, 1, 1, 0.22)
@@ -48,13 +58,20 @@ func _ready() -> void:
 	_entities.y_sort_enabled = true
 	add_child(_entities)
 
-	# The tent and the Heart Tree stand in the same layer, sorted by their base.
-	var tent := Sprite2D.new()
-	tent.texture = Assets.texture("res://assets/sprites/tent.png")
-	tent.centered = false
-	tent.offset = Vector2(-24, -48)
-	tent.position = Vector2((GameState.TENT_RECT.position.x + GameState.TENT_RECT.size.x / 2.0) * TILE, GameState.TENT_RECT.end.y * TILE)
-	_entities.add_child(tent)
+	# The home, stall, bed and Heart Tree stand in the same layer as the
+	# players, sorted by their base.
+	_home = Sprite2D.new()
+	_home.centered = false
+	_home.offset = Vector2(-24, -48)
+	_home.position = Vector2((GameState.TENT_RECT.position.x + GameState.TENT_RECT.size.x / 2.0) * TILE, GameState.TENT_RECT.end.y * TILE)
+	_entities.add_child(_home)
+	var stall := Sprite2D.new()
+	stall.texture = Assets.texture("res://assets/sprites/stall.png")
+	stall.centered = false
+	stall.offset = Vector2(-24, -48)
+	stall.position = Vector2((GameState.STALL_RECT.position.x + GameState.STALL_RECT.size.x / 2.0) * TILE, GameState.STALL_RECT.end.y * TILE)
+	_entities.add_child(stall)
+	_entities.add_child(BedView.new())
 	var tree := TreeView.new()
 	tree.position = Vector2((GameState.TREE_RECT.position.x + GameState.TREE_RECT.size.x / 2.0) * TILE, GameState.TREE_RECT.end.y * TILE)
 	_entities.add_child(tree)
@@ -65,20 +82,17 @@ func _ready() -> void:
 	player.position = Vector2(13.5 * TILE, 5 * TILE)
 	_entities.add_child(player)
 
-	var camera := Camera2D.new()
-	camera.limit_left = 0
-	camera.limit_top = 0
-	camera.limit_right = GameState.WORLD_SIZE.x * TILE
-	camera.limit_bottom = GameState.WORLD_SIZE.y * TILE
-	player.add_child(camera)
+	_camera = Camera2D.new()
+	player.add_child(_camera)
+	player.area_changed.connect(_on_area_changed)
 
 	_light = CanvasModulate.new()
 	add_child(_light)
 
-	var rain_layer := CanvasLayer.new()
-	rain_layer.layer = 5
-	rain_layer.add_child(Rain.new())
-	add_child(rain_layer)
+	_weather = CanvasLayer.new()
+	_weather.layer = 5
+	_weather.add_child(Rain.new())
+	add_child(_weather)
 
 	hud = Hud.new()
 	hud.player = player
@@ -88,6 +102,13 @@ func _ready() -> void:
 	var journal := Journal.new()
 	journal.player = player
 	add_child(journal)
+	var inventory := Inventory.new()
+	inventory.player = player
+	add_child(inventory)
+	var shop := Shop.new()
+	shop.player = player
+	add_child(shop)
+	player.shop_requested.connect(shop.open)
 
 	menu = Menu.new()
 	add_child(menu)
@@ -131,11 +152,13 @@ func _ready() -> void:
 		if _views.has(cell):
 			_views[cell].show_love())
 	GameState.cell_changed.connect(_refresh_view)
-	GameState.day_advanced.connect(func(_s: Dictionary) -> void: _refresh_all())
+	GameState.day_advanced.connect(_on_day_advanced)
+	GameState.economy_changed.connect(_on_area_changed)
+	GameState.state_reloaded.connect(_on_area_changed)
 	GameState.state_reloaded.connect(_rebuild_views)
 	TimeManager.time_changed.connect(_update_light)
 	_rebuild_views()
-	_update_light()
+	_on_area_changed()
 
 	# Shortcuts past the menu: --solo and --host use the most recent garden
 	# (or make one), --join=<address> joins a partner.
@@ -334,6 +357,35 @@ func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool) -
 		remote_players[slot].call("remote_update", pos, facing, moving)
 
 
+## Called when the player goes through the door, and when the home changes:
+## fits the camera to the garden or to the room, and shows the right home.
+func _on_area_changed() -> void:
+	_home.texture = Assets.texture("res://assets/sprites/home_%d.png" % GameState.home_level())
+	var inside: bool = player.call("indoors")
+	if inside:
+		var middle: Vector2 = _interior.call("centre")
+		_camera.limit_left = int(middle.x) - 160
+		_camera.limit_right = int(middle.x) + 160
+		_camera.limit_top = int(middle.y) - 90
+		_camera.limit_bottom = int(middle.y) + 90
+	else:
+		_camera.limit_left = 0
+		_camera.limit_top = 0
+		_camera.limit_right = GameState.WORLD_SIZE.x * TILE
+		_camera.limit_bottom = GameState.WORLD_SIZE.y * TILE
+	_camera.reset_smoothing()
+	_weather.visible = not inside
+	_update_light()
+
+
+func _on_day_advanced(summary: Dictionary) -> void:
+	_refresh_all()
+	# Anyone who stayed up past 2am is carried to bed.
+	var dozers: Array = summary.get("passed_out", [])
+	if dozers.has(player.get("player_id")) and not bool(player.call("indoors")):
+		player.call("go_to_bedside")
+
+
 func _rebuild_views() -> void:
 	for cell: Vector2i in _views.keys():
 		_views[cell].queue_free()
@@ -379,6 +431,8 @@ func _update_light() -> void:
 		color = day.lerp(dusk, (m - 17 * 60) / 180.0)
 	if TimeManager.raining:
 		color = color * Color(0.82, 0.86, 0.95)
+	if player != null and bool(player.call("indoors")):
+		color = Color(1.0, 0.97, 0.92).lerp(Color(1.0, 0.86, 0.7), clampf((m - 18 * 60) / 180.0, 0.0, 1.0))  # lamplight
 	_light.color = color
 
 
@@ -387,7 +441,8 @@ func _setup_input() -> void:
 	_bind("move_right", [KEY_D, KEY_RIGHT])
 	_bind("move_up", [KEY_W, KEY_UP])
 	_bind("move_down", [KEY_S, KEY_DOWN])
-	_bind("use", [KEY_SPACE, KEY_E])
+	_bind("use", [KEY_SPACE, KEY_F])
+	_bind("toggle_inventory", [KEY_E, KEY_I])
 	_bind("next_seed", [KEY_Q])
 	_bind("cycle_tool", [KEY_TAB])
 	_bind("toggle_help", [KEY_H])

@@ -99,6 +99,8 @@ func _text(content: String, color: Color) -> Label:
 func _unhandled_input(event: InputEvent) -> void:
 	if player == null or bool(player.get("in_menu")):
 		return
+	if not visible and bool(player.get("reading")):
+		return  # another screen is open
 	if event.is_action_pressed("toggle_journal") or (visible and event.is_action_pressed("close")):
 		visible = not visible
 		player.set("reading", visible)

@@ -12,7 +12,7 @@ const HELP_ROWS: Array = [
 	["Space", "Use tool"],
 	["1-5", "Choose tool"],
 	["Q", "Change seed"],
-	["Tent", "Sleep"],
+	["E", "Backpack"],
 	["J", "Journal"],
 	["M", "Map"],
 	["N", "Music"],
@@ -25,6 +25,7 @@ const ICON_RAIN := 6
 const ICON_SNOW := 7
 const ICON_MOON := 8
 const ICON_LOVE := 9
+const ICON_COIN := 10
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
@@ -41,6 +42,7 @@ var _date: Label
 var _time: Label
 var _weather: TextureRect
 var _love: Label
+var _coins: Label
 var _energy_fill: ColorRect
 var _banner: Label
 var _message: Label
@@ -81,6 +83,8 @@ func _ready() -> void:
 	_weather = _icon(ICON_SUN)
 	_time = _text("")
 	info.add_child(_row([_weather, _time]))
+	_coins = _text("")
+	info.add_child(_row([_icon(ICON_COIN), _coins]))
 	_love = _text("")
 	info.add_child(_row([_icon(ICON_LOVE), _love]))
 	var info_panel: PanelContainer = _panel(info)
@@ -190,6 +194,7 @@ func _ready() -> void:
 	GameState.energy_changed.connect(func(_id: int) -> void: _update_energy())
 	GameState.inventory_changed.connect(_update_tool)
 	GameState.tree_changed.connect(_update_love)
+	GameState.economy_changed.connect(_update_purse)
 	GameState.state_reloaded.connect(refresh)
 	GameState.sleepers_changed.connect(_update_banner)
 	GameState.notice.connect(show_message)
@@ -327,6 +332,7 @@ func refresh() -> void:
 	_update_energy()
 	_update_tool()
 	_update_love()
+	_update_purse()
 	_update_banner()
 	set_status(_help_status.text)
 
@@ -352,11 +358,16 @@ func _update_love() -> void:
 	_love.text = "%d/%d" % [int(GameState.tree["love"]), goal] if goal > 0 else str(int(GameState.tree["love"]))
 
 
+func _update_purse() -> void:
+	_coins.text = str(GameState.coins)
+	_update_energy()  # a bigger home raises the most energy you can have
+
+
 func _update_energy() -> void:
 	if player == null:
 		return
 	var e: int = GameState.get_energy(player.get("player_id"))
-	var height: float = 34.0 * e / GameState.MAX_ENERGY
+	var height: float = 34.0 * e / GameState.max_energy()
 	_energy_fill.position = Vector2(0, 34.0 - height)
 	_energy_fill.size = Vector2(5, height)
 	_energy_fill.color = Color(0.36, 0.8, 0.36) if e > 25 else Color(0.95, 0.5, 0.3)

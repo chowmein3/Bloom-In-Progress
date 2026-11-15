@@ -12,3 +12,5 @@ seasons = Array[int]([1])
 regrows = true
 regrow_days = 4
 shape = "cactus"
+sell_price = 40
+seed_price = 45

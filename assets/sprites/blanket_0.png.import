@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://xs4jp0yh30pp"
-path="res://.godot/imported/tent.png-2af534b0b9f2887102709c9694c84554.ctex"
+uid="uid://fv8rngk1lexj"
+path="res://.godot/imported/blanket_0.png-addd6e7db8ac19aa57702d488e43de9d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/tent.png"
-dest_files=["res://.godot/imported/tent.png-2af534b0b9f2887102709c9694c84554.ctex"]
+source_file="res://assets/sprites/blanket_0.png"
+dest_files=["res://.godot/imported/blanket_0.png-addd6e7db8ac19aa57702d488e43de9d.ctex"]
 
 [params]
 

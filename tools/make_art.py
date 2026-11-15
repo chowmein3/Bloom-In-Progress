@@ -283,11 +283,12 @@ def make_plants():
 
 # ---------------------------------------------------------------- players
 # assets/sprites/player_<slot>.png: 16x24 frames, 2 columns (standing, step),
-# 4 rows (facing down, up, left, right). Feet on y=22.
+# 5 rows (facing down, up, left, right, asleep). Feet on y=22. Players are
+# drawn bare-headed; the hat they wear is laid on top from hats.png.
 
 def player_frame(direction, step, overalls):
     c = Canvas(16, 24)
-    skin, hair, hat, band = rgb("#ffd9b8"), rgb("#8a5a3c"), rgb("#f2d774"), rgb("#e0605a")
+    skin, hair = rgb("#ffd9b8"), rgb("#8a5a3c")
     boots, shirt = rgb("#6b4a36"), rgb("#fff4dc")
     lift = 1 if step else 0
     side = direction in ("left", "right")
@@ -320,9 +321,8 @@ def player_frame(direction, step, overalls):
         c.rect(4, 6, 8, 1, hair)
         c.rect(4, 7, 1, 3, hair)
         c.rect(11, 7, 1, 3, hair)
-    c.rect(2, 5, 12, 2, hat)  # brim
-    c.rect(4, 2, 8, 3, hat)  # crown
-    c.rect(4, 4, 8, 1, band)
+    c.rect(4, 5, 8, 1, hair)  # top of the head
+    c.rect(5, 4, 6, 1, hair)
     if direction == "down":
         c.face(5, 8, happy=False, gap=5)
         c.dot(4, 11, rgb("#ffb3a8"))
@@ -336,13 +336,71 @@ def player_frame(direction, step, overalls):
     return c.finish()
 
 
+def sleeping_head():
+    """Just the head, eyes closed, for a player tucked up in bed."""
+    c = Canvas(16, 24)
+    skin, hair = rgb("#ffd9b8"), rgb("#8a5a3c")
+    c.rect(4, 6, 8, 7, skin)
+    c.rect(4, 5, 8, 2, hair)
+    c.rect(5, 4, 6, 1, hair)
+    c.rect(4, 7, 1, 3, hair)
+    c.rect(11, 7, 1, 3, hair)
+    for x in (5, 6, 9, 10):
+        c.dot(x, 9, DARK)
+    c.dot(4, 11, rgb("#ffb3a8"))
+    c.dot(11, 11, rgb("#ffb3a8"))
+    return c.finish()
+
+
 def make_players():
     for slot, colour in ((1, "#4f7fd1"), (2, "#e0739f")):
-        out = Image.new("RGBA", (32, 96), (0, 0, 0, 0))
+        out = Image.new("RGBA", (32, 120), (0, 0, 0, 0))
         for row, direction in enumerate(("down", "up", "left", "right")):
             for col in (0, 1):
                 out.paste(player_frame(direction, col == 1, rgb(colour)), (col * 16, row * 24))
+        out.paste(sleeping_head(), (0, 96))
         save(out, "player_%d.png" % slot)
+
+
+# ------------------------------------------------------------------- hats
+# assets/sprites/hats.png: 16x12 frames, one per hat, in the order of
+# GameState.HAT_ORDER (straw, flower, sprout, beanie, sun). A hat is drawn
+# over the top 12 rows of a player frame.
+
+def make_hats():
+    def straw(c):
+        c.rect(2, 5, 12, 2, rgb("#f2d774"))
+        c.rect(4, 2, 8, 3, rgb("#f2d774"))
+        c.rect(4, 4, 8, 1, rgb("#e0605a"))
+
+    def flower(c):
+        c.rect(3, 4, 10, 2, rgb("#5aa85a"))
+        for x, colour in ((3, "#ff8fb3"), (6, "#ffd24a"), (9, "#ffffff"), (12, "#ff8fb3")):
+            c.rect(x, 3, 2, 2, rgb(colour))
+
+    def sprout(c):
+        c.rect(7, 2, 2, 3, rgb("#5aa85a"))
+        c.ell(4.5, 1.5, 2.4, 1.4, rgb("#6fc46a"))
+        c.ell(10.5, 1.5, 2.4, 1.4, rgb("#6fc46a"))
+
+    def beanie(c):
+        c.rect(4, 2, 8, 4, rgb("#3fa7a0"))
+        c.rect(5, 1, 6, 1, rgb("#3fa7a0"))
+        c.rect(3, 5, 10, 2, rgb("#8fd9d2"))
+        c.rect(7, 0, 2, 1, WHITE)
+
+    def sun(c):
+        c.rect(0, 5, 16, 2, rgb("#fff0c9"))
+        c.rect(4, 2, 8, 3, rgb("#fff0c9"))
+        c.rect(5, 1, 6, 1, rgb("#fff0c9"))
+        c.rect(4, 4, 8, 1, rgb("#ff8fb3"))
+
+    frames = []
+    for draw in (straw, flower, sprout, beanie, sun):
+        c = Canvas(16, 12)
+        draw(c)
+        frames.append(c.finish())
+    save(sheet(frames), "hats.png")
 
 
 # ------------------------------------------------------------------ tiles
@@ -402,7 +460,8 @@ def make_tiles():
 
 
 # ------------------------------------------------------- tent & Heart Tree
-# assets/sprites/tent.png: one 48x48 picture, base on the bottom row.
+# assets/sprites/home_<level>.png: the home from outside (tent, cabin,
+# cottage), one 48x48 picture each, base on the bottom row.
 # assets/sprites/heart_tree.png: five 48x64 frames (seed, sprout, sapling,
 # young tree, in bloom), base on the bottom row.
 
@@ -419,7 +478,319 @@ def make_tent():
     c.tri(23.5, 22, 7, 24, door)
     c.rect(23, 2, 2, 7, rgb("#7a5a3a"))
     c.rect(25, 2, 6, 4, rgb("#ffd35c"))
-    save(c.finish(), "tent.png")
+    save(c.finish(), "home_0.png")
+
+
+def make_cabin():
+    c = Canvas(48, 48)
+    log, roof = rgb("#a8744a"), rgb("#b5523f")
+    c.rect(7, 24, 34, 22, log)
+    for y in range(27, 46, 5):
+        c.rect(7, y, 34, 1, shade(log, 0.25))
+    c.tri(23.5, 6, 24, 19, roof)
+    for y in range(11, 25, 4):
+        c.rect(0, y, 48, 1, shade(roof, 0.2))
+    for j in range(19):  # keep the roof stripes inside the roof
+        r = 24 * (j + 1) / 19
+        for x in range(48):
+            if abs(x - 23.5) > r:
+                c.p[6 + j][x] = None
+    c.rect(20, 32, 8, 14, rgb("#6b4630"))
+    c.dot(26, 39, rgb("#ffd24a"))
+    c.rect(31, 30, 6, 6, rgb("#bfe6ff"))
+    c.rect(33, 30, 1, 6, shade(log, 0.3))
+    c.rect(11, 30, 6, 6, rgb("#bfe6ff"))
+    c.rect(13, 30, 1, 6, shade(log, 0.3))
+    save(c.finish(), "home_1.png")
+
+
+def make_cottage():
+    c = Canvas(48, 48)
+    wall, beam, roof = rgb("#fbeed3"), rgb("#8a5e3a"), rgb("#3f8f86")
+    c.rect(35, 2, 5, 12, rgb("#b9897a"))  # chimney
+    c.rect(34, 1, 7, 2, rgb("#8f6558"))
+    c.rect(5, 24, 38, 22, wall)
+    c.rect(5, 24, 2, 22, beam)
+    c.rect(41, 24, 2, 22, beam)
+    c.rect(5, 44, 38, 2, beam)
+    c.tri(23.5, 4, 25, 21, roof)
+    for j in range(3, 21, 4):
+        r = 25 * (j + 1) / 21
+        for x in range(48):
+            if abs(x - 23.5) <= r:
+                c.px(x, 4 + j, shade(roof, 0.18))
+    c.ell(23.5, 17, 3.2, 3.2, rgb("#bfe6ff"))  # attic window
+    c.rect(20, 31, 8, 15, rgb("#c9644a"))
+    c.ell(23.5, 31, 4, 3, rgb("#c9644a"), top_only=True)
+    c.dot(26, 39, rgb("#ffd24a"))
+    for x in (9, 32):
+        c.rect(x, 29, 7, 7, rgb("#bfe6ff"))
+        c.rect(x + 3, 29, 1, 7, beam)
+        c.rect(x - 1, 36, 9, 2, beam)  # flower box
+        for i, colour in enumerate(("#ff8fb3", "#ffd24a", "#ff8fb3")):
+            c.dot(x + 1 + i * 2, 35, rgb(colour))
+    save(c.finish(), "home_2.png")
+
+
+# ---------------------------------------------------------- inside the home
+# assets/sprites/room_<level>.png: the whole room in one picture: two tile
+# rows of wall, then the floor, with the furniture drawn in. Sizes and
+# furniture places must match GameState.ROOMS.
+# assets/sprites/blanket_<level>.png: 32x19, drawn over sleepers in the bed.
+
+ROOM_SIZES = [(8, 5), (10, 6), (12, 7)]
+
+
+def piece(w, h, draw):
+    c = Canvas(w, h)
+    draw(c)
+    return c.finish()
+
+
+def crate(c):
+    c.rect(1, 3, 14, 12, rgb("#b98a55"))
+    c.rect(1, 8, 14, 1, rgb("#8a6238"))
+    c.rect(4, 3, 1, 12, rgb("#8a6238"))
+    c.rect(11, 3, 1, 12, rgb("#8a6238"))
+
+
+def lantern(c):
+    c.rect(5, 6, 6, 8, rgb("#ffe07a"))
+    c.rect(4, 5, 8, 1, rgb("#6b5a4a"))
+    c.rect(4, 14, 8, 1, rgb("#6b5a4a"))
+    c.rect(7, 2, 2, 3, rgb("#6b5a4a"))
+    c.dot(7, 9, WHITE)
+    c.dot(8, 10, WHITE)
+
+
+def table(c):
+    c.rect(1, 5, 14, 5, rgb("#b98a55"))
+    c.rect(2, 10, 2, 5, rgb("#8a6238"))
+    c.rect(12, 10, 2, 5, rgb("#8a6238"))
+    c.rect(6, 1, 4, 4, rgb("#8fd0ff"))  # a little vase
+    c.dot(7, 0, rgb("#ff8fb3"))
+    c.dot(8, 0, rgb("#ffd24a"))
+
+
+def drawers(c):
+    c.rect(1, 4, 30, 11, rgb("#a8744a"))
+    c.rect(1, 9, 30, 1, rgb("#7a5234"))
+    c.rect(16, 4, 1, 11, rgb("#7a5234"))
+    for x in (7, 23):
+        c.rect(x, 6, 3, 1, rgb("#ffd24a"))
+        c.rect(x, 12, 3, 1, rgb("#ffd24a"))
+
+
+def pot_plant(c):
+    c.rect(4, 16, 8, 7, rgb("#c9744a"))
+    c.rect(3, 15, 10, 2, rgb("#dd8a5e"))
+    c.ell(7.5, 9, 5.5, 6, rgb("#5aa85a"))
+    c.ell(5, 6, 2.5, 3, rgb("#6fc46a"))
+
+
+def nightstand(c):
+    c.rect(2, 5, 12, 10, rgb("#a8744a"))
+    c.rect(2, 9, 12, 1, rgb("#7a5234"))
+    c.rect(7, 11, 2, 1, rgb("#ffd24a"))
+    c.rect(6, 1, 4, 4, rgb("#ffe07a"))  # lamp
+
+
+def fireplace(c):
+    stone = rgb("#b9b3c4")
+    c.rect(1, 0, 30, 31, stone)
+    for y in range(4, 31, 6):
+        c.rect(1, y, 30, 1, shade(stone, 0.2))
+    c.rect(7, 13, 18, 18, rgb("#3a2a3a"))
+    c.ell(15.5, 13, 9, 5, rgb("#3a2a3a"), top_only=True)
+    c.tri(15.5, 17, 6, 12, rgb("#f08a2e"))
+    c.tri(15.5, 22, 3.5, 7, rgb("#ffd24a"))
+    c.rect(0, 0, 32, 3, rgb("#8a5e3a"))  # mantel
+
+
+def bookshelf(c):
+    c.rect(1, 0, 14, 23, rgb("#8a5e3a"))
+    for y in (2, 9, 16):
+        c.rect(3, y, 10, 5, rgb("#4a3424"))
+        for i, colour in enumerate(("#e0605a", "#5aa0e0", "#ffd24a", "#5aa85a", "#e0739f")):
+            c.rect(3 + i * 2, y + 1, 2, 4, rgb(colour))
+
+
+def window(c):
+    c.rect(1, 1, 14, 12, rgb("#8a5e3a"))
+    c.rect(3, 3, 10, 8, rgb("#bfe6ff"))
+    c.rect(7, 3, 2, 8, rgb("#8a5e3a"))
+    c.rect(3, 6, 10, 1, rgb("#8a5e3a"))
+
+
+def bed(level):
+    def draw(c):
+        if level == 0:  # two bedrolls side by side
+            for x, colour in ((1, "#7fa8e0"), (17, "#e89ab8")):
+                c.rect(x, 2, 14, 29, rgb("#e9dcc0"))
+                c.rect(x + 2, 3, 10, 7, WHITE)
+        else:
+            frame = rgb("#8a5e3a") if level == 1 else rgb("#6b4630")
+            c.rect(0, 0, 32, 32, frame)
+            c.rect(2, 3, 28, 27, rgb("#f6efe2"))
+            c.rect(4, 4, 10, 7, WHITE)
+            c.rect(18, 4, 10, 7, WHITE)
+            if level == 2:
+                c.rect(0, 0, 32, 3, rgb("#8f6a48"))
+    return piece(32, 32, draw)
+
+
+def blanket(level):
+    def draw(c):
+        if level == 0:
+            for x, colour in ((1, "#7fa8e0"), (17, "#e89ab8")):
+                c.rect(x, 0, 14, 18, rgb(colour))
+                c.rect(x, 0, 14, 2, light(rgb(colour), 0.4))
+        elif level == 1:
+            c.rect(2, 0, 28, 17, rgb("#d9605a"))
+            c.rect(2, 0, 28, 3, WHITE)
+            for x in range(4, 28, 8):
+                for y in range(5, 15, 6):
+                    c.rect(x, y, 4, 3, rgb("#f2b84a"))
+        else:
+            c.rect(2, 0, 28, 17, rgb("#5aa88a"))
+            c.rect(2, 0, 28, 3, WHITE)
+            for x in (6, 15, 24):
+                for dx, dy in ((0, 0), (2, 0), (0, 1), (1, 1), (2, 1), (1, 2)):
+                    c.dot(x + dx, 7 + dy, rgb("#ffd9ea"))
+                    c.dot(x + dx - 4, 12 + dy, rgb("#ffd9ea"))
+    return piece(32, 19, draw)
+
+
+def make_rooms():
+    for level, (w, h) in enumerate(ROOM_SIZES):
+        width, height = w * 16, (h + 2) * 16
+        room = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+        px = room.load()
+        rng = random.Random(level + 40)
+        for y in range(height):
+            for x in range(width):
+                if y < 32:  # wall
+                    if level == 0:  # striped tent cloth
+                        c = rgb("#f08a78") if (x // 8) % 2 == 0 else rgb("#fbe6c4")
+                        c = shade(c, 0.12) if y > 27 else c
+                    elif level == 1:  # logs
+                        c = rgb("#a8744a")
+                        c = shade(c, 0.28) if y % 8 == 7 else (light(c, 0.12) if y % 8 == 0 else c)
+                    else:  # wallpaper over wood panelling
+                        c = rgb("#cfe3c0")
+                        if y >= 22:
+                            c = rgb("#b98a55") if (x % 8) else rgb("#8a6238")
+                        elif (x % 8 == 3 and y % 8 == 3):
+                            c = rgb("#9fc79a")
+                else:  # floor
+                    fy = y - 32
+                    if level == 0:  # woven mat
+                        c = rgb("#dcbf8c")
+                        if (x + (fy // 4) * 4) % 8 < 1 or fy % 4 == 3:
+                            c = shade(c, 0.12)
+                    else:  # planks
+                        c = rgb("#c98f55") if level == 1 else rgb("#dfae6c")
+                        row = fy // 8
+                        if fy % 8 == 7 or (x + row * 11) % 32 == 0:
+                            c = shade(c, 0.22)
+                        elif fy % 8 == 0:
+                            c = light(c, 0.1)
+                px[x, y] = c + (255,)
+        for _ in range(w * h // 3):  # a few floor specks
+            x, y = rng.randrange(width), rng.randrange(34, height)
+            px[x, y] = shade(px[x, y][:3], 0.1) + (255,)
+
+        def put(img, cell_x, cell_y, dy=0):
+            room.alpha_composite(img, (cell_x * 16, cell_y * 16 + dy))
+
+        # Exit mat at the bottom middle, and a rug in the bigger homes.
+        mat = piece(32, 8, lambda c: (c.rect(1, 1, 30, 6, rgb("#8a6238")), c.rect(3, 3, 26, 2, rgb("#c9a26a"))))
+        put(mat, w // 2 - 1, h + 1, 8)
+        if level >= 1:
+            def rug(c):
+                c.ell(23.5, 11.5, 22, 10, rgb("#e89a6a") if level == 1 else rgb("#7fb8d9"))
+                c.ell(23.5, 11.5, 16, 6, rgb("#fbe6c4"))
+            put(piece(48, 24, rug), w // 2 - 1, h - 1 if level == 1 else h - 2, 2)
+        put(bed(level), 1, 2)
+        if level == 0:
+            put(piece(16, 16, crate), 6, 2)
+            put(piece(16, 16, lantern), 7, 2)
+        elif level == 1:
+            put(piece(16, 16, window), 4, 0, 6)
+            put(piece(16, 16, table), 5, 2)
+            put(piece(32, 16, drawers), 8, 2)
+            put(piece(16, 24, pot_plant), 9, 7, -8)
+        else:
+            put(piece(16, 16, window), 5, 0, 4)
+            put(piece(16, 16, window), 6, 0, 4)
+            put(piece(16, 16, nightstand), 4, 2)
+            put(piece(32, 32, fireplace), 8, 1)
+            put(piece(16, 24, bookshelf), 11, 2, -8)
+            put(piece(16, 24, pot_plant), 11, 8, -8)
+            put(piece(16, 24, pot_plant), 0, 8, -8)
+        save(room, "room_%d.png" % level)
+        save(blanket(level), "blanket_%d.png" % level)
+
+
+# ------------------------------------------------------------ shop & items
+# assets/sprites/stall.png: Bristle's market stall, 48x48, base on the bottom row.
+# assets/sprites/keeper.png: Bristle's portrait for the shop screen, 32x32.
+# assets/sprites/items/<id>.png and <id>_seeds.png: 16x16 icons per plant.
+
+def bristle(c, cx, cy, scale=1.0):
+    """A hedgehog shopkeeper centred on (cx, cy)."""
+    quill, face = rgb("#7a5234"), rgb("#f3d9b0")
+    c.ell(cx, cy, 8 * scale, 7 * scale, quill)
+    for i in range(-3, 4):
+        c.tri(cx + i * 2.4 * scale, cy - 10 * scale, 1.4 * scale, 4 * scale, quill)
+    c.ell(cx, cy + 2 * scale, 5.5 * scale, 4.5 * scale, face)
+    eye = max(1, int(scale))
+    for side in (-1, 1):
+        for dy in range(2 * eye):
+            for dx in range(eye):
+                c.dot(cx + side * 2.5 * scale + dx - 0.5, cy + 0.5 * scale + dy, DARK)
+    c.dot(cx - 0.5, cy + 3.5 * scale, DARK)
+    c.dot(cx + 0.5, cy + 3.5 * scale, DARK)
+
+
+def make_stall():
+    c = Canvas(48, 48)
+    wood = rgb("#b98a55")
+    c.rect(3, 12, 2, 34, rgb("#8a6238"))
+    c.rect(43, 12, 2, 34, rgb("#8a6238"))
+    bristle(c, 23.5, 25)
+    c.rect(2, 31, 44, 15, wood)  # counter
+    c.rect(2, 31, 44, 2, light(wood, 0.25))
+    for x in range(8, 44, 9):
+        c.rect(x, 34, 1, 12, shade(wood, 0.2))
+    for x, colour in ((6, "#ffcf4a"), (12, "#ff8fb3"), (33, "#8f9bff")):  # seed packets
+        c.rect(x, 26, 5, 6, rgb("#fbeed3"))
+        c.dot(x + 2, 28, rgb(colour))
+        c.dot(x + 2, 29, rgb(colour))
+    c.rect(39, 27, 4, 5, rgb("#ffd24a"))  # coin jar
+    for x in range(0, 48):  # striped awning with a scalloped edge
+        stripe = rgb("#3fa7a0") if (x // 6) % 2 == 0 else rgb("#fbeed3")
+        for y in range(3, 13 + (2 if (x % 6) in (2, 3) else (1 if (x % 6) in (1, 4) else 0))):
+            c.px(x, y, stripe)
+    save(c.finish(), "stall.png")
+    portrait = Canvas(32, 32)
+    bristle(portrait, 15.5, 17, 1.6)
+    save(portrait.finish(), "keeper.png")
+
+
+def make_items():
+    for pid, (shape, stages, leaf, bloom, _radiant, accent) in PLANTS.items():
+        frame = plant_frame(shape, "bloom", 1, rgb(leaf), rgb(bloom), rgb(accent), random.Random(pid))
+        box = frame.getbbox()
+        top = min(box[1], 8)
+        save(frame.crop((0, top, 16, top + 16)), "items", pid + ".png")
+        packet = Canvas(16, 16)
+        packet.rect(3, 2, 10, 13, rgb("#fbeed3"))
+        packet.rect(3, 2, 10, 2, rgb("#d9c39a"))
+        packet.ell(7.5, 9.5, 3, 3, rgb(bloom))
+        packet.dot(7, 9, light(rgb(bloom), 0.5))
+        packet.rect(7, 13, 2, 1, rgb(leaf))
+        save(packet.finish(), "items", pid + "_seeds.png")
 
 
 def tree_frame(stage):
@@ -472,7 +843,7 @@ def make_tree():
 # --------------------------------------------------------------- UI icons
 # assets/sprites/ui_icons.png: 12x12 frames left to right:
 #   hoe, watering can, seed bag, petting hand (heart), basket,
-#   sun, rain cloud, snow cloud, moon, love heart
+#   sun, rain cloud, snow cloud, moon, love heart, coin
 
 def icon(draw):
     c = Canvas(12, 12)
@@ -541,8 +912,13 @@ def make_icons():
         c.ell(5.5, 5.5, 3.6, 3.6, rgb("#f3ecc8"))
         c.ell(7.5, 4.5, 3.0, 3.0, None)
 
+    def coin(c):
+        c.ell(5.5, 5.5, 4.6, 4.6, rgb("#f2b84a"))
+        c.ell(5.5, 5.5, 2.6, 2.6, rgb("#ffe07a"))
+        c.dot(4, 4, WHITE)
+
     draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
-             lambda c: heart(c, rgb("#ff5d7a"))]
+             lambda c: heart(c, rgb("#ff5d7a")), coin]
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 
@@ -565,7 +941,13 @@ if __name__ == "__main__":
     make_icons()
     make_plants()
     make_players()
+    make_hats()
     make_tiles()
     make_tent()
+    make_cabin()
+    make_cottage()
+    make_rooms()
+    make_stall()
+    make_items()
     make_tree()
     print("sprites written to", os.path.normpath(OUT))

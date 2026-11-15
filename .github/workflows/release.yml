@@ -1,6 +1,6 @@
-# Builds the downloadable game whenever main changes and publishes it as the
-# "latest" release, so this link always gives the newest Windows build:
-#   https://github.com/<owner>/<repo>/releases/latest/download/BloomInProgress-windows.zip
+# Builds the downloadable game whenever main changes and publishes it to the
+# `downloads` branch, so this link always gives the newest Windows build:
+#   https://github.com/<owner>/<repo>/raw/downloads/BloomInProgress-windows.zip
 name: Build downloads
 
 on:
@@ -43,18 +43,13 @@ jobs:
           grep -q "ALL TESTS PASSED" rules.log
           "$GODOT" --headless --path . res://tests/menu_test.tscn | tee menu.log
           grep -q "MENU TEST PASSED" menu.log
+          "$GODOT" --headless --path . res://tests/home_test.tscn | tee home.log
+          grep -q "HOME TEST PASSED" home.log
           tests/run_coop_test.sh "$GODOT"
-          rm rules.log menu.log
+          rm rules.log menu.log home.log
 
       - name: Build the downloads
         run: tools/build.sh "$GODOT"
 
-      - name: Publish as the latest release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest export/BloomInProgress-windows.zip export/BloomInProgress-linux.zip \
-            --target "$GITHUB_SHA" \
-            --title "Bloom In Progress (latest build)" \
-            --notes "Download **BloomInProgress-windows.zip**, unzip it, and double-click **BloomInProgress.exe**. The first time, Windows may warn that it doesn't recognise the app: click **More info**, then **Run anyway**. See *How to play.txt* inside for playing together."
+      - name: Publish to the downloads branch
+        run: tools/publish_downloads.sh

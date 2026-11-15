@@ -21,6 +21,7 @@ signal state_reloaded
 signal sleepers_changed
 signal tree_changed
 signal journal_changed
+signal economy_changed  # coins, upgrades, hats owned or hats worn changed
 
 const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/sunpuff.tres",
@@ -53,6 +54,53 @@ const JOURNAL_PLANTED := 1
 const JOURNAL_BLOOMED := 2
 const JOURNAL_RADIANT := 3
 const MAX_ENERGY := 100
+const START_COINS := 100
+const ENERGY_PER_HOME_LEVEL := 15  # a better bed means more energy each morning
+const STARTER_SEEDS: Array[String] = ["sunpuff", "moonbell", "dewcup"]
+
+## The shopkeeper's stall in the garden.
+const STALL_RECT := Rect2i(17, 1, 3, 2)
+
+## Things the shop sells once each; buying raises upgrades[kind] by one level.
+const UPGRADES: Dictionary = {
+	"hoe": [
+		{"name": "Sturdy Hoe", "cost": 250, "blurb": "Tills 3 tiles in a row"},
+		{"name": "Master Hoe", "cost": 800, "blurb": "Tills 5 tiles in a row"},
+	],
+	"can": [
+		{"name": "Big Watering Can", "cost": 300, "blurb": "Waters 3 tiles in a row"},
+		{"name": "Grand Watering Can", "cost": 900, "blurb": "Waters 5 tiles in a row"},
+	],
+	"home": [
+		{"name": "Cabin", "cost": 1500, "blurb": "A roomier home. +15 energy each morning"},
+		{"name": "Cottage", "cost": 5000, "blurb": "Fireplace and all. +30 energy each morning"},
+	],
+}
+const TOOL_REACH: Array[int] = [1, 3, 5]  # tiles in a row, by hoe / can level
+const HOME_NAMES: Array[String] = ["Tent", "Cabin", "Cottage"]
+
+## Hats: bought once for the garden, then either player can wear them.
+## The order is the frame order in assets/sprites/hats.png.
+const HAT_ORDER: Array[String] = ["straw", "flower", "sprout", "beanie", "sun"]
+const HATS: Dictionary = {
+	"straw": {"name": "Straw Hat", "cost": 0},
+	"flower": {"name": "Flower Crown", "cost": 150},
+	"sprout": {"name": "Sprout", "cost": 200},
+	"beanie": {"name": "Cosy Beanie", "cost": 250},
+	"sun": {"name": "Sun Hat", "cost": 400},
+}
+
+## Inside the home. It lives far to the right of the garden in the same grid,
+## so a position alone says whether someone is indoors. A room has two rows
+## of wall, then `size` tiles of floor; the exit mat is the middle two tiles
+## of the bottom floor row. `bed` and `blocked` are relative to the room's
+## top-left corner; the bed is 2x2.
+const INTERIOR_ORIGIN := Vector2i(100, 0)
+const ROOMS: Array[Dictionary] = [
+	{"size": Vector2i(8, 5), "bed": Vector2i(1, 2), "blocked": [Vector2i(6, 2), Vector2i(7, 2)]},
+	{"size": Vector2i(10, 6), "bed": Vector2i(1, 2), "blocked": [Vector2i(5, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(9, 7)]},
+	{"size": Vector2i(12, 7), "bed": Vector2i(1, 2), "blocked": [Vector2i(4, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(11, 2), Vector2i(11, 8), Vector2i(0, 8)]},
+]
 const COST_TILL := 2
 const COST_WATER := 1
 const COST_PLANT := 1
@@ -81,6 +129,10 @@ var seeds: Dictionary = {}  # species id -> count (shared by all players)
 var produce: Dictionary = {}  # species id -> count (shared by all players)
 var energy: Dictionary = {}  # player id -> int
 var tree: Dictionary = {"love": 0, "watered": false, "hugged_by": {}}
+var coins: int = START_COINS  # shared, like the seed bag
+var upgrades: Dictionary = {"hoe": 0, "can": 0, "home": 0}
+var hats_owned: Array = ["straw"]
+var outfits: Dictionary = {}  # str(player id) -> hat id being worn
 var journal: Dictionary = {}  # species id -> best milestone so far (JOURNAL_*)
 var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for the others
 var rng := RandomNumberGenerator.new()
@@ -98,6 +150,7 @@ func _ready() -> void:
 	Net.session_ended.connect(_on_session_ended)
 	tree_changed.connect(_mirror_tree)
 	journal_changed.connect(_mirror_journal)
+	economy_changed.connect(_mirror_economy)
 	cell_changed.connect(_mirror_cell)
 	plant_added.connect(_mirror_cell)
 	plant_removed.connect(_mirror_cell)
@@ -116,6 +169,10 @@ func new_game() -> void:
 	journal.clear()
 	tree = {"love": 0, "watered": false, "hugged_by": {}}
 	seeds = {"sunpuff": 6, "moonbell": 4, "dewcup": 3}
+	coins = START_COINS
+	upgrades = {"hoe": 0, "can": 0, "home": 0}
+	hats_owned = ["straw"]
+	outfits = {}
 	for pid: int in energy.keys():
 		energy[pid] = MAX_ENERGY
 	TimeManager.reset()
@@ -124,7 +181,7 @@ func new_game() -> void:
 
 func register_player(player_id: int) -> void:
 	if Net.is_host() and not energy.has(player_id):
-		energy[player_id] = MAX_ENERGY
+		energy[player_id] = max_energy()
 	energy_changed.emit(player_id)
 
 
@@ -142,9 +199,102 @@ func is_tree(cell: Vector2i) -> bool:
 	return TREE_RECT.has_point(cell)
 
 
-## Tiles nobody can walk on or dig up.
+func is_stall(cell: Vector2i) -> bool:
+	return STALL_RECT.has_point(cell)
+
+
+## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	return is_tent(cell) or is_tree(cell)
+	return is_tent(cell) or is_tree(cell) or is_stall(cell)
+
+
+# ----- the home and its inside
+
+func home_level() -> int:
+	return clampi(int(upgrades.get("home", 0)), 0, ROOMS.size() - 1)
+
+
+func max_energy() -> int:
+	return MAX_ENERGY + ENERGY_PER_HOME_LEVEL * home_level()
+
+
+## The garden tile of the home's door (bottom middle of its footprint).
+func home_door() -> Vector2i:
+	@warning_ignore("integer_division")
+	return Vector2i(TENT_RECT.position.x + TENT_RECT.size.x / 2, TENT_RECT.end.y - 1)
+
+
+func is_indoors(cell: Vector2i) -> bool:
+	return cell.x >= INTERIOR_ORIGIN.x - 20
+
+
+func room_size() -> Vector2i:
+	return ROOMS[home_level()]["size"]
+
+
+func room_floor() -> Rect2i:
+	return Rect2i(INTERIOR_ORIGIN + Vector2i(0, 2), room_size())
+
+
+func bed_rect() -> Rect2i:
+	var bed: Vector2i = ROOMS[home_level()]["bed"]
+	return Rect2i(INTERIOR_ORIGIN + bed, Vector2i(2, 2))
+
+
+func is_bed(cell: Vector2i) -> bool:
+	return bed_rect().has_point(cell)
+
+
+## The exit mat: the middle two tiles of the bottom floor row.
+func is_exit_mat(cell: Vector2i) -> bool:
+	var floor: Rect2i = room_floor()
+	@warning_ignore("integer_division")
+	var middle: int = floor.position.x + floor.size.x / 2
+	return cell.y == floor.end.y - 1 and (cell.x == middle or cell.x == middle - 1)
+
+
+## Whether a player may stand on `cell`, in the garden or indoors.
+func can_walk(cell: Vector2i) -> bool:
+	if not is_indoors(cell):
+		return in_bounds(cell) and not is_blocked(cell)
+	if not room_floor().has_point(cell) or is_bed(cell):
+		return false
+	return not ROOMS[home_level()]["blocked"].has(cell - INTERIOR_ORIGIN)
+
+
+# ----- the shop
+
+func upgrade_level(kind: String) -> int:
+	return int(upgrades.get(kind, 0))
+
+
+## The next thing to buy of this kind ({"name", "cost", "blurb"}), or {} when
+## it is fully upgraded.
+func next_upgrade(kind: String) -> Dictionary:
+	var steps: Array = UPGRADES.get(kind, [])
+	var level: int = upgrade_level(kind)
+	return steps[level] if level < steps.size() else {}
+
+
+func tool_reach(kind: String) -> int:
+	return TOOL_REACH[clampi(upgrade_level(kind), 0, TOOL_REACH.size() - 1)]
+
+
+## The shop stocks seeds for plants the garden already knows: the three it
+## starts with, and those the Heart Tree has gifted so far.
+func seed_in_stock(species_id: String) -> bool:
+	if not species.has(species_id):
+		return false
+	if STARTER_SEEDS.has(species_id) or journal_level(species_id) > 0:
+		return true
+	for stage: int in TREE_GIFTS.keys():
+		if stage <= tree_stage() and TREE_GIFTS[stage].has(species_id):
+			return true
+	return false
+
+
+func hat_of(player_id: int) -> String:
+	return str(outfits.get(str(player_id), "straw"))
 
 
 func tree_stage() -> int:
@@ -166,7 +316,7 @@ func journal_level(species_id: String) -> int:
 
 
 func get_energy(player_id: int) -> int:
-	return int(energy.get(player_id, MAX_ENERGY))
+	return int(energy.get(player_id, max_energy()))
 
 
 func seed_count(species_id: String) -> int:
@@ -193,8 +343,16 @@ func plant_is_radiant(cell: Vector2i) -> bool:
 
 
 func describe_cell(cell: Vector2i) -> String:
+	if is_indoors(cell):
+		if is_bed(cell):
+			return "Bed: tuck in to end the day"
+		if is_exit_mat(cell):
+			return "Door mat: walk down to go outside"
+		return ""
 	if is_tent(cell):
-		return "Tent: rest here to end the day"
+		return "%s: go inside to sleep" % HOME_NAMES[home_level()]
+	if is_stall(cell):
+		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tree(cell):
 		var goal: int = tree_next_goal()
 		var progress: String = "love %d/%d" % [int(tree["love"]), goal] if goal > 0 else "fully grown"
@@ -225,12 +383,34 @@ func describe_cell(cell: Vector2i) -> String:
 # Call these from gameplay code. On a guest they only send the request to the
 # host and return true; the result arrives through the usual signals.
 
-func request_till(player_id: int, cell: Vector2i) -> bool:
-	return _request("till", player_id, [cell])
+## `facing` is the way the player is looking; with a better hoe or watering
+## can the tool reaches further tiles in that direction.
+func request_till(player_id: int, cell: Vector2i, facing: Vector2i = Vector2i.ZERO) -> bool:
+	return _request("till", player_id, [cell, facing])
 
 
-func request_water(player_id: int, cell: Vector2i) -> bool:
-	return _request("water", player_id, [cell])
+func request_water(player_id: int, cell: Vector2i, facing: Vector2i = Vector2i.ZERO) -> bool:
+	return _request("water", player_id, [cell, facing])
+
+
+func request_sell(player_id: int, species_id: String, count: int) -> bool:
+	return _request("sell", player_id, [species_id, count])
+
+
+func request_buy_seeds(player_id: int, species_id: String, count: int) -> bool:
+	return _request("buy_seeds", player_id, [species_id, count])
+
+
+func request_buy_upgrade(player_id: int, kind: String) -> bool:
+	return _request("buy_upgrade", player_id, [kind])
+
+
+func request_buy_hat(player_id: int, hat_id: String) -> bool:
+	return _request("buy_hat", player_id, [hat_id])
+
+
+func request_wear(player_id: int, hat_id: String) -> bool:
+	return _request("wear", player_id, [hat_id])
 
 
 func request_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
@@ -258,8 +438,13 @@ func _request(action: String, player_id: int, args: Array) -> bool:
 
 func _apply(action: String, player_id: int, args: Array) -> bool:
 	match action:
-		"till": return _do_till(player_id, args[0])
-		"water": return _do_water(player_id, args[0])
+		"till": return _do_reach(player_id, "hoe", args[0], args[1])
+		"water": return _do_reach(player_id, "can", args[0], args[1])
+		"sell": return _do_sell(player_id, args[0], args[1])
+		"buy_seeds": return _do_buy_seeds(player_id, args[0], args[1])
+		"buy_upgrade": return _do_buy_upgrade(player_id, args[0])
+		"buy_hat": return _do_buy_hat(player_id, args[0])
+		"wear": return _do_wear(player_id, args[0])
 		"plant": return _do_plant(player_id, args[0], args[1])
 		"pet": return _do_pet(player_id, args[0])
 		"harvest": return _do_harvest(player_id, args[0])
@@ -269,10 +454,28 @@ func _apply(action: String, player_id: int, args: Array) -> bool:
 
 # ------------------------------------------------- rules (host side only)
 
-func _do_till(player_id: int, cell: Vector2i) -> bool:
-	if not in_bounds(cell) or is_blocked(cell) or soil.has(cell):
+## Tilling or watering `cell` and, with a better tool, the tiles beyond it in
+## the direction faced. One use costs the same energy however far it reaches.
+func _do_reach(player_id: int, tool: String, cell: Vector2i, facing: Vector2i) -> bool:
+	var cost: int = COST_TILL if tool == "hoe" else COST_WATER
+	if get_energy(player_id) < cost:
+		_notify(player_id, "Too tired... time to rest")
 		return false
-	if not _spend(player_id, COST_TILL):
+	var reach: int = tool_reach(tool) if facing != Vector2i.ZERO else 1
+	var did: bool = false
+	for i in reach:
+		var target: Vector2i = cell + facing * i
+		if tool == "hoe":
+			did = _do_till(target) or did
+		else:
+			did = _do_water(player_id, target) or did
+	if did:
+		_spend(player_id, cost)
+	return did
+
+
+func _do_till(cell: Vector2i) -> bool:
+	if not in_bounds(cell) or is_blocked(cell) or soil.has(cell):
 		return false
 	soil[cell] = {"watered": TimeManager.raining}
 	cell_changed.emit(cell)
@@ -281,14 +484,12 @@ func _do_till(player_id: int, cell: Vector2i) -> bool:
 
 func _do_water(player_id: int, cell: Vector2i) -> bool:
 	if is_tree(cell):
-		if bool(tree["watered"]) or not _spend(player_id, COST_WATER):
+		if bool(tree["watered"]):
 			return false
 		tree["watered"] = true
 		tree_changed.emit()
 		return true
 	if not soil.has(cell) or bool(soil[cell]["watered"]):
-		return false
-	if not _spend(player_id, COST_WATER):
 		return false
 	soil[cell]["watered"] = true
 	if plants.has(cell):
@@ -367,6 +568,64 @@ func _do_harvest(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
+func _do_sell(player_id: int, species_id: String, count: int) -> bool:
+	if not species.has(species_id) or count < 1 or int(produce.get(species_id, 0)) < count:
+		return false
+	produce[species_id] = int(produce[species_id]) - count
+	coins += int(species[species_id].sell_price) * count
+	inventory_changed.emit()
+	economy_changed.emit()
+	return true
+
+
+func _do_buy_seeds(player_id: int, species_id: String, count: int) -> bool:
+	if not seed_in_stock(species_id) or count < 1:
+		return false
+	if not _pay(player_id, int(species[species_id].seed_price) * count):
+		return false
+	seeds[species_id] = seed_count(species_id) + count
+	inventory_changed.emit()
+	return true
+
+
+func _do_buy_upgrade(player_id: int, kind: String) -> bool:
+	var next: Dictionary = next_upgrade(kind)
+	if next.is_empty() or not _pay(player_id, int(next["cost"])):
+		return false
+	upgrades[kind] = upgrade_level(kind) + 1
+	economy_changed.emit()
+	return true
+
+
+func _do_buy_hat(player_id: int, hat_id: String) -> bool:
+	if not HATS.has(hat_id) or hats_owned.has(hat_id):
+		return false
+	if not _pay(player_id, int(HATS[hat_id]["cost"])):
+		return false
+	hats_owned.append(hat_id)
+	outfits[str(player_id)] = hat_id  # put it straight on
+	economy_changed.emit()
+	return true
+
+
+func _do_wear(player_id: int, hat_id: String) -> bool:
+	if not hats_owned.has(hat_id) or hat_of(player_id) == hat_id:
+		return false
+	outfits[str(player_id)] = hat_id
+	economy_changed.emit()
+	return true
+
+
+## Takes `cost` coins from the shared purse, or tells the player they're short.
+func _pay(player_id: int, cost: int) -> bool:
+	if coins < cost:
+		_notify(player_id, "Not enough coins (%d short)" % (cost - coins))
+		return false
+	coins -= cost
+	economy_changed.emit()
+	return true
+
+
 ## Getting into bed. The day ends once every player in the garden is in bed;
 ## asking again while waiting gets you back up.
 func _do_sleep(player_id: int) -> bool:
@@ -417,7 +676,7 @@ func end_day(passed_out: bool) -> void:
 	for pid: int in energy.keys():
 		var slept: bool = not passed_out or sleeping.has(pid)
 		@warning_ignore("integer_division")
-		energy[pid] = MAX_ENERGY if slept else MAX_ENERGY / 2
+		energy[pid] = max_energy() if slept else max_energy() / 2
 		if not slept:
 			dozers.append(pid)
 		energy_changed.emit(pid)
@@ -570,6 +829,10 @@ func to_snapshot() -> Dictionary:
 		"produce": produce,
 		"tree": tree,
 		"journal": journal,
+		"coins": coins,
+		"upgrades": upgrades,
+		"hats_owned": hats_owned,
+		"outfits": outfits,
 		"energy": energy_out,
 	}
 
@@ -599,6 +862,19 @@ func apply_snapshot(data: Dictionary) -> void:
 	seeds = _int_values(data.get("seeds", {}))
 	produce = _int_values(data.get("produce", {}))
 	journal = _int_values(data.get("journal", {}))
+	coins = int(data.get("coins", START_COINS))
+	upgrades = {"hoe": 0, "can": 0, "home": 0}
+	for kind: String in data.get("upgrades", {}).keys():
+		if UPGRADES.has(kind):
+			upgrades[kind] = clampi(int(data["upgrades"][kind]), 0, UPGRADES[kind].size())
+	hats_owned = ["straw"]
+	for hat: Variant in data.get("hats_owned", []):
+		if HATS.has(str(hat)) and not hats_owned.has(str(hat)):
+			hats_owned.append(str(hat))
+	outfits = {}
+	for key: String in data.get("outfits", {}).keys():
+		if hats_owned.has(str(data["outfits"][key])):
+			outfits[key] = str(data["outfits"][key])
 	var saved_tree: Dictionary = data.get("tree", {})
 	tree = {"love": int(saved_tree.get("love", 0)), "watered": bool(saved_tree.get("watered", false)), "hugged_by": {}}
 	for k: String in saved_tree.get("hugged_by", {}).keys():
@@ -787,8 +1063,15 @@ func _rpc_request(action: String, args: Array) -> void:
 	if slot == 0:
 		return
 	var valid: bool = false
+	const WAYS: Array[Vector2i] = [Vector2i.ZERO, Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
 	match action:
-		"till", "water", "pet", "harvest":
+		"till", "water":
+			valid = args.size() == 2 and args[0] is Vector2i and args[1] is Vector2i and WAYS.has(args[1])
+		"sell", "buy_seeds":
+			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 999
+		"buy_upgrade", "buy_hat", "wear":
+			valid = args.size() == 1 and args[0] is String
+		"pet", "harvest":
 			valid = args.size() == 1 and args[0] is Vector2i
 		"plant":
 			valid = args.size() == 2 and args[0] is Vector2i and args[1] is String
@@ -796,6 +1079,20 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.is_empty()
 	if valid:
 		_apply(action, slot, args)
+
+
+func _mirror_economy() -> void:
+	if _mirroring():
+		_net_economy.rpc(coins, upgrades, hats_owned, outfits)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_economy(new_coins: int, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary) -> void:
+	coins = new_coins
+	upgrades = new_upgrades
+	hats_owned = new_hats
+	outfits = new_outfits
+	economy_changed.emit()
 
 
 func _mirror_tree() -> void:

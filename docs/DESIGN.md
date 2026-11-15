@@ -23,7 +23,7 @@ sims; the name, plants, characters and art are our own.
   growth, no mood loss). It does not die.
 - Energy (100/day) limits how much one player can do. Staying up to 2am means
   waking with half energy.
-- Seeds and produce are shared by everyone in the garden. There is no money.
+- Seeds, produce and coins are shared by everyone in the garden.
 
 ## Plants
 | Plant | Seasons | Days to bloom | Notes | How you get it |
@@ -59,6 +59,24 @@ blooms and radiant blooms are announced on the morning screen.
 - Seasons change the ground and the air: petals, fireflies on summer
   evenings, falling leaves, snow.
 
+## Home, shop and backpack
+- **Home:** walking into the home's door leads to a room inside (its own
+  space, far to the side of the garden grid). The bed is the only way to end
+  the day; sleepers are drawn tucked in, host on the left pillow, partner on
+  the right. Anyone still up at 2am is carried to bed with half energy.
+- **Coins:** shared purse, 100 to start. Each plant has a sell price and a
+  seed price (`data/plants/*.tres`).
+- **Bristle's stall** sells:
+  - seeds for plants the garden knows (starting three, plus Heart Tree gifts);
+  - hoe and watering can upgrades that reach 3 then 5 tiles in the direction
+    faced, for the energy of one use;
+  - the home: tent -> cabin (1500) -> cottage (5000); each level is a bigger
+    room and +15 energy every morning;
+  - hats, bought once for the garden and worn by either player.
+- **Backpack (E):** grid of seeds and harvest, the purse, the player's
+  portrait and the hat wardrobe.
+- Prices and upgrade tables live in `GameState` (`UPGRADES`, `HATS`).
+
 ## Menus
 The title menu follows the usual farm-sim flow: **New** (name a garden),
 **Load** (list of saved gardens with their date, with delete), **Co-op**
@@ -70,8 +88,8 @@ co-op it does not.
 ## HUD
 Kept small so the garden stays in view: a toggleable minimap top left (M), an
 info box top right (date, time and weather, Heart Tree love), a vertical
-energy bar bottom right, and an icon tool bar bottom centre. There is no money
-in the game; Heart Tree love sits where a farm sim would show gold.
+energy bar bottom right, and an icon tool bar bottom centre. Coins and
+Heart Tree love sit under the clock.
 
 ## Co-op (built in Milestone 2)
 - Two players. One hosts and owns the garden and its save; the other joins by
@@ -99,7 +117,7 @@ in the game; Heart Tree love sits where a farm sim would show gold.
 - **Connecting:** a relay host that doesn't sleep, or Steam networking.
 - **More co-op play:** plants that only reach a rare form with two carers,
   seeing which tool your partner is using, emotes.
-- **More to nurture:** light/shade needs, pests and weeds, decorations, more
-  species, something to do with harvested produce.
+- **More to nurture:** light/shade needs, pests and weeds, more species.
+- **More to buy:** furniture and decorations to place, sprinklers, clothes.
 - **Polish:** hand-drawn art and composed music in place of the generated
   ones, a pause menu, volume settings, a Windows export.
