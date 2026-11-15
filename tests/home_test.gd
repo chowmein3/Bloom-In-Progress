@@ -266,6 +266,69 @@ func _ready() -> void:
 	await _wait(0.1)
 	await _tap(KEY_J)
 
+	print("animals")
+	GameState.coins = 3000
+	GameState.request_buy_upgrade(P, "coop")
+	GameState.request_buy_animal(P, "chicken")
+	GameState.request_buy_item(P, "feed", 2)
+	var hen: Vector2i = GameState.animal_cell(0)
+	player.position = Vector2((hen.x + 0.5) * 16, (hen.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	_expect(player.call("target_cell") == hen and str(player.call("hand_hint")) == "feed", "facing a hungry hen, the hand offers to feed her")
+	await _tap(KEY_F)
+	_expect(bool(GameState.animals[0]["fed"]) and str(player.call("hand_hint")) == "stroke", "F feeds her; next it offers a stroke")
+	await _tap(KEY_SPACE)
+	_expect(GameState.animals[0]["petted_by"].has("1"), "Space with a tool that has nothing to do strokes her")
+	await _wait(0.3)
+	await _shot("home_6k_coop")
+
+	print("a visitor")
+	GameState.request_set_time(P, 0, 9 * 60, false)
+	await _wait(4.5)
+	var guest_at: Vector2i = GameState.VISITOR_CELL
+	player.position = Vector2((guest_at.x + 0.5) * 16, (guest_at.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	_expect(str(player.call("hand_hint")) == "talk", "Maple is visiting and can be talked to")
+	GameState.produce["moonbell"] = 1
+	await _tap(KEY_F)
+	var chat: CanvasLayer = _screen("villager.gd")
+	_expect(chat.visible and bool(GameState.friends["maple"]["talked"]), "F opens a chat, which counts as the day's talk")
+	await _wait(0.1)
+	await _shot("home_6l_villager")
+	_click(chat, "Give")
+	_expect(bool(GameState.friends["maple"]["gifted"]) and int(GameState.friends["maple"]["points"]) >= 50, "Give hands over a gift and friendship grows")
+	await _tap(KEY_ESCAPE)
+
+	print("the mine")
+	GameState.request_buy_upgrade(P, "pickaxe")
+	var mouth := Vector2i(GameState.MINE_RECT.position.x, GameState.MINE_RECT.end.y)
+	player.position = Vector2((mouth.x + 0.5) * 16, mouth.y * 16 + 12)
+	await _hold(KEY_W, 0.5)
+	_expect(GameState.is_in_mine(player.call("cell")), "walking into the cave mouth leads down into the mine")
+	await _wait(0.3)
+	await _shot("home_6m_mine")
+	var rock := Vector2i(-1, -1)
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.is_in_mine(at) and GameState.can_walk(at + Vector2i(0, 1)):
+			rock = at
+	player.position = Vector2((rock.x + 0.5) * 16, (rock.y + 2) * 16 - 2)
+	await _hold(KEY_W, 0.1)
+	_expect(player.call("target_cell") == rock, "standing below a rock")
+	await _tap(KEY_F)
+	_expect(GameState.objects.has(rock), "a bare hand can't break it")
+	await _tap(KEY_6)
+	await _tap(KEY_SPACE)
+	_expect(not GameState.objects.has(rock), "the pickaxe (6) does")
+	player.call("go_into_mine")
+	_key(KEY_S, true)
+	for i in 40:
+		if not player.call("indoors"):
+			break
+		await _wait(0.03)
+	_key(KEY_S, false)
+	_expect(not player.call("indoors") and player.call("cell").x == GameState.MINE_RECT.position.x, "walking down the ladder tile comes back out at the cave mouth")
+	await _tap(KEY_1)
+
 	print("the cabin")
 	await _wait(0.2)
 	await _shot("home_7_cabin_outside")

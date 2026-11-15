@@ -8,7 +8,11 @@ const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "mornin
 const MUSIC_DB := -16.0
 const EFFECT_DB := -8.0
 
+const Settings := preload("res://scripts/settings.gd")
+
 var music_on: bool = true
+var music_volume: float = 1.0  # 0 to 1, from the settings screen
+var sound_volume: float = 1.0
 
 var _music: AudioStreamPlayer
 var _streams: Dictionary = {}
@@ -36,6 +40,8 @@ func _ready() -> void:
 	_music.volume_db = MUSIC_DB
 	add_child(_music)
 	_music.play()
+	var saved: Dictionary = Settings.read()
+	set_volumes(float(saved.get("music_volume", 1.0)), float(saved.get("sound_volume", 1.0)))
 
 	GameState.state_reloaded.connect(_remember)
 	GameState.cell_changed.connect(_on_cell_changed)
@@ -47,6 +53,15 @@ func _ready() -> void:
 	GameState.time_warped.connect(func() -> void: play("warp"))
 	GameState.object_changed.connect(func(cell: Vector2i) -> void: play("soil" if GameState.objects.has(cell) else "pick"))
 	_remember()
+
+
+## Both from 0 (silent) to 1 (full).
+func set_volumes(music: float, sounds: float) -> void:
+	music_volume = clampf(music, 0.0, 1.0)
+	sound_volume = clampf(sounds, 0.0, 1.0)
+	_music.volume_db = MUSIC_DB + linear_to_db(maxf(music_volume, 0.0001))
+	for voice: AudioStreamPlayer in _voices:
+		voice.volume_db = EFFECT_DB + linear_to_db(maxf(sound_volume, 0.0001))
 
 
 func play(effect: String) -> void:

@@ -68,7 +68,10 @@ func _rebuild() -> void:
 		child.queue_free()
 	var me: int = player.get("player_id")
 	var total: int = 0
-	var ids: Array = GameState.species.keys() + GameState.ITEMS.keys()
+	var ids: Array = GameState.sellable_ids()
+	for id: String in GameState.bin.keys():
+		if not ids.has(id):
+			ids.append(id)
 	var any: bool = false
 	for id: String in ids:
 		var price: int = GameState.sell_price_of(id)
@@ -81,7 +84,7 @@ func _rebuild() -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 3)
 		var icon := TextureRect.new()
-		icon.texture = Assets.texture("res://assets/sprites/items/%s.png" % id)
+		icon.texture = Assets.texture("res://assets/sprites/items/%s.png" % GameState.base_of(id))
 		icon.custom_minimum_size = Vector2(16, 16)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 		row.add_child(icon)

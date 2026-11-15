@@ -12,7 +12,7 @@ const HELP_ROWS: Array = [
 	["Shift", "Run"],
 	["Space", "Use tool"],
 	["F", "Use hand"],
-	["1-5", "Choose tool"],
+	["1-6", "Choose tool"],
 	["Q", "Change seed/item"],
 	["E", "Backpack"],
 	["J", "Journal"],
@@ -29,6 +29,7 @@ const ICON_MOON := 8
 const ICON_LOVE := 9
 const ICON_COIN := 10
 const ICON_ROD := 11
+const ICON_PICK := 12
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
@@ -134,12 +135,15 @@ func _ready() -> void:
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
 	bar_row.add_theme_constant_override("separation", 1)
-	for i in 5:
+	for i in 6:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(16, 16)
-		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.mouse_filter = Control.MOUSE_FILTER_STOP  # clicking a slot chooses that tool
+		slot.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and player != null:
+				player.call("select_tool", i))
 		if i != 3:
-			var picture: TextureRect = _icon(i if i < 3 else ICON_ROD)
+			var picture: TextureRect = _icon(i if i < 3 else (ICON_ROD if i == 4 else ICON_PICK))
 			picture.position = Vector2(2, 3)
 			slot.add_child(picture)
 		else:  # the item slot shows whatever is being held

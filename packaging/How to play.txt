@@ -39,10 +39,11 @@ KEYS
   Shift (hold)   run             J    journal (plants, goals, fish)
   Space / click  use held tool   M    map on/off
   F / right click  use hand      N    music on/off
-  1-5            choose tool     H    help card
+  1-6            choose tool     H    help card
   Q              change seed     Esc  pause menu
 
-  Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod.
+  Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod,
+  6 pickaxe. Settings (volume, fullscreen) are in the Esc menu.
   Your hand (F) pets, picks, picks up, clears and opens things, so those
   never need a tool. If the held tool has nothing to do, Space uses the
   hand too.
@@ -67,3 +68,9 @@ GOOD TO KNOW
   Bin:     the crate by your home sells what you put in it overnight.
   Goals:   the journal (J) lists goals that pay coins; day 14 of each
            season is a festival.
+  Animals: Bristle's Animals tab builds a coop and barn. Feed (F) and
+           stroke (F again) each animal daily for eggs and milk.
+  Visitors: someone stands near the stall most days. Talk (F) and give
+           a gift a day to make friends; friends send presents.
+  Mine:    the cave at the top right. Buy the pickaxe, then 6 and Space
+           on rocks for stone, copper, gold and gems.

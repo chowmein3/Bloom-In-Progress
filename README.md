@@ -59,7 +59,7 @@ godot --path .
 | Shift (hold) | Run |
 | Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
 | F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
-| 1-5 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod |
+| 1-6 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, Pickaxe. Clicking a slot works too |
 | Tab | Next tool |
 | Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
@@ -73,14 +73,19 @@ Walk into your home's door to go inside, face the bed and press Space to
 tuck in. Plants grow overnight if they were watered, and the game saves each
 night.
 
+## Settings and saving
+The title and pause menus have **Settings**: music and sound volume,
+fullscreen, and the key list. The pause menu (Esc) also has **Save now**, on
+top of the automatic save each night. Only the host's game saves.
+
 ## Title menu
 - **New:** name a garden and start it. Each garden has its own save file.
 - **Load:** pick a saved garden, or delete one.
 - **Co-op:** host one of your gardens for a partner, or join theirs.
 - **Exit:** quit.
 
-Gardens are saved each night when you sleep, so returning to the title or
-quitting mid-day loses that day's progress.
+Gardens are saved each night when you sleep, and whenever you choose Save now
+in the pause menu.
 
 ## What to do
 - Water plants every day; pet them (tool 4) to raise their mood. A happy plant
@@ -99,6 +104,24 @@ quitting mid-day loses that day's progress.
 - **Hands:** no tool is needed to pet, pick or pick things up. Face it and
   press F. A plant you haven't petted today gets petted; a ripe plant you
   already petted gets picked. The line above the tool bar shows what F will do.
+- **Animals:** build a coop, then a barn, at Bristle's Animals tab and buy
+  hens and cows. Each morning feed them (F, with animal feed in the backpack)
+  and stroke them (F again). Fed animals give eggs and milk overnight; happy
+  ones give two.
+- **Visitors:** Maple, Pebble and Old Thistle each drop by two days a week and
+  stand near the stall. Talk (F) once a day and give one gift a day; each has
+  loves, likes and dislikes. Every new heart of friendship brings a present.
+- **The mine:** the cave mouth at the top right leads to a room of rocks,
+  renewed every morning. Buy the pickaxe (Tools tab) and break them (6, Space)
+  for stone, copper, gold and the odd amethyst. Copper and gold make the Great
+  Sprinkler, which waters all eight tiles around it.
+- **Quality:** a happy plant gives silver-quality harvest and a radiant one
+  gold, worth a quarter and a half more.
+- **Crows and scarecrows:** with six or more plants, a crow sometimes pecks one
+  overnight and it loses mood. A scarecrow (wood and fiber) guards six tiles
+  around it.
+- **Fruit trees:** buy a plumble sapling (Decor tab), set it on open ground,
+  and after ten days it bears a plumble every three days, except in winter.
 - **Fishing:** face the pond with the rod (5) and press Space. Wait for the
   "!", press Space to hook it, then press Space each time the marker crosses
   the green band. Which fish bite depends on season, hour and rain. Sell them,

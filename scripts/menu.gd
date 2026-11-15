@@ -15,6 +15,7 @@ signal join_chosen(address: String)
 signal resume_chosen
 signal title_chosen
 signal exit_chosen
+signal save_chosen
 
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
@@ -90,6 +91,7 @@ func show_title(status: String = "") -> void:
 		_hosting = false
 		_show_load())
 	_button("Co-op", _show_coop)
+	_button("Settings", func() -> void: _show_settings("title"))
 	_button("Exit", func() -> void: exit_chosen.emit())
 	set_status(status)
 
@@ -98,9 +100,54 @@ func show_pause() -> void:
 	_open("pause", 0.45)
 	_heading("Paused", 10)
 	_button("Resume", func() -> void: resume_chosen.emit()).grab_focus()
+	if Net.is_host():  # the garden lives on the host's computer
+		_button("Save now", func() -> void:
+			save_chosen.emit()
+			set_status("Garden saved."))
+	_button("Settings", func() -> void: _show_settings("pause"))
 	_button("Return to title", func() -> void: title_chosen.emit())
 	_button("Exit game", func() -> void: exit_chosen.emit())
-	_note("The garden is saved each night when you\nsleep. Leaving now loses today's progress.")
+	_note("The garden also saves each night when you sleep.")
+
+
+## Volume, fullscreen and a reminder of the keys. `back_to` is the screen
+## it was opened from: "title" or "pause".
+func _show_settings(back_to: String) -> void:
+	_open("settings", 0.72 if back_to == "title" else 0.45)
+	_heading("Settings", 10)
+	_stepper("Music", Sound.music_volume, func(v: float) -> void:
+		Sound.set_volumes(v, Sound.sound_volume)
+		Settings.put("music_volume", v), back_to)
+	_stepper("Sounds", Sound.sound_volume, func(v: float) -> void:
+		Sound.set_volumes(Sound.music_volume, v)
+		Settings.put("sound_volume", v)
+		Sound.play("pet"), back_to)
+	var full: bool = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	_button("Fullscreen: %s" % ("on" if full else "off"), func() -> void:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		Settings.put("fullscreen", not full)
+		_show_settings(back_to))
+	_note("Move WASD    Run Shift    Tool Space / click\nHand F / right click    Tools 1-6    Seed or item Q\nBackpack E    Journal J    Map M    Music N    Help H")
+	_button("Back", show_pause if back_to == "pause" else show_title).grab_focus()
+
+
+## A row with a name, a value from 0 to 1 shown in tenths, and - / + buttons.
+func _stepper(title: String, value: float, change: Callable, back_to: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	var label := Label.new()
+	label.text = "%s  %d%%" % [title, int(round(value * 100.0))]
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	for step: float in [-0.1, 0.1]:
+		var button := Button.new()
+		button.text = "-" if step < 0.0 else "+"
+		button.custom_minimum_size.x = 16
+		button.pressed.connect(func() -> void:
+			change.call(clampf(snappedf(value + step, 0.1), 0.0, 1.0))
+			_show_settings(back_to))
+		row.add_child(button)
+	_box.add_child(row)
 
 
 func _show_new() -> void:

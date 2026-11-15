@@ -730,7 +730,118 @@ def make_things():
         c.rect(0, 3, 16, 3, light(wood, 0.2))  # lid, propped open
         c.rect(5, 11, 6, 2, rgb("#ffd24a"))  # a coin plate
 
+    def scarecrow(c):
+        c.rect(7, 6, 2, 9, wood)
+        c.rect(2, 7, 12, 2, wood)
+        c.rect(4, 7, 8, 5, rgb("#c9644a"))
+        c.ell(7.5, 4, 3, 2.6, rgb("#e3c48a"))
+        c.rect(4, 1, 8, 1, rgb("#8a5e3a"))
+        c.rect(6, 0, 4, 1, rgb("#8a5e3a"))
+        c.dot(6, 4, DARK)
+        c.dot(9, 4, DARK)
+
+    def bigsprinkler(c):
+        metal = rgb("#e0b04a")
+        c.rect(7, 5, 2, 10, metal)
+        c.rect(2, 4, 12, 2, metal)
+        c.rect(7, 1, 2, 4, metal)
+        c.rect(5, 14, 6, 1, rgb("#a87a2a"))
+        for x, y in ((1, 2), (14, 2), (0, 7), (15, 7), (4, 0), (11, 0)):
+            c.dot(x, y, rgb("#5aa0e0"))
+
+    def sapling(c):
+        c.rect(7, 8, 2, 7, wood)
+        c.ell(7.5, 5.5, 4, 3.6, green)
+        c.rect(5, 14, 6, 1, rgb("#8a6238"))
+
+    def feed(c):
+        c.rect(3, 5, 10, 9, rgb("#e3c48a"))
+        c.rect(4, 3, 8, 2, rgb("#c9a26a"))
+        for x, y in ((5, 8), (8, 7), (10, 10), (6, 11)):
+            c.dot(x, y, rgb("#f2b84a"))
+
+    def plumble(c):
+        c.ell(7.5, 9, 5, 4.6, rgb("#b05ac8"))
+        c.ell(6, 7.5, 1.6, 1.4, rgb("#d99aea"))
+        c.rect(7, 2, 2, 3, wood)
+        c.rect(9, 3, 3, 2, green)
+
+    def egg(c):
+        c.ell(7.5, 9, 4.2, 5.2, rgb("#fbeed3"))
+        c.ell(6, 7, 1.4, 1.8, WHITE)
+
+    def milk(c):
+        c.rect(5, 5, 6, 10, WHITE)
+        c.rect(6, 2, 4, 3, WHITE)
+        c.rect(6, 1, 4, 1, rgb("#5aa0e0"))
+        c.rect(5, 9, 6, 3, rgb("#5aa0e0"))
+
+    def nugget(colour):
+        def draw(c):
+            c.ell(6, 10, 4, 3.2, rgb(colour))
+            c.ell(10.5, 8.5, 3.4, 3.6, light(rgb(colour), 0.2))
+            c.dot(5, 9, WHITE)
+        return draw
+
+    def amethyst(c):
+        gem = rgb("#a86ae0")
+        c.tri(5, 4, 3, 9, gem)
+        c.tri(10, 2, 3.4, 11, light(gem, 0.2))
+        c.rect(2, 12, 12, 2, shade(gem, 0.2))
+
+    def ore_rock(vein):
+        def draw(c):
+            c.ell(7.5, 9.5, 7, 5.6, rgb("#7d7888"))
+            c.ell(5, 7, 3, 2, rgb("#958fa3"))
+            if vein:
+                for x, y in ((4, 9), (9, 7), (11, 11), (7, 12)):
+                    c.rect(x, y, 2, 2, rgb(vein))
+        return draw
+
+    def cup(colour):
+        def draw(c):
+            c.rect(3, 6, 8, 7, rgb("#fbeed3"))
+            c.rect(4, 7, 6, 2, rgb(colour))
+            c.rect(11, 7, 2, 1, rgb("#fbeed3"))
+            c.rect(12, 8, 1, 3, rgb("#fbeed3"))
+            c.rect(11, 11, 2, 1, rgb("#fbeed3"))
+            c.dot(6, 3, WHITE)
+            c.dot(8, 4, WHITE)
+        return draw
+
+    def omelette(c):
+        c.ell(7.5, 10, 6.5, 3.5, WHITE)
+        c.ell(7.5, 9, 5, 2.6, rgb("#ffd24a"))
+        c.dot(6, 8, rgb("#5aa85a"))
+        c.dot(9, 9, rgb("#e0605a"))
+
+    def chicken(c):
+        c.ell(7, 10, 5, 4, WHITE)
+        c.ell(11, 6.5, 2.6, 2.6, WHITE)
+        c.rect(11, 3, 2, 2, rgb("#e0605a"))
+        c.rect(13, 7, 2, 1, rgb("#f2b84a"))
+        c.dot(11, 6, DARK)
+        c.rect(5, 14, 1, 1, rgb("#f2b84a"))
+        c.rect(8, 14, 1, 1, rgb("#f2b84a"))
+
+    def cow(c):
+        c.rect(1, 6, 11, 7, WHITE)
+        c.rect(3, 7, 3, 3, rgb("#5a4a42"))
+        c.rect(8, 9, 2, 3, rgb("#5a4a42"))
+        c.rect(11, 4, 4, 5, WHITE)
+        c.rect(12, 8, 3, 2, rgb("#ffb3a8"))
+        c.dot(13, 6, DARK)
+        c.rect(11, 3, 1, 1, rgb("#e3c48a"))
+        c.rect(14, 3, 1, 1, rgb("#e3c48a"))
+        for x in (2, 5, 8, 10):
+            c.rect(x, 13, 1, 2, rgb("#5a4a42"))
+
     drawings = {
+        "scarecrow": scarecrow, "bigsprinkler": bigsprinkler, "sapling": sapling, "feed": feed,
+        "plumble": plumble, "egg": egg, "milk": milk, "copper": nugget("#d98a4a"), "goldore": nugget("#ffd24a"),
+        "amethyst": amethyst, "omelette": omelette, "cocoa": cup("#8a5e3a"),
+        "ore_stone": ore_rock(None), "ore_copper": ore_rock("#d98a4a"), "ore_gold": ore_rock("#ffd24a"), "ore_gem": ore_rock("#c88af0"),
+        "chicken": chicken, "cow": cow,
         "minnow": fish("#9fb4c8", "#e3ecf2", "#7a94ad"),
         "sunfish": fish("#f2b84a", "#fff3b8", "#e0803a"),
         "raincarp": fish("#5a8fc8", "#bfe6ff", "#3f6a9a"),
@@ -748,6 +859,86 @@ def make_things():
     }
     for name, draw in drawings.items():
         save(piece(16, 16, draw), "items", name + ".png")
+
+
+# assets/sprites/fruit_tree.png: three 32x40 frames (young, grown, with fruit),
+# base on the bottom row. coop.png and barn.png: 48x40. mine.png: 32x32.
+# villager_<id>.png: 16x24, standing, facing down.
+
+def make_farmyard():
+    bark, leaf = rgb("#8a6044"), rgb("#57a868")
+    frames = []
+    for stage in range(3):
+        c = Canvas(32, 40)
+        if stage == 0:
+            c.rect(15, 26, 2, 12, bark)
+            c.ell(15.5, 22, 6, 6, leaf)
+        else:
+            c.rect(14, 22, 4, 16, bark)
+            c.ell(15.5, 14, 12, 11, leaf)
+            c.ell(8, 19, 6, 5, leaf)
+            c.ell(23, 19, 6, 5, leaf)
+            if stage == 2:
+                for x, y in ((8, 12), (20, 9), (13, 18), (23, 17), (15, 6)):
+                    c.ell(x, y, 2, 2, rgb("#b05ac8"))
+        frames.append(c.finish())
+    save(sheet(frames), "fruit_tree.png")
+
+    def building(wall, roof, door, name):
+        c = Canvas(48, 40)
+        c.rect(5, 18, 38, 20, rgb(wall))
+        for y in range(22, 38, 5):
+            c.rect(5, y, 38, 1, shade(rgb(wall), 0.2))
+        c.tri(23.5, 2, 24, 17, rgb(roof))
+        c.rect(19, 24, 10, 14, rgb(door))
+        c.rect(23, 24, 1, 14, shade(rgb(door), 0.3))
+        c.rect(33, 23, 6, 5, rgb("#bfe6ff"))
+        save(c.finish(), name)
+
+    building("#e8c48a", "#c9644a", "#8a5e3a", "coop.png")
+    building("#c9544a", "#6b4630", "#fbeed3", "barn.png")
+
+    c = Canvas(32, 32)
+    rock = rgb("#7d7888")
+    c.ell(15.5, 20, 15, 12, rock)
+    c.rect(1, 20, 30, 10, rock)
+    c.ell(15.5, 22, 8, 9, rgb("#241a2a"))
+    c.rect(8, 22, 16, 8, rgb("#241a2a"))
+    c.rect(6, 8, 3, 2, rgb("#958fa3"))
+    c.rect(22, 11, 4, 2, rgb("#958fa3"))
+    c.rect(9, 29, 14, 1, rgb("#8a5e3a"))
+    save(c.finish(), "mine.png")
+
+    looks = {  # body, head, extra drawing
+        "maple": ("#f2b84a", "#c98a55"),
+        "pebble": ("#5aa0e0", "#7fc46a"),
+        "thistle": ("#8a9a5a", "#e9e4dc"),
+    }
+    for who, (clothes, face) in looks.items():
+        c = Canvas(16, 24)
+        c.rect(4, 20, 3, 3, rgb("#6b4a36"))
+        c.rect(9, 20, 3, 3, rgb("#6b4a36"))
+        c.rect(4, 13, 8, 7, rgb(clothes))
+        c.rect(3, 13, 1, 5, rgb(clothes))
+        c.rect(12, 13, 1, 5, rgb(clothes))
+        c.rect(4, 6, 8, 7, rgb(face))
+        if who == "maple":  # a bear in a beekeeper's hat
+            c.rect(3, 4, 3, 3, rgb(face))
+            c.rect(10, 4, 3, 3, rgb(face))
+            c.rect(2, 5, 12, 1, rgb("#fff0c9"))
+            c.rect(6, 10, 4, 3, rgb("#f3d9b0"))
+        elif who == "pebble":  # a frog with a fishing cap
+            c.rect(4, 4, 3, 3, rgb(face))
+            c.rect(9, 4, 3, 3, rgb(face))
+            c.rect(3, 6, 10, 1, rgb("#e0605a"))
+            c.rect(5, 11, 6, 1, shade(rgb(face), 0.3))
+        else:  # an old goat with a beard
+            c.rect(3, 5, 2, 3, rgb("#c9c2b5"))
+            c.rect(11, 5, 2, 3, rgb("#c9c2b5"))
+            c.rect(6, 12, 4, 3, WHITE)
+            c.rect(4, 5, 8, 1, rgb("#8a6238"))
+        c.face(5, 8, happy=False, gap=5)
+        save(c.finish(), "villager_%s.png" % who)
 
 
 # assets/sprites/tower.png: the clock tower, 32x48, base on the bottom row.
@@ -1098,7 +1289,7 @@ def make_tree():
 # --------------------------------------------------------------- UI icons
 # assets/sprites/ui_icons.png: 12x12 frames left to right:
 #   hoe, watering can, seed bag, petting hand (heart), basket,
-#   sun, rain cloud, snow cloud, moon, love heart, coin, fishing rod
+#   sun, rain cloud, snow cloud, moon, love heart, coin, fishing rod, pickaxe
 
 def icon(draw):
     c = Canvas(12, 12)
@@ -1178,8 +1369,15 @@ def make_icons():
         c.rect(10, 2, 1, 7, rgb("#dfe6f0"))  # line
         c.rect(9, 9, 2, 2, rgb("#e0605a"))  # float
 
+    def pickaxe(c):
+        for i in range(7):
+            c.rect(2 + i, 9 - i, 2, 1, wood)
+        c.rect(4, 2, 7, 2, metal)
+        c.rect(3, 3, 2, 2, metal)
+        c.rect(10, 3, 2, 3, metal)
+
     draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
-             lambda c: heart(c, rgb("#ff5d7a")), coin, rod]
+             lambda c: heart(c, rgb("#ff5d7a")), coin, rod, pickaxe]
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 
@@ -1211,6 +1409,7 @@ if __name__ == "__main__":
     make_stall()
     make_tower()
     make_things()
+    make_farmyard()
     make_items()
     make_tree()
     print("sprites written to", os.path.normpath(OUT))

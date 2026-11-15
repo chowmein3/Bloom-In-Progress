@@ -177,7 +177,7 @@ func _fill_items() -> void:
 		if int(GameState.produce.get(id, 0)) > 0:
 			_add_slot(id, "harvest")
 			shown += 1
-	for id: String in GameState.ITEMS.keys():
+	for id: String in GameState.items.keys():
 		if GameState.item_count(id) > 0:
 			_add_slot(id, "item")
 			shown += 1
@@ -224,7 +224,15 @@ func _add_slot(id: String, sort: String) -> void:
 	var count: int = GameState.seed_count(id) if sort == "seed" else GameState.stock_of(id)
 	var slot := Button.new()
 	slot.custom_minimum_size = Vector2(20, 20)
-	slot.icon = Assets.texture("res://assets/sprites/items/%s%s.png" % [id, "_seeds" if sort == "seed" else ""])
+	slot.icon = Assets.texture("res://assets/sprites/items/%s%s.png" % [GameState.base_of(id), "_seeds" if sort == "seed" else ""])
+	var quality: String = GameState.quality_of(id)
+	if quality != "":  # a silver or gold star in the corner
+		var star := ColorRect.new()
+		star.color = Color(1.0, 0.82, 0.25) if quality == "gold" else Color(0.82, 0.86, 0.92)
+		star.position = Vector2(2, 2)
+		star.size = Vector2(4, 4)
+		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(star)
 	slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var holding: bool = (sort == "seed" and str(player.get("seed_id")) == id) or (sort == "item" and str(player.get("item_id")) == id)
 	if holding:
@@ -249,6 +257,8 @@ func _add_slot(id: String, sort: String) -> void:
 			_rebuild())
 	elif sort == "harvest":
 		words = "%s x%d. Bristle pays %d coins each." % [GameState.name_of(id), count, int(GameState.species[id].sell_price)]
+	elif quality != "":
+		words = "%s x%d. Sells for %d each." % [GameState.name_of(id), count, GameState.sell_price_of(id)]
 	else:
 		var info: Dictionary = GameState.ITEMS[id]
 		words = "%s x%d. %s" % [info["name"], count, info["blurb"]]
