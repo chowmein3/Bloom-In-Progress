@@ -13,6 +13,7 @@ const GUEST_CELL := Vector2i(15, 5)  # the tile in front of the guest's start sp
 
 var role: String = "host"
 var out_dir: String = ""
+var save_file: String = ""
 var failures: int = 0
 var main: Node
 
@@ -26,7 +27,8 @@ func _ready() -> void:
 	Net.port = 24999
 	TimeManager.rain_chance = 0.0
 	GameState.rng.seed = 1
-	GameState.save_path = "user://coop_test_%s.json" % role
+	save_file = "user://coop_test_%s.json" % role
+	GameState.save_path = save_file
 	GameState.new_game()
 	main = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
@@ -34,7 +36,7 @@ func _ready() -> void:
 		await _run_host()
 	else:
 		await _run_guest()
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(GameState.save_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_file))
 	print("%s: %s" % [role.to_upper(), "ALL CHECKS PASSED" if failures == 0 else "%d FAILED" % failures])
 	get_tree().quit(1 if failures > 0 else 0)
 
@@ -67,7 +69,7 @@ func _run_host() -> void:
 	_expect(TimeManager.day_index == 0 and GameState.is_sleeping(HOST), "day waits while only the host is in bed")
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 15.0), "day ends once both are in bed")
 	_check_morning()
-	_expect(FileAccess.file_exists(GameState.save_path), "host saved the garden")
+	_expect(FileAccess.file_exists(save_file), "host saved the garden")
 	_expect(await _until(func() -> bool: return Net.slots().size() == 1, 15.0), "host notices the guest leaving")
 	_expect(main.get("remote_players").is_empty(), "guest's character is removed")
 
@@ -100,7 +102,7 @@ func _run_guest() -> void:
 	GameState.request_sleep(GUEST)
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 10.0), "day ends for the guest too")
 	_check_morning()
-	_expect(not FileAccess.file_exists(GameState.save_path), "guest does not save the host's garden")
+	_expect(GameState.save_path == "" and not FileAccess.file_exists(save_file), "guest does not save the host's garden")
 	await _wait(2.5)
 	await _shot("coop_guest_morning")
 

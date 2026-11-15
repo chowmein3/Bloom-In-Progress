@@ -59,6 +59,14 @@ blooms and radiant blooms are announced on the morning screen.
 - Seasons change the ground and the air: petals, fireflies on summer
   evenings, falling leaves, snow.
 
+## Menus
+The title menu follows the usual farm-sim flow: **New** (name a garden),
+**Load** (list of saved gardens with their date, with delete), **Co-op**
+(**Host** a saved or new garden, or **Join** by address) and **Exit**. Esc in
+game opens a pause menu with Resume, Return to title and Exit. Each garden is
+its own save file, written every night; alone, pausing stops the clock, in
+co-op it does not.
+
 ## HUD
 Kept small so the garden stays in view: a toggleable minimap top left (M), an
 info box top right (date, time and weather, Heart Tree love), a vertical

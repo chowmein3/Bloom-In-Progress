@@ -35,9 +35,19 @@ godot --path .
 | M | Show or hide the minimap |
 | N | Music on/off |
 | H | Show or hide the help card |
+| Esc | Pause menu (resume, return to title, exit) |
 
 Face the tent and press Space to sleep. Plants grow overnight if they were
 watered, and the game saves each night.
+
+## Title menu
+- **New:** name a garden and start it. Each garden has its own save file.
+- **Load:** pick a saved garden, or delete one.
+- **Co-op:** host one of your gardens for a partner, or join theirs.
+- **Exit:** quit.
+
+Gardens are saved each night when you sleep, so returning to the title or
+quitting mid-day loses that day's progress.
 
 ## What to do
 - Water plants every day; pet them (tool 4) to raise their mood. A happy plant
@@ -52,9 +62,9 @@ watered, and the game saves each night.
 ## Playing together
 One of you hosts; the garden and its save file live on the host's computer.
 
-1. **Host:** choose "Host my garden for a partner". The help card shows the
-   address to share.
-2. **Partner:** type that address into the box on the start screen and press Join.
+1. **Host:** on the title menu choose **Co-op > Host**, then a saved garden or
+   "Host a new garden". The help card shows the address to share.
+2. **Partner:** choose **Co-op > Join**, type that address and press Join.
 
 - On the same Wi-Fi this works as is (allow Godot/the game through the
   firewall if Windows asks).
@@ -95,6 +105,12 @@ Garden rules:
 
 ```bash
 godot --headless --path . res://tests/test_runner.tscn
+```
+
+Menus (title, new, load, host, join, pause):
+
+```bash
+godot --headless --path . res://tests/menu_test.tscn
 ```
 
 Co-op (starts a host and a guest on this machine; needs bash):
