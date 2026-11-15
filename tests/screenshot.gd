@@ -1,0 +1,115 @@
+extends Node
+## Plays a short scripted session in the real game scene and saves pictures.
+## Run (needs a display):  godot --path . res://tests/screenshot.tscn -- <output folder>
+
+const P := 1
+var out_dir: String = "user://"
+var failures: int = 0
+
+
+func _ready() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if args.size() > 0:
+		out_dir = args[0]
+	TimeManager.paused = true
+	TimeManager.rain_chance = 0.0
+	GameState.save_path = "user://screenshot_save.json"
+	GameState.new_game()
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(main)
+	var player: Node2D = main.get("player")
+	await _frames(5)
+
+	# Drive the player with real key presses: walk down, till, plant, water, pet.
+	await _hold(KEY_S, 0.6)
+	var start: Vector2i = player.call("target_cell")
+	await _tap(KEY_SPACE)
+	_expect(GameState.soil.has(start), "key press tilled the tile in front")
+	await _tap(KEY_3)
+	await _tap(KEY_SPACE)
+	_expect(GameState.plants.has(start), "key press planted a seed")
+	await _tap(KEY_2)
+	await _tap(KEY_SPACE)
+	_expect(bool(GameState.soil[start]["watered"]), "key press watered it")
+	await _tap(KEY_4)
+	await _tap(KEY_SPACE)
+	_expect(not GameState.plants[start]["petted_by"].is_empty(), "key press petted it")
+	await _frames(8)
+	await _shot("1_first_seed")
+
+	# Fill out a little garden through the same request API the player uses.
+	var kinds: Array[String] = ["sunpuff", "moonbell", "sunpuff", "moonbell", "sunpuff"]
+	for i in kinds.size():
+		var cell := Vector2i(17 + i * 2, 8)
+		GameState.request_till(P, cell)
+		GameState.request_plant(P, cell, kinds[i])
+	for day in 9:
+		for cell: Vector2i in GameState.plants.keys():
+			GameState.request_water(P, cell)
+			if cell.x != 17:
+				GameState.request_pet(P, cell)
+		if day == 4:
+			await _wait(2.0)
+			await _shot("2_growing")
+		GameState.end_day(false)
+		GameState.request_till(P, Vector2i(17 + day, 10))
+	await _wait(2.0)
+	for cell: Vector2i in GameState.plants.keys():
+		GameState.request_water(P, cell)
+	GameState.request_pet(P, Vector2i(19, 8))
+	await _frames(10)
+	await _shot("3_in_bloom")
+
+	TimeManager.rain_chance = 1.0
+	GameState.end_day(false)
+	TimeManager.minutes = 19 * 60
+	TimeManager.time_changed.emit()
+	await _wait(2.0)
+	await _shot("4_rainy_evening")
+
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://screenshot_save.json"))
+	print("SCREENSHOTS DONE" if failures == 0 else "%d CHECKS FAILED" % failures)
+	get_tree().quit(1 if failures > 0 else 0)
+
+
+func _expect(cond: bool, label: String) -> void:
+	print("  %s  %s" % ["ok  " if cond else "FAIL", label])
+	if not cond:
+		failures += 1
+
+
+func _frames(count: int) -> void:
+	for i in count:
+		await get_tree().process_frame
+
+
+func _wait(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+
+
+func _key(key: Key, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.physical_keycode = key
+	event.keycode = key
+	event.pressed = pressed
+	Input.parse_input_event(event)
+
+
+func _tap(key: Key) -> void:
+	_key(key, true)
+	await _frames(3)
+	_key(key, false)
+	await _frames(3)
+
+
+func _hold(key: Key, seconds: float) -> void:
+	_key(key, true)
+	await get_tree().create_timer(seconds).timeout
+	_key(key, false)
+	await _frames(2)
+
+
+func _shot(shot_name: String) -> void:
+	await RenderingServer.frame_post_draw
+	var image: Image = get_viewport().get_texture().get_image()
+	image.save_png(out_dir.path_join(shot_name + ".png"))
