@@ -11,9 +11,12 @@ const Assets := preload("res://scripts/assets.gd")
 signal loadout_changed
 signal area_changed  # stepped indoors or back out
 signal shop_requested  # used the shopkeeper's stall
+signal clock_requested  # used the clock tower
 
 const TILE := 16
 const SPEED := 64.0
+const SPRINT := 1.75  # times faster while Shift is held
+const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
 const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Hands", "Basket"]
 ## Points around the feet that must all be on walkable tiles.
 const FOOTPRINT: Array[Vector2] = [Vector2(-4, -1), Vector2(4, -1), Vector2(-4, -6), Vector2(4, -6)]
@@ -32,6 +35,7 @@ var _walk: float = 0.0
 var _send_in: float = 0.0
 var _remote_pos: Vector2
 var _remote_moving: bool = false
+var _remote_sprinting: bool = false
 var _texture: Texture2D
 var _texture_slot: int = -1
 var _hats: Texture2D
@@ -48,6 +52,7 @@ func _ready() -> void:
 
 ## Latest position of a remote player, from the network.
 func remote_update(pos: Vector2, new_facing: Vector2i, moving: bool) -> void:
+	_remote_sprinting = moving and pos.distance_to(_remote_pos) > SPEED * 0.05 * 1.3
 	_remote_pos = pos
 	_remote_moving = moving
 	if new_facing != facing:
@@ -80,7 +85,10 @@ func _process(delta: float) -> void:
 		else:
 			position = position.lerp(_remote_pos, minf(1.0, delta * 15.0))
 		if _remote_moving:
-			_walk += delta
+			_walk += delta * (SPRINT if _remote_sprinting else 1.0)
+			queue_redraw()
+		elif _walk != 0.0:
+			_walk = 0.0
 			queue_redraw()
 		return
 	var busy: bool = frozen or in_menu or reading or not visible
@@ -100,7 +108,8 @@ func _process(delta: float) -> void:
 			facing = Vector2i(int(signf(dir.x)), 0)
 		else:
 			facing = Vector2i(0, int(signf(dir.y)))
-		var step: Vector2 = dir.normalized() * SPEED * delta
+		var pace: float = SPRINT if Input.is_action_pressed("sprint") else 1.0
+		var step: Vector2 = dir.normalized() * SPEED * pace * delta
 		_try_move(Vector2(step.x, 0))
 		if not _try_move(Vector2(0, step.y)):
 			# Walking into the home's door goes in; walking down off the mat goes out.
@@ -108,7 +117,7 @@ func _process(delta: float) -> void:
 				go_inside()
 			elif step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
 				go_outside()
-		_walk += delta
+		_walk += delta * pace
 		queue_redraw()
 	elif _walk != 0.0:
 		_walk = 0.0
@@ -215,6 +224,9 @@ func use_tool() -> void:
 	if GameState.is_stall(target):
 		shop_requested.emit()
 		return
+	if GameState.is_tower(target):
+		clock_requested.emit()
+		return
 	if GameState.is_tree(target) and tool_index != 1 and tool_index != 3:
 		GameState.notice.emit("The Heart Tree likes water (2) and hugs (4)")
 		return
@@ -226,8 +238,9 @@ func use_tool() -> void:
 		4: GameState.request_harvest(player_id, target)
 
 
-## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 2 columns
-## (standing, stepping) by rows facing down, up, left, right (then asleep).
+## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 3 columns
+## (standing, left foot, right foot) by rows facing down, up, left, right
+## (then asleep).
 ## The hat being worn is drawn on top from assets/sprites/hats.png.
 func _draw() -> void:
 	if _texture == null or _texture_slot != player_id:
@@ -240,7 +253,7 @@ func _draw() -> void:
 		row = 2
 	elif facing.x > 0:
 		row = 3
-	var column: int = int(_walk * 8.0) % 2
+	var column: int = WALK_CYCLE[int(_walk * 9.0) % WALK_CYCLE.size()] if _walk > 0.0 else 0
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0, 0, 0, 0.18))  # shadow
 	draw_texture_rect_region(_texture, Rect2(-8, -23, 16, 24), Rect2(column * 16, row * 24, 16, 24))
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(player_id))

@@ -131,6 +131,64 @@ func _ready() -> void:
 	_expect(GameState.can_walk(player.call("cell")) and GameState.room_size() == Vector2i(10, 6), "the bigger room can be walked into")
 	await _shot("home_8_cabin_inside")
 
+	print("sprinting")
+	player.call("go_outside")
+	await _wait(0.2)
+	var from: float = player.position.x
+	await _hold(KEY_D, 0.4)
+	var walked: float = player.position.x - from
+	from = player.position.x
+	_key(KEY_SHIFT, true)
+	await _hold(KEY_D, 0.4)
+	_key(KEY_SHIFT, false)
+	var ran: float = player.position.x - from
+	_expect(walked > 15.0 and ran > walked * 1.5, "holding Shift covers the ground much faster (%d vs %d units)" % [int(ran), int(walked)])
+
+	print("the clock tower")
+	_key(KEY_SHIFT, true)
+	_key(KEY_A, true)  # run left until below the tower
+	for i in 200:
+		if player.position.x <= 137.0:
+			break
+		await get_tree().process_frame
+	_key(KEY_A, false)
+	_key(KEY_SHIFT, false)
+	await _hold(KEY_W, 0.3)
+	_expect(GameState.is_tower(player.call("target_cell")), "ran over to face the clock tower")
+	await _wait(0.2)
+	await _shot("home_9_tower")
+	await _tap(KEY_SPACE)
+	var clock: CanvasLayer = _screen("clock.gd")
+	_expect(clock.visible and bool(player.get("reading")), "Space at the tower opens the clock screen")
+	_click(clock, "Fall")
+	_click(clock, "Night")
+	_click(clock, "+")
+	_click(clock, "Winter")
+	_expect(_button(clock, "Rain") == null, "winter offers no rain")
+	_click(clock, "Fall")
+	_click(clock, "Rain")
+	await _wait(0.1)
+	await _shot("home_10_clock")
+	var day_before: int = TimeManager.day_of_season()
+	_click(clock, "CHANGE TIME!")
+	var warp: CanvasLayer = _screen("time_warp.gd")
+	_expect(TimeManager.season() == 2 and TimeManager.minutes == 23 * 60 and TimeManager.day_of_season() == day_before + 1, "CHANGE TIME! jumps to the chosen fall night")
+	_expect(TimeManager.raining, "with the rain that was asked for")
+	_expect(not clock.visible and bool(warp.get("playing")) and bool(player.get("frozen")), "and the show begins, holding the player still")
+	await _wait(0.9)
+	await _shot("home_11_warp_a")
+	await _wait(1.0)
+	await _shot("home_12_warp_b")
+	await _wait(1.1)
+	await _shot("home_13_warp_c")
+	for i in 80:
+		if not bool(warp.get("playing")):
+			break
+		await _wait(0.1)
+	_expect(not bool(warp.get("playing")) and not bool(player.get("frozen")), "when it ends the player can move again")
+	await _wait(0.2)
+	await _shot("home_14_fall_night")
+
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://home_test_save.json"))
 	print("\n%s" % ("HOME TEST PASSED" if failures == 0 else "%d FAILED" % failures))
 	get_tree().quit(1 if failures > 0 else 0)

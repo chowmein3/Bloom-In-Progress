@@ -118,6 +118,29 @@ def make_effects():
     save("morning", sequence(["C5", "E5", "G5", "C6"], 0.16, 1.2, 3, BELL), 0.6)
     save("grow", sequence(["G5", "C6", "E6", "G6", "C7"], 0.09, 1.0, 4, BELL), 0.55)
     save("page", noise(0.16, 16, 3), 0.3)
+    # The clock tower bending time: a bell, clockwork ticking faster and
+    # faster under a rising whoosh, a crash, then a small "ta-da".
+    warp = np.zeros(int(3.9 * RATE))
+
+    def at(sound, when, gain=1.0):
+        start = int(when * RATE)
+        end = min(len(warp), start + len(sound))
+        warp[start:end] += sound[:end - start] * gain
+
+    at(tone(hz("C3"), 1.6, 2.2, BELL), 0.0, 0.9)
+    at(tone(hz("G3"), 1.4, 2.5, BELL), 0.05, 0.5)
+    when, gap = 0.45, 0.22
+    while when < 2.45:
+        at(tone(1400 + when * 500, 0.04, 90, SOFT), when, 0.35)
+        when += gap
+        gap = max(0.03, gap * 0.86)
+    t = np.arange(int(2.0 * RATE)) / RATE
+    whoosh = np.sin(2 * np.pi * np.cumsum(180 + 900 * (t / 2.0) ** 2) / RATE) * (t / 2.0) ** 1.5
+    at(whoosh, 0.5, 0.45)
+    at(noise(0.9, 5, 2), 2.5, 1.1)
+    at(tone(hz("C2"), 0.9, 4, SOFT), 2.5, 0.9)
+    at(sequence(["G5", "C6"], 0.14, 0.7, 5, BELL), 3.05, 0.5)
+    save("warp", warp, 0.75)
 
 
 if __name__ == "__main__":

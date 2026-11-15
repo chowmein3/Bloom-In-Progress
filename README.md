@@ -42,6 +42,7 @@ godot --path .
 | Key | Action |
 |---|---|
 | WASD / arrows | Move |
+| Shift (hold) | Run |
 | Space / F | Use the current tool on the highlighted tile, open doors, talk to the shopkeeper |
 | 1-5 | Hoe, Watering Can, Seeds, Hands (pet), Basket (harvest) |
 | Tab | Next tool |
@@ -80,6 +81,9 @@ quitting mid-day loses that day's progress.
 - **Bristle's stall** (the hedgehog beside your home): sell picked plants for
   coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
   cabin and then a cottage (more room, more energy each morning), and hats.
+- **Clock tower** (left of your home): face it and press Space to set any
+  season, day, year, time of day and weather, to see how the garden looks
+  then. Nothing grows or wilts for the time skipped. Expect a scene.
 - **Backpack** (E): the garden's shared seeds and harvest, your coins, and the
   hats you own. Click a seed packet to hold it; click a hat to wear it.
 - Coins, seeds, harvest, tools, the home and the hat wardrobe are shared by

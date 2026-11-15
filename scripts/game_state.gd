@@ -21,6 +21,7 @@ signal state_reloaded
 signal sleepers_changed
 signal tree_changed
 signal journal_changed
+signal time_warped  # the clock tower changed the date or time
 signal economy_changed  # coins, upgrades, hats owned or hats worn changed
 
 const SPECIES_PATHS: Array[String] = [
@@ -57,6 +58,10 @@ const MAX_ENERGY := 100
 const START_COINS := 100
 const ENERGY_PER_HOME_LEVEL := 15  # a better bed means more energy each morning
 const STARTER_SEEDS: Array[String] = ["sunpuff", "moonbell", "dewcup"]
+
+## The clock tower, left of the home: lets players set any date and time.
+const TOWER_RECT := Rect2i(7, 1, 2, 2)
+const LAST_YEAR := 99
 
 ## The shopkeeper's stall in the garden.
 const STALL_RECT := Rect2i(17, 1, 3, 2)
@@ -203,9 +208,13 @@ func is_stall(cell: Vector2i) -> bool:
 	return STALL_RECT.has_point(cell)
 
 
+func is_tower(cell: Vector2i) -> bool:
+	return TOWER_RECT.has_point(cell)
+
+
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	return is_tent(cell) or is_tree(cell) or is_stall(cell)
+	return is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell)
 
 
 # ----- the home and its inside
@@ -353,6 +362,8 @@ func describe_cell(cell: Vector2i) -> String:
 		return "%s: go inside to sleep" % HOME_NAMES[home_level()]
 	if is_stall(cell):
 		return "Bristle's stall: sell plants, buy seeds and more"
+	if is_tower(cell):
+		return "Clock tower: set any date and time"
 	if is_tree(cell):
 		var goal: int = tree_next_goal()
 		var progress: String = "love %d/%d" % [int(tree["love"]), goal] if goal > 0 else "fully grown"
@@ -413,6 +424,12 @@ func request_wear(player_id: int, hat_id: String) -> bool:
 	return _request("wear", player_id, [hat_id])
 
 
+## The clock tower: jump to any day (counted from the garden's first day) and
+## time of day, with or without rain.
+func request_set_time(player_id: int, day_index: int, minutes: int, raining: bool) -> bool:
+	return _request("set_time", player_id, [day_index, minutes, raining])
+
+
 func request_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 	return _request("plant", player_id, [cell, species_id])
 
@@ -445,6 +462,7 @@ func _apply(action: String, player_id: int, args: Array) -> bool:
 		"buy_upgrade": return _do_buy_upgrade(player_id, args[0])
 		"buy_hat": return _do_buy_hat(player_id, args[0])
 		"wear": return _do_wear(player_id, args[0])
+		"set_time": return _do_set_time(args[0], args[1], args[2])
 		"plant": return _do_plant(player_id, args[0], args[1])
 		"pet": return _do_pet(player_id, args[0])
 		"harvest": return _do_harvest(player_id, args[0])
@@ -613,6 +631,26 @@ func _do_wear(player_id: int, hat_id: String) -> bool:
 		return false
 	outfits[str(player_id)] = hat_id
 	economy_changed.emit()
+	return true
+
+
+## Sets the calendar and clock without living through the days between:
+## nothing grows and nothing is lost. Plants wake or go dormant for the new
+## season, and rain (if asked for) waters the soil as on any rainy day.
+func _do_set_time(day_index: int, minutes: int, raining: bool) -> bool:
+	TimeManager.set_clock(mini(day_index, TimeManager.DAYS_PER_SEASON * 4 * LAST_YEAR - 1), minutes, raining)
+	var season: int = TimeManager.season()
+	for cell: Vector2i in plants.keys():
+		var p: Dictionary = plants[cell]
+		p["dormant"] = not species[p["species"]].seasons.has(season)
+	if TimeManager.raining:
+		for cell: Vector2i in soil.keys():
+			soil[cell]["watered"] = true
+		tree["watered"] = true
+	state_reloaded.emit()  # every view redraws for the new season and light
+	time_warped.emit()
+	if _mirroring():
+		_net_warp.rpc(to_snapshot())
 	return true
 
 
@@ -1069,6 +1107,8 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 2 and args[0] is Vector2i and args[1] is Vector2i and WAYS.has(args[1])
 		"sell", "buy_seeds":
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 999
+		"set_time":
+			valid = args.size() == 3 and args[0] is int and args[1] is int and args[2] is bool and args[0] >= 0
 		"buy_upgrade", "buy_hat", "wear":
 			valid = args.size() == 1 and args[0] is String
 		"pet", "harvest":
@@ -1079,6 +1119,12 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.is_empty()
 	if valid:
 		_apply(action, slot, args)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_warp(data: Dictionary) -> void:
+	apply_snapshot(data)
+	time_warped.emit()
 
 
 func _mirror_economy() -> void:

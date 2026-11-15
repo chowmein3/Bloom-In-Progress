@@ -92,6 +92,7 @@ func _run_host() -> void:
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 15.0), "day ends once both are in bed")
 	_check_morning()
 	_expect(FileAccess.file_exists(save_file), "host saved the garden")
+	_expect(await _until(func() -> bool: return TimeManager.season() == 2 and TimeManager.minutes == 20 * 60 and TimeManager.day_of_season() == 5, 15.0), "the guest's clock tower change reaches the host")
 	_expect(await _until(func() -> bool: return Net.slots().size() == 1, 15.0), "host notices the guest leaving")
 	_expect(main.get("remote_players").is_empty(), "guest's character is removed")
 
@@ -155,6 +156,10 @@ func _after_join() -> void:
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 10.0), "day ends for the guest too")
 	_check_morning()
 	_expect(GameState.save_path == "" and not FileAccess.file_exists(save_file), "guest does not save the host's garden")
+	# The clock tower, used by the guest: both gardens jump together.
+	GameState.request_set_time(GUEST, 2 * 28 + 4, 20 * 60, false)
+	_expect(await _until(func() -> bool: return TimeManager.season() == 2 and TimeManager.minutes == 20 * 60, 10.0), "guest's clock tower change comes back from the host")
+	_expect(bool(GameState.plants[HOST_CELL]["dormant"]), "and the spring plant is dormant in fall on the guest's side")
 	await _wait(2.5)
 	await _shot("coop_guest_morning")
 

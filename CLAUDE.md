@@ -24,8 +24,10 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `menu.gd`, `ground.gd`, `plant_view.gd`, `tree_view.gd`, `player.gd`,
   `hud.gd`, `minimap.gd`, `journal.gd`, `rain.gd` (weather) and `effects.gd`
   (mood icons) are the visuals. `interior.gd` and `bed_view.gd` draw the
-  inside of the home; `inventory.gd` (backpack) and `shop.gd` are pop-up
-  screens styled by `ui_style.gd`. HUD panels share one parchment-and-wood style
+  inside of the home; `inventory.gd` (backpack), `shop.gd` and `clock.gd`
+  (clock tower) are pop-up screens styled by `ui_style.gd`. `tower_view.gd`
+  draws the tower; `time_warp.gd` is the animation played on
+  `GameState.time_warped`. HUD panels share one parchment-and-wood style
   (`_style()` in `hud.gd`); icons come from `assets/sprites/ui_icons.png`.
 - `scripts/sound.gd` (autoload `Sound`): music and effects, driven by
   GameState signals.
@@ -43,6 +45,8 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `GameState.ROOMS` must match the room pictures drawn by `tools/make_art.py`.
 - Coins, upgrades and hats change only through `request_sell`, `request_buy_*`
   and `request_wear`; they emit `economy_changed`, which is mirrored to guests.
+- The date and time jump only through `request_set_time` (never by editing
+  `TimeManager` from a screen), so guests stay in step.
 - A pop-up screen sets `player.reading` while open and must not open when it
   is already true.
 - Every change to the world goes through `GameState.request_*()`. Never edit

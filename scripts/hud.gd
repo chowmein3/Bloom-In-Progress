@@ -9,6 +9,7 @@ const Assets := preload("res://scripts/assets.gd")
 const Minimap := preload("res://scripts/minimap.gd")
 const HELP_ROWS: Array = [
 	["WASD", "Move"],
+	["Shift", "Run"],
 	["Space", "Use tool"],
 	["1-5", "Choose tool"],
 	["Q", "Change seed"],

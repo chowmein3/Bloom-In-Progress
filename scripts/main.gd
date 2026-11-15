@@ -23,6 +23,9 @@ const Interior := preload("res://scripts/interior.gd")
 const BedView := preload("res://scripts/bed_view.gd")
 const Inventory := preload("res://scripts/inventory.gd")
 const Shop := preload("res://scripts/shop.gd")
+const Clock := preload("res://scripts/clock.gd")
+const TowerView := preload("res://scripts/tower_view.gd")
+const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
 
 var player: Node2D
@@ -72,6 +75,9 @@ func _ready() -> void:
 	stall.position = Vector2((GameState.STALL_RECT.position.x + GameState.STALL_RECT.size.x / 2.0) * TILE, GameState.STALL_RECT.end.y * TILE)
 	_entities.add_child(stall)
 	_entities.add_child(BedView.new())
+	var tower := TowerView.new()
+	tower.position = Vector2((GameState.TOWER_RECT.position.x + GameState.TOWER_RECT.size.x / 2.0) * TILE, GameState.TOWER_RECT.end.y * TILE)
+	_entities.add_child(tower)
 	var tree := TreeView.new()
 	tree.position = Vector2((GameState.TREE_RECT.position.x + GameState.TREE_RECT.size.x / 2.0) * TILE, GameState.TREE_RECT.end.y * TILE)
 	_entities.add_child(tree)
@@ -109,6 +115,13 @@ func _ready() -> void:
 	shop.player = player
 	add_child(shop)
 	player.shop_requested.connect(shop.open)
+	var clock := Clock.new()
+	clock.player = player
+	add_child(clock)
+	player.clock_requested.connect(clock.open)
+	var warp := TimeWarp.new()
+	warp.player = player
+	add_child(warp)
 
 	menu = Menu.new()
 	add_child(menu)
@@ -443,6 +456,7 @@ func _setup_input() -> void:
 	_bind("move_down", [KEY_S, KEY_DOWN])
 	_bind("use", [KEY_SPACE, KEY_F])
 	_bind("toggle_inventory", [KEY_E, KEY_I])
+	_bind("sprint", [KEY_SHIFT])
 	_bind("next_seed", [KEY_Q])
 	_bind("cycle_tool", [KEY_TAB])
 	_bind("toggle_help", [KEY_H])
