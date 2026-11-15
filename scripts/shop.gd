@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
-const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Decor", "Hats"]
+const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Animals", "Decor", "Hats"]
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
@@ -124,7 +124,8 @@ func _rebuild() -> void:
 	match tab:
 		"Sell": _fill_sell()
 		"Seeds": _fill_seeds()
-		"Tools": _fill_upgrades(["hoe", "can"])
+		"Tools": _fill_upgrades(["hoe", "can", "pickaxe"])
+		"Animals": _fill_animals()
 		"Home": _fill_upgrades(["home"])
 		"Decor": _fill_decor()
 		"Hats": _fill_hats()
@@ -166,7 +167,7 @@ func _button(text: String, enabled: bool, action: Callable, thanks: String) -> B
 
 func _item_icon(id: String, seeds: bool) -> TextureRect:
 	var picture := TextureRect.new()
-	picture.texture = Assets.texture("res://assets/sprites/items/%s%s.png" % [id, "_seeds" if seeds else ""])
+	picture.texture = Assets.texture("res://assets/sprites/items/%s%s.png" % [GameState.base_of(id), "_seeds" if seeds else ""])
 	picture.custom_minimum_size = Vector2(16, 16)
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	return picture
@@ -182,8 +183,7 @@ func _fill_sell() -> void:
 		_row(_item_icon(asked, false), "Wanted: %d %s" % [amount, GameState.name_of(asked)], "Bristle pays double. You have %d." % have, str(int(GameState.wanted["reward"])), [
 			_button("Deliver", have >= amount, func() -> void: GameState.request_deliver(me), "Just what I was after. Thank you!"),
 		])
-	var sellable: Array = GameState.species.keys() + GameState.ITEMS.keys()
-	for id: String in sellable:
+	for id: String in GameState.sellable_ids():
 		var each: int = GameState.sell_price_of(id)
 		var count: int = GameState.stock_of(id)
 		if each <= 0 or count <= 0:
@@ -223,7 +223,7 @@ func _fill_upgrades(kinds: Array) -> void:
 	for kind: String in kinds:
 		var next: Dictionary = GameState.next_upgrade(kind)
 		var level: int = GameState.upgrade_level(kind)
-		var have: String = GameState.HOME_NAMES[level] if kind == "home" else (GameState.UPGRADES[kind][level - 1]["name"] if level > 0 else ("Hoe" if kind == "hoe" else "Watering Can"))
+		var have: String = GameState.HOME_NAMES[level] if kind == "home" else (GameState.UPGRADES[kind][level - 1]["name"] if level > 0 else {"hoe": "Hoe", "can": "Watering Can"}.get(kind, "nothing yet"))
 		var icon: Control = null
 		if kind == "home":
 			var house := TextureRect.new()
@@ -233,7 +233,7 @@ func _fill_upgrades(kinds: Array) -> void:
 			house.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon = house
 		else:
-			icon = Ui.picture(_icons, Rect2((0 if kind == "hoe" else 1) * 12, 0, 12, 12))
+			icon = Ui.picture(_icons, Rect2(int({"hoe": 0, "can": 1, "pickaxe": 12}.get(kind, 0)) * 12, 0, 12, 12))
 		if next.is_empty():
 			_row(icon, have, "The best there is. Nothing more to buy.", "", [])
 			continue
@@ -243,12 +243,40 @@ func _fill_upgrades(kinds: Array) -> void:
 		])
 
 
+func _fill_animals() -> void:
+	var me: int = player.get("player_id")
+	for kind: String in ["coop", "barn"]:
+		var step: Dictionary = GameState.UPGRADES[kind][0]
+		var built: bool = GameState.upgrade_level(kind) > 0
+		var house := TextureRect.new()
+		house.texture = Assets.texture("res://assets/sprites/%s.png" % kind)
+		house.custom_minimum_size = Vector2(24, 20)
+		house.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		house.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		if built:
+			_row(house, step["name"], "Built.", "", [])
+		else:
+			_row(house, step["name"], "%s." % step["blurb"], str(int(step["cost"])), [
+				_button("Build", GameState.coins >= int(step["cost"]), func() -> void: GameState.request_buy_upgrade(me, kind), "I'll have it up in no time."),
+			])
+	for kind: String in GameState.ANIMALS.keys():
+		var info: Dictionary = GameState.ANIMALS[kind]
+		var have: int = GameState.animal_count(kind)
+		var can: bool = GameState.upgrade_level(info["home"]) > 0 and have < int(info["max"]) and GameState.coins >= int(info["cost"])
+		_row(_item_icon(kind, false), info["name"], "Feed and stroke daily for %s. You have %d of %d." % [GameState.name_of(info["gives"]).to_lower(), have, int(info["max"])], str(int(info["cost"])), [
+			_button("Buy", can, func() -> void: GameState.request_buy_animal(me, kind), "Look after her well!"),
+		])
+	_row(_item_icon("feed", false), "Animal Feed", "One helping. Or make it from fiber. You have %d." % GameState.item_count("feed"), "10", [
+		_button("Buy 5", GameState.coins >= 50, func() -> void: GameState.request_buy_item(me, "feed", 5), "Hungry mouths, eh?"),
+	])
+
+
 func _fill_decor() -> void:
 	var me: int = player.get("player_id")
 	for id: String in GameState.ITEMS.keys():
 		var info: Dictionary = GameState.ITEMS[id]
 		var cost: int = int(info.get("cost", 0))
-		if cost <= 0:
+		if cost <= 0 or id == "feed":
 			continue
 		var note: String = "%s You have %d." % [info["blurb"], GameState.item_count(id)]
 		_row(_item_icon(id, false), info["name"], note, str(cost), [

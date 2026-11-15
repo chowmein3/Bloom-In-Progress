@@ -67,7 +67,7 @@ func _ready() -> void:
 	check(GameState.plant_is_mature(a), "sunpuff matures after 5 watered days")
 	check(GameState.request_harvest(P, a), "harvest")
 	check(not GameState.plants.has(a), "single-harvest plant is removed")
-	check(int(GameState.produce["sunpuff"]) >= 1, "produce gained")
+	check(GameState.harvest_total("sunpuff") == 1, "produce gained")
 	check(GameState.seed_count("sunpuff") >= 7, "seeds returned")
 
 	print("regrowing plant")
@@ -290,14 +290,20 @@ func _ready() -> void:
 
 	print("gathering")
 	GameState.new_game()
-	check(GameState.objects.is_empty(), "with wild growth off, the ground starts clear")
+	var in_garden: Callable = func() -> int:
+		var count: int = 0
+		for at: Vector2i in GameState.objects.keys():
+			if not GameState.is_indoors(at):
+				count += 1
+		return count
+	check(in_garden.call() == 0, "with wild growth off, the ground starts clear")
 	GameState.wild_growth = true
 	GameState.scatter_debris(40)
-	var debris: int = GameState.objects.size()
+	var debris: int = in_garden.call()
 	check(debris > 20 and debris <= GameState.MAX_DEBRIS, "debris scatters over the garden, up to a limit")
 	var clear_yard: bool = true
 	for at: Vector2i in GameState.objects.keys():
-		if GameState.YARD.has_point(at) or GameState.is_blocked(at):
+		if not GameState.is_indoors(at) and (GameState.YARD.has_point(at) or GameState.ANIMAL_YARD.has_point(at) or GameState.is_blocked(at)):
 			clear_yard = false
 	check(clear_yard, "but never in the yard around the home")
 	GameState.end_day(false)
@@ -480,6 +486,126 @@ func _ready() -> void:
 	var winter_seeds: int = GameState.seed_count("snowpip")
 	GameState.end_day(false)
 	check(GameState.seed_count("snowpip") == winter_seeds + 3, "three lanterns on Lantern Night bring winter seeds")
+	GameState.new_game()
+
+	print("quality, crows and fruit trees")
+	GameState.new_game()
+	var q := Vector2i(5, 14)
+	for mood_and_want: Array in [[40, "sunpuff"], [70, "sunpuff.silver"], [100, "sunpuff.gold"]]:
+		GameState.request_till(P, q)
+		GameState.request_plant(P, q, "sunpuff")
+		GameState.plants[q]["days_grown"] = 9
+		GameState.plants[q]["happiness"] = mood_and_want[0]
+		GameState.request_harvest(P, q)
+		check(GameState.stock_of(mood_and_want[1]) == 1, "mood %d harvests as %s" % [mood_and_want[0], mood_and_want[1]])
+	check(GameState.sell_price_of("sunpuff.silver") == 37 and GameState.sell_price_of("sunpuff.gold") == 45, "silver sells for a quarter more, gold for half as much again")
+	check(GameState.name_of("sunpuff.gold") == "Sunpuff (gold)" and GameState.sellable_ids().has("sunpuff.gold"), "starred harvest is named and can be sold")
+	var coins_q: int = GameState.coins
+	check(GameState.request_sell(P, "sunpuff.gold", 1) and GameState.coins == coins_q + 45, "selling a gold sunpuff pays 45")
+	for i in 6:
+		GameState.request_till(P, Vector2i(2 + i, 16))
+		GameState.request_plant(P, Vector2i(2 + i, 16), "sunpuff")
+		GameState.seeds["sunpuff"] = 9
+	var pecked: bool = false
+	for turn in 200:
+		var lines: Array = GameState._crows()
+		if not lines.is_empty():
+			pecked = str(lines[0]).begins_with("A crow pecked")
+			break
+	check(pecked, "with six unguarded plants, a crow turns up sooner or later")
+	GameState.items["scarecrow"] = 1
+	check(GameState.request_place(P, Vector2i(4, 15), "scarecrow"), "a scarecrow can be set up")
+	var quiet: bool = true
+	for turn in 200:
+		if not GameState._crows().is_empty():
+			quiet = false
+	check(quiet, "and then crows leave the plants near it alone")
+	GameState.coins = 1000
+	check(GameState.request_buy_item(P, "sapling", 1) and GameState.request_place(P, Vector2i(10, 14), "sapling"), "a plumble sapling is bought and planted")
+	GameState.end_day(false)
+	check(not GameState.request_harvest(P, Vector2i(10, 14)) and GameState.objects.has(Vector2i(10, 14)), "once rooted it can't be picked up")
+	for turn in 12:
+		GameState.end_day(false)
+	check(bool(GameState.objects[Vector2i(10, 14)].get("fruit", false)), "after ten days of growing and three more, it bears fruit")
+	check(GameState.request_harvest(P, Vector2i(10, 14)) and GameState.item_count("plumble") == 1 and not bool(GameState.objects[Vector2i(10, 14)]["fruit"]), "the fruit is picked by hand and the tree stays")
+
+	print("animals")
+	GameState.new_game()
+	GameState.coins = 5000
+	check(not GameState.request_buy_animal(P, "chicken"), "a chicken needs a coop")
+	check(GameState.request_buy_upgrade(P, "coop") and not GameState.can_walk(Vector2i(2, 1)), "the coop is built at the top left")
+	check(GameState.request_buy_animal(P, "chicken") and GameState.request_buy_animal(P, "chicken") and GameState.animals.size() == 2, "two hens move in")
+	var hen: Vector2i = GameState.animal_cell(0)
+	check(GameState.animal_at(hen) == 0 and not GameState.can_walk(hen), "each has her own spot in front of it")
+	check(not GameState.request_tend(P, hen), "feeding needs feed")
+	GameState.items["fiber"] = 2
+	check(GameState.request_craft(P, "feed") and GameState.item_count("feed") == 2, "two fiber make two helpings of feed")
+	check(GameState.request_tend(P, hen) and bool(GameState.animals[0]["fed"]) and GameState.item_count("feed") == 1, "the first visit feeds her")
+	check(GameState.request_tend(P, hen) and GameState.animals[0]["petted_by"].has("1") and not GameState.request_tend(P, hen), "the second pets her, once a day each")
+	GameState.end_day(false)
+	check(GameState.item_count("egg") == 1, "a fed hen lays an egg; a hungry one doesn't")
+	check(int(GameState.animals[0]["mood"]) == 61 and int(GameState.animals[1]["mood"]) == 35, "mood follows how each was treated")
+	check(not bool(GameState.animals[0]["fed"]), "they are hungry again each morning")
+	check(GameState.request_buy_upgrade(P, "barn") and GameState.request_buy_animal(P, "cow") and GameState.animal_at(Vector2i(1, 8)) == 2, "a barn and a cow can be added")
+	GameState.upgrades["home"] = 1
+	GameState.items["egg"] = 2
+	check(GameState.request_craft(P, "omelette") and GameState.item_count("omelette") == 1, "two eggs cook into an omelette")
+	var farm: String = JSON.stringify(GameState.to_snapshot())
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(JSON.stringify(GameState.to_snapshot()) == farm, "buildings, animals and the mine survive save and load")
+
+	print("villagers")
+	GameState.new_game()
+	check(GameState.visitor_today() == "maple" and not GameState.can_walk(GameState.VISITOR_CELL), "Maple visits on the first day and stands by the stall")
+	check(GameState.request_talk(P, "maple") and not GameState.request_talk(P, "maple") and int(GameState.friends["maple"]["points"]) == 10, "a chat a day is worth 10 points")
+	check(not GameState.request_talk(P, "pebble"), "you can't talk to someone who isn't here")
+	GameState.produce["moonbell"] = 2
+	GameState.items["minnow"] = 1
+	check(GameState.request_gift(P, "maple", "moonbell") and int(GameState.friends["maple"]["points"]) == 90 and int(GameState.produce["moonbell"]) == 1, "a loved gift is worth 80")
+	check(not GameState.request_gift(P, "maple", "moonbell"), "one gift a day")
+	GameState.end_day(false)
+	check(GameState.visitor_today() == "pebble" and GameState.hearts("maple") == 0, "next day it's Pebble's turn; Maple is nearly at one heart")
+	GameState.request_set_time(P, 3, 12 * 60, false)
+	var seeds_before: int = GameState.seed_count("moonbell")
+	GameState.request_talk(P, "maple")
+	check(GameState.hearts("maple") == 1 and GameState.seed_count("moonbell") == seeds_before + 5, "the first heart brings a gift of seeds")
+	check(GameState.request_gift(P, "maple", "minnow") and int(GameState.friends["maple"]["points"]) == 80, "a disliked gift costs 20, but hearts already rewarded stay rewarded")
+	GameState.request_set_time(P, 6, 12 * 60, false)
+	check(GameState.visitor_today() == "" and GameState.can_walk(GameState.VISITOR_CELL), "nobody visits on the seventh day")
+
+	print("the mine")
+	GameState.new_game()
+	var cave: Rect2i = GameState.mine_floor()
+	var rocks: Array = []
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.is_in_mine(at):
+			rocks.append(at)
+	check(rocks.size() >= 10 and GameState.is_mine_entrance(Vector2i(25, 2)) and not GameState.can_walk(Vector2i(25, 2)), "the mine has an entrance in the garden and rocks inside")
+	check(not GameState.can_walk(rocks[0]) and GameState.can_walk(Vector2i(cave.position.x + 6, cave.end.y - 1)), "rocks block the way; the ladder tile is always clear")
+	check(not GameState.request_mine(P, rocks[0]) and not GameState.request_harvest(P, rocks[0]), "rocks need a pickaxe")
+	GameState.coins = 500
+	check(GameState.request_buy_upgrade(P, "pickaxe") and GameState.request_mine(P, rocks[0]), "with one, a rock breaks")
+	var got: int = GameState.item_count("stone") + GameState.item_count("copper") + GameState.item_count("goldore") + GameState.item_count("amethyst")
+	check(got >= 1 and not GameState.objects.has(rocks[0]) and GameState.get_energy(P) == 98, "giving stone or ore for 2 energy")
+	check(not GameState.request_place(P, rocks[0], "path"), "nothing can be built down there")
+	GameState.end_day(false)
+	var again: int = 0
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.is_in_mine(at):
+			again += 1
+	check(again >= 10, "the rocks are back the next morning")
+	GameState.items = {"copper": 4, "goldore": 1}
+	GameState.xp = 320
+	check(GameState.request_craft(P, "bigsprinkler"), "copper and gold make a Great Sprinkler at level 4")
+	var ring: Array = [Vector2i(9, 13), Vector2i(11, 15)]
+	for at: Vector2i in ring:
+		GameState.request_till(P, at)
+		GameState.request_plant(P, at, "sunpuff")  # planted soil never reverts to grass
+	GameState.request_place(P, Vector2i(10, 14), "bigsprinkler")
+	GameState.end_day(false)
+	check(bool(GameState.soil[ring[0]]["watered"]) and bool(GameState.soil[ring[1]]["watered"]), "which waters the diagonals too")
 	GameState.new_game()
 
 	print("curfew and energy")

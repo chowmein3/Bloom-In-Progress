@@ -87,6 +87,7 @@ func _run_host() -> void:
 	_expect(await _until(func() -> bool: return GameState.hat_of(GUEST) == "flower" and GameState.coins == 10, 10.0), "guest's hat purchase reaches the host, paid from the shared purse")
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "a stepping stone the guest crafted and placed appears for the host")
 	_expect(GameState.item_count("stone") == 1 and GameState.item_count("path") == 0, "using the shared materials")
+	_expect(await _until(func() -> bool: return int(GameState.friends.get("maple", {}).get("points", 0)) == 10, 10.0), "the guest's chat with today's visitor counts for the shared friendship")
 	_expect(await _until(func() -> bool: return GameState.stats["fish"].size() == 1 and int(GameState.bin.get("sunpuff", 0)) == 0 and not GameState.bin.is_empty(), 10.0), "the guest's catch is tallied and lands in the shared shipping bin")
 	await _shot("coop_host")
 
@@ -155,6 +156,9 @@ func _after_join() -> void:
 	_expect(await _until(func() -> bool: return GameState.item_count("path") == 1, 10.0), "guest crafts a stepping stone")
 	GameState.request_place(GUEST, Vector2i(3, 14), "path")
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "and places it in the garden")
+	_expect(GameState.visitor_today() == "maple", "guest sees who is visiting today")
+	GameState.request_talk(GUEST, "maple")
+	_expect(await _until(func() -> bool: return GameState.hearts("maple") == 0 and int(GameState.friends.get("maple", {}).get("points", 0)) == 10, 10.0), "guest talks to the visitor and the friendship comes back from the host")
 	GameState.request_fish(GUEST, true)
 	var catch: Array = [""]
 	_expect(await _until(func() -> bool:

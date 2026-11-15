@@ -136,7 +136,46 @@ page.
   Fair (all sales x1.5), Lantern Night (three lanterns: 100 coins and winter
   seeds).
 
-Not built (yet): mining, animals, villagers.
+## Animals
+The coop (800) and barn (2000) are built at fixed sites on the left. Up to
+four hens (150) and two cows (500) stand on fixed spots in front. By hand: the
+first visit of the day feeds (one animal feed: 10 coins, or 2 fiber make 2),
+the next strokes, once per player. Overnight a fed animal gains 5 mood plus 6
+per stroke and gives an egg (40) or milk (90), two at mood 90+; an unfed one
+loses 15 mood and gives nothing. Eggs and milk cook into an omelette and cocoa.
+
+## Villagers
+Maple (bear, beekeeper), Pebble (frog, angler) and Old Thistle (goat, retired
+gardener) each visit two fixed days of the seven-day week and stand at one
+spot near the stall; nobody comes on the seventh day. One chat a day is +10
+friendship; one gift a day is +80 loved, +40 liked, +15 otherwise, -20
+disliked, and +20 more for gold quality. 100 points is a heart, five at most,
+and each new heart gives a one-time present (seeds, coins, items, decor).
+Friendship is shared by both players.
+
+## The mine
+A cave mouth at the top right leads to one room, in the far part of the grid
+below the home. Twenty rocks are scattered each morning: 62% plain (stone),
+26% copper, 8% gold, 4% amethyst. Breaking one needs the pickaxe (200 coins,
+tool 6) and 2 energy. Copper 4 + gold 1 make the Great Sprinkler (level 4).
+There is no combat and no deeper floors.
+
+## Farming depth
+- **Quality:** radiant plants harvest as gold, mood 65+ as silver (plus a 5%
+  chance per gardening level above 1), otherwise normal. Silver sells x1.25,
+  gold x1.5. Starred harvest is kept as `<plant>.silver` / `<plant>.gold` in
+  `items`; recipes and requests use normal harvest only.
+- **Crows:** each night with six or more plants there is a 20% chance one
+  plant outside every scarecrow's six-tile reach loses 25 mood.
+- **Fruit trees:** a plumble sapling (300) roots where it is set, grows for
+  ten days, then fruits every three days outside winter; picked by hand.
+
+## Settings
+Music and sound volume and fullscreen are stored per player in
+`user://settings.json`. Save now (pause menu) writes the garden at once,
+including the time of day.
+
+Not built (yet): deeper mine floors, combat, marriage, more villagers.
 
 ## Clock tower
 A tower left of the home whose face shows the garden's real time. Using it

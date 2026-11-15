@@ -28,6 +28,9 @@ const ObjectView := preload("res://scripts/object_view.gd")
 const PondView := preload("res://scripts/pond_view.gd")
 const Fishing := preload("res://scripts/fishing.gd")
 const Bin := preload("res://scripts/bin.gd")
+const AnimalView := preload("res://scripts/animal_view.gd")
+const MineView := preload("res://scripts/mine_view.gd")
+const Villager := preload("res://scripts/villager.gd")
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -45,6 +48,11 @@ var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
 var _things: Dictionary = {}  # Vector2i -> ObjectView
 var _flats: Node2D
+var _mine: Node2D
+var _coop: Sprite2D
+var _barn: Sprite2D
+var _visitor: Sprite2D
+var _animal_views: Array = []
 var _light: CanvasModulate
 
 
@@ -53,6 +61,8 @@ func _ready() -> void:
 	add_child(Ground.new())
 	_interior = Interior.new()
 	add_child(_interior)
+	_mine = MineView.new()
+	add_child(_mine)
 	var pond := PondView.new()
 	add_child(pond)
 	_flats = Node2D.new()  # rugs and other flat things: above the floor, under everyone
@@ -85,6 +95,14 @@ func _ready() -> void:
 	stall.position = Vector2((GameState.STALL_RECT.position.x + GameState.STALL_RECT.size.x / 2.0) * TILE, GameState.STALL_RECT.end.y * TILE)
 	_entities.add_child(stall)
 	_entities.add_child(BedView.new())
+	_coop = _standing("res://assets/sprites/coop.png", GameState.COOP_RECT, Vector2(-24, -40))
+	_barn = _standing("res://assets/sprites/barn.png", GameState.BARN_RECT, Vector2(-24, -40))
+	_standing("res://assets/sprites/mine.png", GameState.MINE_RECT, Vector2(-16, -32))
+	_visitor = Sprite2D.new()
+	_visitor.centered = false
+	_visitor.offset = Vector2(-8, -23)
+	_visitor.position = Vector2(GameState.VISITOR_CELL * TILE) + Vector2(8, 15)
+	_entities.add_child(_visitor)
 	var bin_box := Sprite2D.new()
 	bin_box.texture = Assets.texture("res://assets/sprites/items/bin.png")
 	bin_box.centered = false
@@ -144,6 +162,13 @@ func _ready() -> void:
 	fishing.pond = pond
 	add_child(fishing)
 	player.fish_requested.connect(fishing.cast)
+	var villager := Villager.new()
+	villager.player = player
+	add_child(villager)
+	player.villager_requested.connect(villager.open)
+	GameState.animals_changed.connect(_refresh_animals)
+	GameState.state_reloaded.connect(_refresh_animals)
+	TimeManager.time_changed.connect(_refresh_visitor)
 	var warp := TimeWarp.new()
 	warp.player = player
 	add_child(warp)
@@ -168,6 +193,9 @@ func _ready() -> void:
 			menu.call("show_title", "That garden's save file couldn't be read"))
 	menu.join_chosen.connect(start_join)
 	menu.resume_chosen.connect(_resume)
+	menu.save_chosen.connect(GameState.save_game)
+	if bool(Settings.read().get("fullscreen", false)) and DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	menu.title_chosen.connect(return_to_title)
 	menu.exit_chosen.connect(func() -> void: get_tree().quit())
 	Net.welcomed.connect(_on_welcomed)
@@ -396,13 +424,49 @@ func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool) -
 		remote_players[slot].call("remote_update", pos, facing, moving)
 
 
+## A building sprite standing on `rect`, sorted with the players.
+func _standing(path: String, rect: Rect2i, offset: Vector2) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.texture = Assets.texture(path)
+	sprite.centered = false
+	sprite.offset = offset
+	sprite.position = Vector2((rect.position.x + rect.size.x / 2.0) * TILE, rect.end.y * TILE)
+	_entities.add_child(sprite)
+	return sprite
+
+
+func _refresh_animals() -> void:
+	if _animal_views.size() != GameState.animals.size():
+		for view: Node in _animal_views:
+			view.queue_free()
+		_animal_views.clear()
+		for i in GameState.animals.size():
+			var view := AnimalView.new()
+			view.index = i
+			view.position = Vector2(GameState.animal_cell(i) * TILE) + Vector2(8, 15)
+			_entities.add_child(view)
+			_animal_views.append(view)
+	for view: Node in _animal_views:
+		view.call("refresh")
+
+
+func _refresh_visitor() -> void:
+	var who: String = GameState.visitor_today()
+	_visitor.visible = who != ""
+	if who != "":
+		_visitor.texture = Assets.texture("res://assets/sprites/villager_%s.png" % who)
+
+
 ## Called when the player goes through the door, and when the home changes:
 ## fits the camera to the garden or to the room, and shows the right home.
 func _on_area_changed() -> void:
 	_home.texture = Assets.texture("res://assets/sprites/home_%d.png" % GameState.home_level())
+	_coop.visible = GameState.upgrade_level("coop") > 0
+	_barn.visible = GameState.upgrade_level("barn") > 0
+	_refresh_visitor()
 	var inside: bool = player.call("indoors")
 	if inside:
-		var middle: Vector2 = _interior.call("centre")
+		var middle: Vector2 = _mine.call("centre") if GameState.is_in_mine(player.call("cell")) else _interior.call("centre")
 		_camera.limit_left = int(middle.x) - 160
 		_camera.limit_right = int(middle.x) + 160
 		_camera.limit_top = int(middle.y) - 90
@@ -499,6 +563,8 @@ func _update_light() -> void:
 		color = color * Color(0.82, 0.86, 0.95)
 	if player != null and bool(player.call("indoors")):
 		color = Color(1.0, 0.97, 0.92).lerp(Color(1.0, 0.86, 0.7), clampf((m - 18 * 60) / 180.0, 0.0, 1.0))  # lamplight
+		if GameState.is_in_mine(player.call("cell")):
+			color = Color(0.8, 0.78, 0.92)  # cave gloom, whatever the hour
 	_light.color = color
 
 
@@ -520,7 +586,7 @@ func _setup_input() -> void:
 	_bind("toggle_music", [KEY_N])
 	_bind("toggle_map", [KEY_M])
 	_bind("close", [KEY_ESCAPE])
-	for i in 5:
+	for i in 6:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
 
 

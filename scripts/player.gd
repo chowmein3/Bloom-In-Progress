@@ -13,6 +13,7 @@ signal area_changed  # stepped indoors or back out
 signal shop_requested  # used the shopkeeper's stall
 signal clock_requested  # used the clock tower
 signal bin_requested  # opened the shipping bin
+signal villager_requested  # spoke to today's visitor
 signal fish_requested  # cast the rod into the pond
 signal acted  # swung a tool or used a hand (for the little animation)
 
@@ -20,7 +21,8 @@ const TILE := 16
 const SPEED := 64.0
 const SPRINT := 1.75  # times faster while Shift is held
 const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
-const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod"]
+const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod", "Pickaxe"]
+const PICK_TOOL := 5
 const ITEM_TOOL := 3  # the slot that holds something from the backpack
 const ROD_TOOL := 4
 ## Points around the feet that must all be on walkable tiles.
@@ -126,6 +128,8 @@ func _process(delta: float) -> void:
 			# Walking into the home's door goes in; walking down off the mat goes out.
 			if step.y < 0.0 and not indoors() and _cell_at(position + Vector2(0, step.y - 6.0)) == GameState.home_door():
 				go_inside()
+			elif step.y < 0.0 and not indoors() and GameState.is_mine_entrance(_cell_at(position + Vector2(0, step.y - 6.0))):
+				go_into_mine()
 			elif step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
 				go_outside()
 		var stride_before: int = int(_walk * 4.5)
@@ -158,9 +162,19 @@ func go_inside() -> void:
 	_arrived()
 
 
-## Step out to just below the home's door.
+## Climb down into the mine, onto the foot of the ladder.
+func go_into_mine() -> void:
+	var floor: Rect2i = GameState.mine_floor()
+	position = Vector2((floor.position.x + floor.size.x / 2.0) * TILE, floor.end.y * TILE - 2.0)
+	facing = Vector2i.UP
+	_arrived()
+
+
+## Step out to just below the home's door (or the mine's mouth).
 func go_outside() -> void:
 	var door: Vector2i = GameState.home_door()
+	if GameState.is_in_mine(cell()):
+		door = Vector2i(GameState.MINE_RECT.position.x, GameState.MINE_RECT.end.y - 1)
 	position = Vector2((door.x + 0.5) * TILE, (door.y + 1) * TILE + 10.0)
 	facing = Vector2i.DOWN
 	_arrived()
@@ -259,6 +273,8 @@ func hand_action() -> String:
 	if indoors():
 		if GameState.is_bed(target):
 			return "sleep"
+		if GameState.ORES.has(GameState.object_kind(target)):
+			return ""  # rocks need the pickaxe
 		if GameState.objects.has(target):
 			return "lift"
 		if facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
@@ -272,6 +288,17 @@ func hand_action() -> String:
 		return "clock"
 	if GameState.is_bin(target):
 		return "bin"
+	if GameState.is_mine_entrance(target):
+		return "mine"
+	if target == GameState.VISITOR_CELL and GameState.visitor_today() != "":
+		return "talk"
+	var animal: int = GameState.animal_at(target)
+	if animal >= 0:
+		if not bool(GameState.animals[animal]["fed"]):
+			return "feed"
+		return "" if GameState.animals[animal]["petted_by"].has(me) else "stroke"
+	if GameState.object_kind(target) == "sapling":
+		return "pick" if bool(GameState.objects[target].get("fruit", false)) else ("lift" if int(GameState.objects[target].get("age", 0)) == 0 else "")
 	if GameState.is_tree(target):
 		return "" if GameState.tree["hugged_by"].has(me) else "hug"
 	if GameState.objects.has(target):
@@ -292,7 +319,7 @@ func hand_hint() -> String:
 	match action:
 		"sleep": return "get in"
 		"leave": return "go out"
-		"enter": return "go in"
+		"enter", "mine": return "go in"
 		"shop": return "talk"
 		"clock", "bin": return "open"
 		"lift": return "clear" if GameState.DEBRIS.has(GameState.object_kind(target)) else "pick up"
@@ -309,6 +336,9 @@ func use_hand() -> void:
 		"shop": shop_requested.emit()
 		"clock": clock_requested.emit()
 		"bin": bin_requested.emit()
+		"mine": go_into_mine()
+		"talk": villager_requested.emit()
+		"feed", "stroke": GameState.request_tend(player_id, target)
 		"hug", "pet": GameState.request_pet(player_id, target)
 		"pick", "lift": GameState.request_harvest(player_id, target)
 		_: return
@@ -321,7 +351,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)
@@ -345,6 +375,10 @@ func use_tool() -> void:
 			done = GameState.is_pond(target)
 			if done:
 				fish_requested.emit()
+		PICK_TOOL:
+			done = GameState.ORES.has(GameState.object_kind(target))
+			if done:
+				GameState.request_mine(player_id, target)
 	if done:
 		acted.emit()
 	elif hand != "":
