@@ -546,7 +546,22 @@ def make_icons():
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 
+# assets/sprites/icon.png: the game's window icon, a Sunpuff on parchment.
+
+def make_app_icon():
+    shape, _stages, leaf, bloom, _radiant, accent = PLANTS["sunpuff"]
+    flower = plant_frame(shape, "bloom", 1, rgb(leaf), rgb(bloom), rgb(accent), random.Random(1))
+    tile = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    card = Canvas(32, 32)
+    card.rect(1, 1, 30, 30, rgb("#fae8bd"))
+    card.rect(1, 25, 30, 6, rgb("#79c267"))
+    tile.alpha_composite(card.finish(shading=False))
+    tile.alpha_composite(flower, (8, 5))
+    save(tile.resize((128, 128), Image.NEAREST), "icon.png")
+
+
 if __name__ == "__main__":
+    make_app_icon()
     make_icons()
     make_plants()
     make_players()

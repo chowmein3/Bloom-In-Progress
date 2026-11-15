@@ -15,6 +15,7 @@ func _ready() -> void:
 	if args.size() > 0:
 		out_dir = args[0]
 	Net.port = 24998
+	Net.use_upnp = false
 	TimeManager.rain_chance = 0.0
 	GameState.saves_dir = "user://menu_test_saves"
 	for old: Dictionary in GameState.list_gardens():
@@ -41,6 +42,7 @@ func _ready() -> void:
 	_expect(GameState.garden_name == "Willow Bend" and FileAccess.file_exists(GameState.save_path), "in a named, saved garden")
 	_expect(not TimeManager.paused and main.get("hud").visible, "the clock runs and the HUD shows")
 	GameState.request_till(1, Vector2i(4, 9))
+	GameState.request_plant(1, Vector2i(4, 9), "sunpuff")  # planted soil never reverts to grass
 	GameState.request_sleep(1)
 	await _wait(2.0)
 
@@ -89,6 +91,8 @@ func _ready() -> void:
 	_click("Co-op")
 	_click("Join")
 	_expect(_screen() == "join", "Join asks for an address")
+	_field().text = ""
+	_field().text_changed.emit("")
 	_click("Join")
 	_expect(_status() != "", "an empty address is refused")
 	_field().text = "127.0.0.1"

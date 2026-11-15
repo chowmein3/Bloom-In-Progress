@@ -114,6 +114,9 @@ func _ready() -> void:
 	Net.player_joined.connect(_on_player_joined)
 	Net.player_left.connect(_on_player_left)
 	Net.player_state.connect(_on_player_state)
+	Net.internet_ready.connect(func(address: String) -> void:
+		if remote_players.is_empty():
+			hud.call("set_status", "Hosting. Partner joins:\nSame Wi-Fi: automatic\nElsewhere: %s" % address))
 	TimeManager.paused = true  # the clock waits behind the menu
 	hud.visible = false
 
@@ -201,7 +204,7 @@ func start_host() -> void:
 	_begin()
 	var addresses: Array[String] = Net.lan_addresses()
 	var where: String = addresses[0] if not addresses.is_empty() else "this computer's address"
-	hud.call("set_status", "Hosting. Partner joins:\n%s" % where)
+	hud.call("set_status", "Hosting. Partner joins:\nSame Wi-Fi: automatic\n(or type %s)" % where)
 	hud.call("show_message", "Your garden is open. Waiting for your partner...", 6.0)
 
 

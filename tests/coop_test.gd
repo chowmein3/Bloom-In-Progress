@@ -25,6 +25,7 @@ func _ready() -> void:
 	if args.size() > 1:
 		out_dir = args[1]
 	Net.port = 24999
+	Net.use_upnp = false  # no router to talk to in a test
 	TimeManager.rain_chance = 0.0
 	GameState.rng.seed = 1
 	save_file = "user://coop_test_%s.json" % role
@@ -44,6 +45,7 @@ func _ready() -> void:
 func _run_host() -> void:
 	# Something already in the garden, to prove a late joiner receives it.
 	GameState.request_till(HOST, Vector2i(10, 8))
+	GameState.garden_name = "Test Garden"
 	main.call("start_host")
 	TimeManager.paused = true
 	_expect(await _until(func() -> bool: return Net.slots().size() == 2, 30.0), "guest joined")
@@ -75,7 +77,13 @@ func _run_host() -> void:
 
 
 func _run_guest() -> void:
-	main.call("start_join", "127.0.0.1")
+	# Find the host the way the Join screen does, without typing an address.
+	Net.start_discovery()
+	_expect(await _until(func() -> bool: return not Net.found_gardens.is_empty(), 10.0), "guest finds the host on the network by itself")
+	var address: String = Net.found_gardens.keys()[0] if not Net.found_gardens.is_empty() else "127.0.0.1"
+	var found: Dictionary = Net.found_gardens.get(address, {"name": "", "port": 24999, "full": false})
+	_expect(found["name"] == "Test Garden" and not bool(found["full"]), "and sees its name and that there is room")
+	main.call("start_join", "%s:%d" % [address, int(found["port"])])
 	_expect(await _until(func() -> bool: return Net.local_id() == GUEST, 15.0), "joined and given slot 2")
 	_expect(await _until(func() -> bool: return GameState.soil.has(Vector2i(10, 8)), 5.0), "late joiner receives the existing garden")
 	_expect(main.get("remote_players").has(HOST), "host's character appears on the guest's screen")

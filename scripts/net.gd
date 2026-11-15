@@ -10,18 +10,36 @@ signal player_joined(slot: int)
 signal player_left(slot: int)
 signal session_ended(was_host: bool)
 signal player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool)
+signal gardens_changed  # found_gardens changed while looking for hosts
+signal internet_ready(address: String)  # the router opened a door for us; partners can use this address
 
 const DEFAULT_PORT := 24565
 const MAX_PLAYERS := 2
 const HOST_SLOT := 1
 const JOIN_TIMEOUT := 8.0
+const DISCOVERY_PORT := 24566  # hosts announce themselves here on the local network
+const BEACON_TAG := "BLOOM1"
+const BEACON_EVERY := 1.0
+const FOUND_FOR := 4.0  # forget a host this long after its last announcement
 
 var online: bool = false
 var port: int = DEFAULT_PORT
+## Ask the router (UPnP) to let a partner in from the internet while hosting.
+var use_upnp: bool = true
+## Hosts heard on the local network: address -> {"name", "port", "seen"}.
+var found_gardens: Dictionary = {}
+## This host's public address once the router has opened the port, else "".
+var internet_address: String = ""
 
 var _slot: int = HOST_SLOT
 var _peer_slots: Dictionary = {}  # network peer id -> slot
 var _attempt: int = 0
+var _beacon: PacketPeerUDP
+var _beacon_in: float = 0.0
+var _listener: PacketPeerUDP
+var _upnp: UPNP
+var _upnp_thread: Thread
+var _upnp_port: int = 0
 
 
 func _ready() -> void:
@@ -68,12 +86,26 @@ func host_game() -> Error:
 	online = true
 	_slot = HOST_SLOT
 	_peer_slots = {1: HOST_SLOT}
+	_beacon = PacketPeerUDP.new()
+	_beacon.set_broadcast_enabled(true)
+	_beacon_in = 0.0
+	if use_upnp and _upnp_thread == null:
+		_upnp_thread = Thread.new()
+		_upnp_thread.start(_open_router_port.bind(port))
 	return OK
 
 
+## `address` may end in ":port" for a host on a non-default port.
 func join_game(address: String) -> Error:
+	var host: String = address.strip_edges()
+	var join_port: int = port
+	var colon: int = host.rfind(":")
+	if colon > 0 and host.count(":") == 1 and host.substr(colon + 1).is_valid_int():
+		join_port = host.substr(colon + 1).to_int()
+		host = host.left(colon)
+	stop_discovery()
 	var peer := ENetMultiplayerPeer.new()
-	var err: Error = peer.create_client(address, port)
+	var err: Error = peer.create_client(host, join_port)
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
@@ -113,8 +145,104 @@ func send_player_state(pos: Vector2, facing: Vector2i, moving: bool) -> void:
 		_player_state.rpc(pos, facing, moving)
 
 
+# ------------------------------------------------ finding each other
+
+## Start listening for hosts on the local network (the Join screen does this).
+func start_discovery() -> void:
+	if _listener != null:
+		return
+	found_gardens.clear()
+	_listener = PacketPeerUDP.new()
+	if _listener.bind(DISCOVERY_PORT) != OK:
+		_listener = null  # something else has the port; typing an address still works
+	gardens_changed.emit()
+
+
+func stop_discovery() -> void:
+	if _listener != null:
+		_listener.close()
+		_listener = null
+
+
+func _process(delta: float) -> void:
+	if _beacon != null and online and is_host():
+		_beacon_in -= delta
+		if _beacon_in <= 0.0:
+			_beacon_in = BEACON_EVERY
+			var words: String = "%s|%d|%d|%s" % [BEACON_TAG, port, _peer_slots.size(), GameState.garden_name]
+			# Everyone on the network, plus this computer for two copies on one machine.
+			for target: String in ["255.255.255.255", "127.0.0.1"]:
+				_beacon.set_dest_address(target, DISCOVERY_PORT)
+				_beacon.put_packet(words.to_utf8_buffer())
+	if _listener == null:
+		return
+	var now: float = Time.get_ticks_msec() / 1000.0
+	var changed: bool = false
+	while _listener.get_available_packet_count() > 0:
+		var parts: PackedStringArray = _listener.get_packet().get_string_from_utf8().split("|", true, 3)
+		var from: String = _listener.get_packet_ip()
+		if parts.size() != 4 or parts[0] != BEACON_TAG or not parts[1].is_valid_int() or not parts[2].is_valid_int():
+			continue
+		var known: bool = found_gardens.has(from)
+		var entry: Dictionary = {"name": parts[3].left(24), "port": parts[1].to_int(), "full": parts[2].to_int() >= MAX_PLAYERS, "seen": now}
+		if not known or found_gardens[from]["name"] != entry["name"] or found_gardens[from]["full"] != entry["full"]:
+			changed = true
+		found_gardens[from] = entry
+	for address: String in found_gardens.keys():
+		if now - float(found_gardens[address]["seen"]) > FOUND_FOR:
+			found_gardens.erase(address)
+			changed = true
+	if changed:
+		gardens_changed.emit()
+
+
+## Runs on a thread: asks the home router to forward our port (UPnP) so a
+## partner elsewhere can connect without anyone touching router settings.
+func _open_router_port(host_port: int) -> void:
+	var upnp := UPNP.new()
+	var address: String = ""
+	if upnp.discover(2000) == UPNP.UPNP_RESULT_SUCCESS and upnp.get_gateway() != null and upnp.get_gateway().is_valid_gateway():
+		if upnp.add_port_mapping(host_port, host_port, "Bloom In Progress", "UDP") == UPNP.UPNP_RESULT_SUCCESS:
+			address = upnp.query_external_address()
+	_router_answered.call_deferred(upnp, host_port, address)
+
+
+func _router_answered(upnp: UPNP, host_port: int, address: String) -> void:
+	_upnp_thread.wait_to_finish()
+	_upnp_thread = null
+	if address == "":
+		return
+	if online and is_host():
+		_upnp = upnp
+		_upnp_port = host_port
+		internet_address = address
+		internet_ready.emit(address)
+	else:
+		upnp.delete_port_mapping(host_port, "UDP")  # we stopped hosting in the meantime
+
+
+func _close_router_port() -> void:
+	if _upnp != null:
+		_upnp.delete_port_mapping(_upnp_port, "UDP")
+		_upnp = null
+	internet_address = ""
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_close_router_port()
+
+
+func _exit_tree() -> void:
+	_close_router_port()
+	if _upnp_thread != null:
+		_upnp_thread.wait_to_finish()
+
+
 func _reset() -> void:
 	_attempt += 1
+	_beacon = null
+	_close_router_port()
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()

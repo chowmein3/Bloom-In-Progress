@@ -644,6 +644,8 @@ func load_game() -> bool:
 func list_gardens() -> Array[Dictionary]:
 	_adopt_legacy_save()
 	var found: Array[Dictionary] = []
+	if not DirAccess.dir_exists_absolute(saves_dir):
+		return found  # first run: nothing saved yet
 	for file_name: String in DirAccess.get_files_at(saves_dir):
 		if not file_name.ends_with(".json"):
 			continue
