@@ -383,6 +383,105 @@ func _ready() -> void:
 	check(GameState.wanted.is_empty() and GameState.xp == 63, "and earns 20 experience")
 	GameState.new_game()
 
+	print("fishing")
+	GameState.new_game()
+	check(GameState.is_pond(Vector2i(22, 10)) and not GameState.can_walk(Vector2i(22, 10)) and not GameState.request_till(P, Vector2i(22, 10)), "the pond is water: no walking, no digging")
+	check(GameState.request_fish(P, false) and GameState.get_energy(P) == 98 and GameState.items.is_empty(), "a cast that gets away costs energy and catches nothing")
+	check(GameState.request_fish(P, true) and GameState.items.size() == 1 and GameState.FISH.has(GameState.items.keys()[0]), "a landed cast puts a fish in the backpack")
+	check(GameState.stats["fish"].size() == 1 and GameState.xp == 3, "and is tallied, with a little experience")
+	var seen: Dictionary = {}
+	for cast in 80:
+		seen[GameState._roll_fish()] = true
+	check(seen.has("minnow") and seen.has("sunfish") and not seen.has("moonfin") and not seen.has("frostfin") and not seen.has("raincarp"), "on a clear spring morning only day fish bite")
+	GameState.request_set_time(P, 3 * 28 + 2, 20 * 60, false)
+	seen = {}
+	for cast in 80:
+		seen[GameState._roll_fish()] = true
+	check(seen.has("moonfin") and seen.has("frostfin") and not seen.has("sunfish"), "a winter evening brings moonfin and frostfin")
+	GameState.request_set_time(P, 0, 6 * 60, false)
+	GameState.items = {"moonfin": 2}
+	var before_sale: int = GameState.coins
+	check(GameState.request_sell(P, "moonfin", 1) and GameState.coins == before_sale + 60, "fish sell to Bristle")
+	check(not GameState.request_sell(P, "wood", 1), "things without a price can't be sold")
+
+	print("shipping bin")
+	GameState.produce["sunpuff"] = 3
+	check(GameState.is_bin(GameState.BIN_CELL) and not GameState.can_walk(GameState.BIN_CELL), "the bin stands between the home and the stall")
+	check(GameState.request_ship(P, "sunpuff", 2) and GameState.request_ship(P, "moonfin", 1), "harvest and fish go in the bin")
+	check(int(GameState.bin["sunpuff"]) == 2 and int(GameState.produce["sunpuff"]) == 1 and not GameState.request_ship(P, "sunpuff", 5), "they leave the backpack; you can't ship more than you have")
+	check(GameState.request_ship(P, "sunpuff", -1) and int(GameState.bin["sunpuff"]) == 1 and int(GameState.produce["sunpuff"]) == 2, "things can be taken back out before night")
+	var before_night: int = GameState.coins
+	var night: Array = [{}]
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: night[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.coins == before_night + 30 + 60 and GameState.bin.is_empty(), "overnight the bin is sold at the usual prices")
+	check(night[0]["news"].has("The shipping bin earned 90 coins"), "and the morning screen says so")
+
+	print("decor")
+	GameState.new_game()
+	GameState.coins = 1000
+	check(GameState.request_buy_item(P, "fern", 1) and GameState.request_buy_item(P, "rug", 1) and GameState.request_buy_item(P, "gnome", 1) and GameState.coins == 1000 - 80 - 150 - 100, "decor is bought from Bristle")
+	check(not GameState.request_buy_item(P, "wood", 1), "only things with a price tag are for sale")
+	var room: Rect2i = GameState.room_floor()
+	var corner: Vector2i = room.position + Vector2i(4, 2)
+	check(GameState.request_place(P, corner, "fern") and not GameState.can_walk(corner), "a potted fern stands on the floor indoors")
+	check(not GameState.request_place(P, GameState.bed_rect().position, "rug") and not GameState.request_place(P, room.position + Vector2i(-1, 0), "rug"), "not on the bed or in the wall")
+	check(GameState.request_place(P, corner + Vector2i(1, 0), "rug") and GameState.can_walk(corner + Vector2i(1, 0)), "a rug can be walked on")
+	check(GameState.request_place(P, Vector2i(3, 12), "gnome"), "a gnome is happy in the garden")
+	GameState.items["fence"] = 1
+	check(not GameState.request_place(P, corner + Vector2i(2, 0), "fence"), "garden things stay outdoors")
+	check(GameState.request_harvest(P, corner) and GameState.item_count("fern") == 1, "furniture can be picked up again")
+	GameState.request_place(P, room.position + Vector2i(7, 0), "fern")  # where the Cabin's stove will stand
+	GameState.coins = 5000
+	GameState.request_buy_upgrade(P, "home")
+	check(not GameState.objects.has(room.position + Vector2i(7, 0)) and GameState.item_count("fern") == 1, "moving house returns furniture that no longer fits")
+
+	print("goals and festivals")
+	var morning: Array = [{}]
+	var purse_before: int = GameState.coins
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: morning[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.goals_done.has("cabin") and GameState.coins == purse_before + 200, "moving into the Cabin meets a goal and pays 200 coins")
+	check(morning[0]["news"].has("Goal met: Home Sweet Home! You earned 200 coins"), "the morning screen announces it")
+	GameState.end_day(false)
+	check(GameState.coins == purse_before + 200, "a goal pays only once")
+	for goal: Dictionary in GameState.GOALS:
+		if goal["id"] != "master" and not GameState.goals_done.has(goal["id"]):
+			GameState.goals_done.append(goal["id"])
+	GameState.end_day(false)
+	check(GameState.hats_owned.has("laurel"), "finishing every goal earns the Golden Laurel")
+	GameState.new_game()
+	check(GameState.festival_today() == -1, "most days are ordinary")
+	var show := Vector2i(5, 15)
+	GameState.request_till(P, show)
+	GameState.request_plant(P, show, "sunpuff")
+	GameState.plants[show]["days_grown"] = 9
+	GameState.plants[show]["happiness"] = 100
+	GameState.request_set_time(P, 12, 12 * 60, false)
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: morning[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.festival_today() == 0 and str(morning[0]["news"][-1]).begins_with("Today is the Bloom Show!"), "spring 14 is the Bloom Show, announced that morning")
+	var before_show: int = GameState.coins
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: morning[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.coins == before_show + 50 and morning[0]["news"].has("Bloom Show: 1 radiant plants won 50 coins"), "that night each radiant plant wins 50 coins")
+	GameState.request_set_time(P, 2 * 28 + 13, 12 * 60, false)
+	check(GameState.festival_today() == 2 and GameState.sell_price_of("sunpuff") == 45, "at the Harvest Fair a 30-coin sunpuff sells for 45")
+	GameState.request_set_time(P, 28 + 13, 12 * 60, false)
+	GameState.plants[show]["happiness"] = 40
+	GameState.plants[show]["dormant"] = false
+	GameState.request_water(P, show)
+	GameState.request_pet(P, show)
+	GameState.end_day(false)
+	check(int(GameState.plants[show]["happiness"]) == 40 + 4 + 16, "on Firefly Night a pet counts double")
+	GameState.request_set_time(P, 3 * 28 + 13, 12 * 60, false)
+	for i in 3:
+		GameState.objects[Vector2i(1 + i, 16)] = {"kind": "lantern"}
+	var winter_seeds: int = GameState.seed_count("snowpip")
+	GameState.end_day(false)
+	check(GameState.seed_count("snowpip") == winter_seeds + 3, "three lanterns on Lantern Night bring winter seeds")
+	GameState.new_game()
+
 	print("curfew and energy")
 	GameState.energy[P] = 1
 	check(not GameState.request_till(P, Vector2i(8, 8)), "too tired to till")

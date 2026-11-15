@@ -12,13 +12,17 @@ signal loadout_changed
 signal area_changed  # stepped indoors or back out
 signal shop_requested  # used the shopkeeper's stall
 signal clock_requested  # used the clock tower
+signal bin_requested  # opened the shipping bin
+signal fish_requested  # cast the rod into the pond
+signal acted  # swung a tool or used a hand (for the little animation)
 
 const TILE := 16
 const SPEED := 64.0
 const SPRINT := 1.75  # times faster while Shift is held
 const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
-const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Hands", "Basket", "Item"]
-const ITEM_TOOL := 5  # the slot that holds something from the backpack
+const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod"]
+const ITEM_TOOL := 3  # the slot that holds something from the backpack
+const ROD_TOOL := 4
 ## Points around the feet that must all be on walkable tiles.
 const FOOTPRINT: Array[Vector2] = [Vector2(-4, -1), Vector2(4, -1), Vector2(-4, -6), Vector2(4, -6)]
 
@@ -41,6 +45,7 @@ var _remote_sprinting: bool = false
 var _texture: Texture2D
 var _texture_slot: int = -1
 var _hats: Texture2D
+var _lunge: float = 0.0  # 1 -> 0 after using a tool or hand
 
 
 func _ready() -> void:
@@ -48,6 +53,7 @@ func _ready() -> void:
 	_hats = Assets.texture("res://assets/sprites/hats.png")
 	GameState.economy_changed.connect(queue_redraw)
 	GameState.state_reloaded.connect(queue_redraw)
+	acted.connect(func() -> void: _lunge = 1.0)
 	if not is_remote:
 		GameState.register_player(player_id)
 
@@ -79,6 +85,9 @@ func _cell_at(point: Vector2) -> Vector2i:
 
 
 func _process(delta: float) -> void:
+	if _lunge > 0.0:
+		_lunge = maxf(0.0, _lunge - delta * 6.0)
+		queue_redraw()
 	# Players in bed are drawn by the bed (bed_view.gd), tucked in.
 	visible = not GameState.is_sleeping(player_id)
 	if is_remote:
@@ -119,7 +128,10 @@ func _process(delta: float) -> void:
 				go_inside()
 			elif step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
 				go_outside()
+		var stride_before: int = int(_walk * 4.5)
 		_walk += delta * pace
+		if int(_walk * 4.5) != stride_before:
+			Sound.play("step")  # one soft footfall per step of the walk cycle
 		queue_redraw()
 	elif _walk != 0.0:
 		_walk = 0.0
@@ -178,6 +190,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("use"):
 		use_tool()
+	elif event.is_action_pressed("interact"):
+		use_hand()
 	elif event.is_action_pressed("next_seed"):
 		if tool_index == ITEM_TOOL:
 			cycle_item()
@@ -212,7 +226,7 @@ func hold_item(id: String) -> void:
 func holdable_items() -> Array:
 	var out: Array = []
 	for id: String in GameState.ITEMS.keys():
-		if GameState.item_count(id) > 0 and str(GameState.ITEMS[id]["kind"]) != "material":
+		if GameState.item_count(id) > 0 and ["place", "soil", "meal", "decor"].has(str(GameState.ITEMS[id]["kind"])):
 			out.append(id)
 	return out
 
@@ -237,47 +251,130 @@ func cycle_seed() -> void:
 	loadout_changed.emit()
 
 
-func use_tool() -> void:
+## What a bare hand would do to the tile ahead ("" for nothing):
+## sleep, leave, enter, shop, clock, bin, hug, pet, pick, lift.
+func hand_action() -> String:
 	var target: Vector2i = target_cell()
+	var me: String = str(player_id)
 	if indoors():
 		if GameState.is_bed(target):
-			GameState.request_sleep(player_id)
-		elif facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
-			go_outside()
-		return
+			return "sleep"
+		if GameState.objects.has(target):
+			return "lift"
+		if facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
+			return "leave"
+		return ""
 	if GameState.is_tent(target):
-		go_inside()
-		return
+		return "enter"
 	if GameState.is_stall(target):
-		shop_requested.emit()
-		return
+		return "shop"
 	if GameState.is_tower(target):
-		clock_requested.emit()
+		return "clock"
+	if GameState.is_bin(target):
+		return "bin"
+	if GameState.is_tree(target):
+		return "" if GameState.tree["hugged_by"].has(me) else "hug"
+	if GameState.objects.has(target):
+		return "lift"
+	if GameState.plants.has(target):
+		# Love first; a plant you've already petted today can be picked.
+		if not GameState.plants[target]["petted_by"].has(me):
+			return "pet"
+		if GameState.plant_is_ripe(target):
+			return "pick"
+	return ""
+
+
+## Short words for the HUD, e.g. "pet" or "pick".
+func hand_hint() -> String:
+	var action: String = hand_action()
+	var target: Vector2i = target_cell()
+	match action:
+		"sleep": return "get in"
+		"leave": return "go out"
+		"enter": return "go in"
+		"shop": return "talk"
+		"clock", "bin": return "open"
+		"lift": return "clear" if GameState.DEBRIS.has(GameState.object_kind(target)) else "pick up"
+	return action
+
+
+## The hand key (F / right click): do whatever a bare hand can do here.
+func use_hand() -> void:
+	var target: Vector2i = target_cell()
+	match hand_action():
+		"sleep": GameState.request_sleep(player_id)
+		"leave": go_outside()
+		"enter": go_inside()
+		"shop": shop_requested.emit()
+		"clock": clock_requested.emit()
+		"bin": bin_requested.emit()
+		"hug", "pet": GameState.request_pet(player_id, target)
+		"pick", "lift": GameState.request_harvest(player_id, target)
+		_: return
+	acted.emit()
+
+
+## The tool key (Space / left click): use the held tool on the tile ahead.
+## When the tool has nothing to do there, the hand takes over, so picking,
+## petting and opening things never need a particular tool.
+func use_tool() -> void:
+	var target: Vector2i = target_cell()
+	var hand: String = hand_action()
+	if ["sleep", "leave", "enter", "shop", "clock", "bin"].has(hand):
+		use_hand()
 		return
-	if GameState.is_tree(target) and tool_index != 1 and tool_index != 3:
-		GameState.notice.emit("The Heart Tree likes water (2) and hugs (4)")
-		return
+	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)
+	var done: bool = true
 	match tool_index:
-		0: GameState.request_till(player_id, target, facing)
-		1: GameState.request_water(player_id, target, facing)
-		2: GameState.request_plant(player_id, target, seed_id)
-		3: GameState.request_pet(player_id, target)
-		4: GameState.request_harvest(player_id, target)
-		5: _use_item(target)
+		0:
+			done = open_ground
+			if done:
+				GameState.request_till(player_id, target, facing)
+		1:
+			done = GameState.is_tree(target) or (GameState.soil.has(target) and (hand == "" or not bool(GameState.soil[target]["watered"])))
+			if done:
+				GameState.request_water(player_id, target, facing)
+		2:
+			done = GameState.soil.has(target) and not GameState.plants.has(target)
+			if done:
+				GameState.request_plant(player_id, target, seed_id)
+		ITEM_TOOL:
+			done = _use_item(target, hand)
+		ROD_TOOL:
+			done = GameState.is_pond(target)
+			if done:
+				fish_requested.emit()
+	if done:
+		acted.emit()
+	elif hand != "":
+		use_hand()
+	elif tool_index == ROD_TOOL:
+		GameState.notice.emit("Face the pond to cast")
 
 
-func _use_item(target: Vector2i) -> void:
+## Eats the held meal or sets the held thing down. False when it had
+## nothing to do here (so the hand can act instead).
+func _use_item(target: Vector2i, hand: String) -> bool:
 	if GameState.item_count(item_id) < 1:
 		var others: Array = holdable_items()
 		if others.is_empty():
-			GameState.notice.emit("Nothing to use. Make something in the backpack (E)")
-			return
+			if hand == "":
+				GameState.notice.emit("Nothing to use. Make something in the backpack (E)")
+			return false
 		item_id = others[0]
 		loadout_changed.emit()
-	if str(GameState.ITEMS[item_id]["kind"]) == "meal":
+	var kind: String = GameState.ITEMS[item_id]["kind"]
+	if kind == "meal":
 		GameState.request_eat(player_id, item_id)
-	else:
-		GameState.request_place(player_id, target, item_id)
+		return true
+	if kind == "soil":
+		if not GameState.soil.has(target) or bool(GameState.soil[target].get("mulch", false)):
+			return false
+	elif hand != "":
+		return false  # something is already there: let the hand deal with it
+	GameState.request_place(player_id, target, item_id)
+	return true
 
 
 ## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 3 columns
@@ -297,7 +394,9 @@ func _draw() -> void:
 		row = 3
 	var column: int = WALK_CYCLE[int(_walk * 9.0) % WALK_CYCLE.size()] if _walk > 0.0 else 0
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0, 0, 0, 0.18))  # shadow
-	draw_texture_rect_region(_texture, Rect2(-8, -23, 16, 24), Rect2(column * 16, row * 24, 16, 24))
+	# A quick lean towards the tile ahead when a tool or hand is used.
+	var lean: Vector2 = Vector2(facing) * sin(_lunge * PI) * 3.0
+	draw_texture_rect_region(_texture, Rect2(lean + Vector2(-8, -23), Vector2(16, 24)), Rect2(column * 16, row * 24, 16, 24))
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(player_id))
 	if hat >= 0 and _hats != null:
-		draw_texture_rect_region(_hats, Rect2(-8, -23, 16, 12), Rect2(hat * 16, 0, 16, 12))
+		draw_texture_rect_region(_hats, Rect2(lean + Vector2(-8, -23), Vector2(16, 12)), Rect2(hat * 16, 0, 16, 12))

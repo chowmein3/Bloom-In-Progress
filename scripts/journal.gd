@@ -12,7 +12,11 @@ const DIM := Color(0.55, 0.42, 0.32)
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 const MILESTONES: Array[String] = ["Planted", "Bloomed", "Radiant"]
 
+const PAGES: Array[String] = ["Plants", "Goals", "Fish"]
+const Assets2 := preload("res://scripts/assets.gd")
+
 var player: Node2D
+var page: String = "Plants"
 
 var _root: Control
 var _tree_label: Label
@@ -60,6 +64,16 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spacer)
+	for name_of: String in PAGES:  # page buttons
+		var button := Button.new()
+		button.text = name_of
+		button.add_theme_color_override("font_color", CREAM)
+		button.add_theme_color_override("font_hover_color", GOLD)
+		button.flat = true
+		button.pressed.connect(func() -> void:
+			page = name_of
+			_rebuild())
+		header.add_child(button)
 	header.add_child(_text("J or Esc to close", DIM))
 	box.add_child(header)
 
@@ -125,9 +139,61 @@ func _rebuild() -> void:
 		_tree_fill.size.x = 80.0
 
 	for child: Node in _grid.get_children():
+		_grid.remove_child(child)
 		child.queue_free()
-	for id: String in GameState.species.keys():
-		_grid.add_child(_entry(id))
+	match page:
+		"Goals":
+			_grid.columns = 2
+			for entry: Dictionary in GameState.GOALS:
+				_grid.add_child(_goal(entry))
+		"Fish":
+			_grid.columns = 2
+			for id: String in GameState.FISH:
+				_grid.add_child(_fish(id))
+		_:
+			_grid.columns = 2
+			for id: String in GameState.species.keys():
+				_grid.add_child(_entry(id))
+
+
+## One long-term goal: done, ready to be paid tonight, or still to do.
+func _goal(entry: Dictionary) -> Control:
+	var done: bool = GameState.goals_done.has(entry["id"])
+	var met: bool = not done and GameState.goal_met(entry["id"])
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", -1)
+	lines.custom_minimum_size = Vector2(142, 0)
+	var state: String = "  (done)" if done else ("  (paid tonight!)" if met else "")
+	lines.add_child(_text(str(entry["name"]) + state, GOLD if done or met else CREAM))
+	var prize: String = "%d coins" % int(entry["coins"]) if entry.has("coins") else "a special hat"
+	var note: Label = _text("%s. Reward: %s" % [entry["text"], prize], DIM)
+	note.add_theme_font_size_override("font_size", 6)
+	lines.add_child(note)
+	return lines
+
+
+## One kind of fish: a silhouette until the garden has caught one.
+func _fish(id: String) -> Control:
+	var caught: int = int(GameState.stats["fish"].get(id, 0))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.custom_minimum_size = Vector2(142, 0)
+	var icon := TextureRect.new()
+	icon.texture = Assets2.texture("res://assets/sprites/items/%s.png" % id)
+	icon.custom_minimum_size = Vector2(16, 16)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	if caught == 0:
+		icon.modulate = Color(0.3, 0.18, 0.12, 0.55)
+	row.add_child(icon)
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", -1)
+	var info: Dictionary = GameState.ITEMS[id]
+	lines.add_child(_text(info["name"] if caught > 0 else "? ? ?", GOLD if caught > 0 else DIM))
+	var note: Label = _text("%s Caught %d. Sells for %d." % [info["blurb"], caught, int(info["price"])] if caught > 0 else str(info["blurb"]), DIM)
+	note.add_theme_font_size_override("font_size", 6)
+	lines.add_child(note)
+	row.add_child(lines)
+	return row
 
 
 func _entry(id: String) -> Control:

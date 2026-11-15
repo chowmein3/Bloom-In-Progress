@@ -158,7 +158,7 @@ func _rebuild() -> void:
 		_info.text = "Everything here is shared by the whole garden."
 		_fill_items()
 	else:
-		_info.text = "Level up by caring for plants and harvesting." if tab == "Crafting" else "Meals restore energy. Hold one (6) and press Space."
+		_info.text = "Level up by caring for plants and harvesting." if tab == "Crafting" else "Meals restore energy. Hold one (4) and press Space."
 		_fill_recipes(tab == "Kitchen")
 
 
@@ -252,8 +252,10 @@ func _add_slot(id: String, sort: String) -> void:
 	else:
 		var info: Dictionary = GameState.ITEMS[id]
 		words = "%s x%d. %s" % [info["name"], count, info["blurb"]]
-		if str(info["kind"]) != "material":
-			words += " In your hand (6)." if holding else " Click to hold."
+		if int(info.get("price", 0)) > 0:
+			words += " Sells for %d." % int(info["price"])
+		if ["place", "soil", "meal", "decor"].has(str(info["kind"])):
+			words += " In your hand (4)." if holding else " Click to hold."
 			slot.pressed.connect(func() -> void:
 				player.call("hold_item", id)
 				_rebuild())

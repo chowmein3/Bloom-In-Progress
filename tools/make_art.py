@@ -377,7 +377,7 @@ def make_players():
 
 # ------------------------------------------------------------------- hats
 # assets/sprites/hats.png: 16x12 frames, one per hat, in the order of
-# GameState.HAT_ORDER (straw, flower, sprout, beanie, sun). A hat is drawn
+# GameState.HAT_ORDER (straw, flower, sprout, beanie, sun, laurel). A hat is drawn
 # over the top 12 rows of a player frame.
 
 def make_hats():
@@ -408,8 +408,15 @@ def make_hats():
         c.rect(5, 1, 6, 1, rgb("#fff0c9"))
         c.rect(4, 4, 8, 1, rgb("#ff8fb3"))
 
+    def laurel(c):
+        gold = rgb("#ffd24a")
+        for x in (3, 5, 9, 11):
+            c.rect(x, 4, 2, 2, gold)
+        c.rect(2, 5, 12, 1, gold)
+        c.rect(7, 2, 2, 2, light(gold, 0.4))
+
     frames = []
-    for draw in (straw, flower, sprout, beanie, sun):
+    for draw in (straw, flower, sprout, beanie, sun, laurel):
         c = Canvas(16, 12)
         draw(c)
         frames.append(c.finish())
@@ -647,7 +654,92 @@ def make_things():
         c.tri(8, 3, 2.0, 9, light(green, 0.2))
         c.tri(11.5, 7, 1.8, 5, green)
 
+    def fish(body, belly, fin):
+        def draw(c):
+            c.ell(7, 8.5, 5.5, 3.4, rgb(body))
+            c.ell(7, 10, 4, 1.6, rgb(belly))
+            c.tri(13.5, 5, 2.2, 4, rgb(fin))
+            c.rect(12, 7, 3, 4, rgb(fin))
+            c.rect(6, 4, 3, 2, rgb(fin))
+            c.dot(3, 8, DARK)
+        return draw
+
+    def fern(c):
+        c.rect(5, 11, 6, 4, rgb("#c9744a"))
+        c.rect(4, 10, 8, 1, rgb("#dd8a5e"))
+        c.ell(7.5, 6, 5.5, 4.5, green)
+        c.ell(5, 4, 2, 2, light(green, 0.25))
+
+    def lamp(c):
+        c.rect(7, 6, 2, 8, rgb("#6b5a4a"))
+        c.rect(4, 14, 8, 1, rgb("#6b5a4a"))
+        c.tri(7.5, 1, 5, 6, rgb("#ffe07a"))
+        c.rect(3, 6, 10, 1, rgb("#f2b84a"))
+
+    def rug(c):
+        c.ell(7.5, 8, 7.4, 5.5, rgb("#d9605a"))
+        c.ell(7.5, 8, 5, 3.4, rgb("#fbe6c4"))
+        c.ell(7.5, 8, 2.4, 1.4, rgb("#d9605a"))
+
+    def armchair(c):
+        seat = rgb("#5a9ac8")
+        c.rect(2, 3, 12, 8, seat)
+        c.rect(1, 7, 3, 7, light(seat, 0.15))
+        c.rect(12, 7, 3, 7, light(seat, 0.15))
+        c.rect(4, 9, 8, 4, light(seat, 0.3))
+        c.rect(3, 14, 2, 1, wood)
+        c.rect(11, 14, 2, 1, wood)
+
+    def teatable(c):
+        c.ell(7.5, 7, 6.5, 3, rgb("#b98a55"))
+        c.rect(7, 9, 2, 5, wood)
+        c.rect(4, 14, 8, 1, wood)
+        c.rect(4, 4, 3, 3, WHITE)
+        c.rect(9, 4, 3, 3, WHITE)
+
+    def bookcase(c):
+        c.rect(2, 1, 12, 14, rgb("#8a5e3a"))
+        for y in (3, 9):
+            c.rect(3, y, 10, 4, rgb("#4a3424"))
+            for i, colour in enumerate(("#e0605a", "#5aa0e0", "#ffd24a", "#5aa85a", "#e0739f")):
+                c.rect(3 + i * 2, y + 1, 2, 3, rgb(colour))
+
+    def gnome(c):
+        c.tri(7.5, 1, 4, 6, rgb("#d9443a"))
+        c.rect(5, 7, 6, 3, rgb("#ffd9b8"))
+        c.rect(4, 9, 8, 3, WHITE)
+        c.rect(5, 12, 6, 3, rgb("#4f7fd1"))
+        c.dot(6, 8, DARK)
+        c.dot(9, 8, DARK)
+
+    def birdbath(c):
+        c.ell(7.5, 5, 6.5, 2.6, stone)
+        c.ell(7.5, 4.5, 4.5, 1.4, rgb("#8fd0ff"))
+        c.rect(6, 7, 4, 6, stone)
+        c.rect(4, 13, 8, 2, stone)
+
+    def skewer(c):
+        for i in range(12):
+            c.px(2 + i, 13 - i, wood)
+        c.ell(6, 9.5, 2.6, 2.2, rgb("#e89a6a"))
+        c.ell(10, 5.5, 2.6, 2.2, rgb("#e89a6a"))
+
+    def crate_bin(c):
+        c.rect(1, 5, 14, 10, wood)
+        c.rect(1, 9, 14, 1, shade(wood, 0.25))
+        c.rect(0, 3, 16, 3, light(wood, 0.2))  # lid, propped open
+        c.rect(5, 11, 6, 2, rgb("#ffd24a"))  # a coin plate
+
     drawings = {
+        "minnow": fish("#9fb4c8", "#e3ecf2", "#7a94ad"),
+        "sunfish": fish("#f2b84a", "#fff3b8", "#e0803a"),
+        "raincarp": fish("#5a8fc8", "#bfe6ff", "#3f6a9a"),
+        "moonfin": fish("#7a6ac8", "#e3d8ff", "#4f418f"),
+        "frostfin": fish("#bfe9ff", "#ffffff", "#7fbfe6"),
+        "goldie": fish("#ffd24a", "#fff6c9", "#f08a2e"),
+        "fern": fern, "lamp": lamp, "rug": rug, "armchair": armchair, "teatable": teatable,
+        "bookcase": bookcase, "gnome": gnome, "birdbath": birdbath, "skewer": skewer, "bin": crate_bin,
+        "supper": lambda c: bowl(c, rgb("#7a6ac8"), ("#f3e9d2", "#e8584f", "#f3e9d2")),
         "wood": log_pile, "stone": stones, "fiber": fiber, "mulch": mulch, "path": path, "fence": fence,
         "sprinkler": sprinkler, "lantern": lantern, "tea": tea, "pie": pie,
         "salad": lambda c: bowl(c, rgb("#6fc46a"), ("#ffcf4a", "#ff8fb3", "#ffcf4a")),
@@ -1006,7 +1098,7 @@ def make_tree():
 # --------------------------------------------------------------- UI icons
 # assets/sprites/ui_icons.png: 12x12 frames left to right:
 #   hoe, watering can, seed bag, petting hand (heart), basket,
-#   sun, rain cloud, snow cloud, moon, love heart, coin
+#   sun, rain cloud, snow cloud, moon, love heart, coin, fishing rod
 
 def icon(draw):
     c = Canvas(12, 12)
@@ -1080,8 +1172,14 @@ def make_icons():
         c.ell(5.5, 5.5, 2.6, 2.6, rgb("#ffe07a"))
         c.dot(4, 4, WHITE)
 
+    def rod(c):
+        for i in range(9):
+            c.rect(1 + i, 10 - i, 2, 1, wood)
+        c.rect(10, 2, 1, 7, rgb("#dfe6f0"))  # line
+        c.rect(9, 9, 2, 2, rgb("#e0605a"))  # float
+
     draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
-             lambda c: heart(c, rgb("#ff5d7a")), coin]
+             lambda c: heart(c, rgb("#ff5d7a")), coin, rod]
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 

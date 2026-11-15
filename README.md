@@ -57,8 +57,9 @@ godot --path .
 |---|---|
 | WASD / arrows | Move |
 | Shift (hold) | Run |
-| Space / F | Use the current tool on the highlighted tile, open doors, talk to the shopkeeper |
-| 1-6 | Hoe, Watering Can, Seeds, Hands (pet), Basket (pick up), Item (place or eat) |
+| Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
+| F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
+| 1-5 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod |
 | Tab | Next tool |
 | Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
@@ -95,13 +96,29 @@ quitting mid-day loses that day's progress.
 - **Bristle's stall** (the hedgehog beside your home): sell picked plants for
   coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
   cabin and then a cottage (more room, more energy each morning), and hats.
+- **Hands:** no tool is needed to pet, pick or pick things up. Face it and
+  press F. A plant you haven't petted today gets petted; a ripe plant you
+  already petted gets picked. The line above the tool bar shows what F will do.
+- **Fishing:** face the pond with the rod (5) and press Space. Wait for the
+  "!", press Space to hook it, then press Space each time the marker crosses
+  the green band. Which fish bite depends on season, hour and rain. Sell them,
+  ship them or cook them.
+- **Shipping bin** (the crate between your home and the stall): drop harvest
+  and fish in; they're sold overnight at Bristle's prices.
+- **Decor:** buy furniture from Bristle's Decor tab, hold it (4) and set it
+  down inside your home or in the garden.
+- **Goals** (journal, Goals page): eleven long-term goals that pay coins when
+  met, and a special hat for finishing them all.
+- **Festivals:** day 14 of each season. Bloom Show (radiant plants win coins),
+  Firefly Night (petting counts double), Harvest Fair (everything sells for
+  half as much again), Lantern Night (three lanterns bring a gift).
 - **Gathering:** branches, rocks and weeds turn up around the garden. Clear
-  them with the basket (5) for wood, stone and fiber.
+  them by hand (F) for wood, stone and fiber.
 - **Crafting** (backpack, Crafting tab): stepping stones, fences, rich mulch
   (plants in it often grow twice as fast), sprinklers (water the four tiles
   beside them every morning) and garden lanterns. Click a made thing in the
-  backpack to hold it, then press 6 and Space to set it down; the basket picks
-  it back up.
+  backpack to hold it, then press 4 and Space to set it down; F picks it
+  back up.
 - **Cooking** (backpack, Kitchen tab, needs the Cabin's stove): turn harvest
   into meals. Hold a meal and press Space to eat it for energy.
 - **Gardening level:** caring for plants and harvesting earn experience.

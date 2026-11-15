@@ -11,7 +11,8 @@ const HELP_ROWS: Array = [
 	["WASD", "Move"],
 	["Shift", "Run"],
 	["Space", "Use tool"],
-	["1-6", "Choose tool"],
+	["F", "Use hand"],
+	["1-5", "Choose tool"],
 	["Q", "Change seed/item"],
 	["E", "Backpack"],
 	["J", "Journal"],
@@ -27,6 +28,7 @@ const ICON_SNOW := 7
 const ICON_MOON := 8
 const ICON_LOVE := 9
 const ICON_COIN := 10
+const ICON_ROD := 11
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
@@ -132,12 +134,12 @@ func _ready() -> void:
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
 	bar_row.add_theme_constant_override("separation", 1)
-	for i in 6:
+	for i in 5:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(16, 16)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if i < 5:
-			var picture: TextureRect = _icon(i)
+		if i != 3:
+			var picture: TextureRect = _icon(i if i < 3 else ICON_ROD)
 			picture.position = Vector2(2, 3)
 			slot.add_child(picture)
 		else:  # the item slot shows whatever is being held
@@ -318,7 +320,11 @@ func _set_line(label: Label, content: String) -> void:
 
 func _process(delta: float) -> void:
 	if player != null:
-		_set_line(_inspect, GameState.describe_cell(player.call("target_cell")))
+		var seen: String = GameState.describe_cell(player.call("target_cell"))
+		var hint: String = player.call("hand_hint")
+		if hint != "":
+			seen = "[F] %s" % hint if seen == "" else "%s   [F] %s" % [seen, hint]
+		_set_line(_inspect, seen)
 	if _message_time > 0.0:
 		_message_time -= delta
 		if _message_time <= 0.0:
@@ -357,7 +363,7 @@ func refresh() -> void:
 
 
 func _update_clock() -> void:
-	_date.text = "%s %d" % [TimeManager.season_name(), TimeManager.day_of_season()]
+	_date.text = "%s %d%s" % [TimeManager.season_name(), TimeManager.day_of_season(), " *" if GameState.festival_today() != -1 else ""]
 	_time.text = TimeManager.time_string()
 	var picture: int = ICON_SUN
 	if TimeManager.raining:
@@ -408,7 +414,7 @@ func _update_tool() -> void:
 	var line: String = ""
 	if index == 2:
 		line = "%s seeds  (Q: change)" % GameState.species[id].display_name
-	elif index == 5:
+	elif index == 3:
 		line = "%s  (Q: change)" % GameState.name_of(held) if has_item else "Empty hands. Make things in the backpack (E)"
 	_set_line(_seed_line, line)
 
@@ -442,6 +448,8 @@ func _on_day_advanced(summary: Dictionary) -> void:
 		if str(tree_news.get("gifts", "")) != "":
 			extra.append("It dropped %s" % tree_news["gifts"])
 	for line: String in summary.get("discoveries", []):
+		extra.append(line)
+	for line: String in summary.get("news", []):
 		extra.append(line)
 	if not extra.is_empty():
 		content += "\n\n" + "\n".join(extra)

@@ -118,6 +118,7 @@ def make_effects():
     save("morning", sequence(["C5", "E5", "G5", "C6"], 0.16, 1.2, 3, BELL), 0.6)
     save("grow", sequence(["G5", "C6", "E6", "G6", "C7"], 0.09, 1.0, 4, BELL), 0.55)
     save("page", noise(0.16, 16, 3), 0.3)
+    save("step", noise(0.05, 60, 10) * 1.5, 0.22)
     # The clock tower bending time: a bell, clockwork ticking faster and
     # faster under a rising whoosh, a crash, then a small "ta-da".
     warp = np.zeros(int(3.9 * RATE))

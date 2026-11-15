@@ -101,7 +101,42 @@ Borrowed from farm sims and cut down to what serves a shared garden.
 - Items, placed things, experience and the request are shared and saved; the
   tool bar's sixth slot holds one placeable thing or meal.
 
-Not built (yet): fishing, mining, animals, villagers and festivals.
+## Hands and tools
+Two actions, as in farm sims. **Use tool** (Space / left click) applies the
+held tool: hoe, watering can, seeds, held item, fishing rod. **Use hand**
+(F / right click) does whatever needs no tool: get into bed, go through a
+door, open the stall, tower or bin, hug the tree, pet a plant, pick a ripe
+one, clear debris, pick up a placed thing. On a plant the hand pets first;
+once you've petted it today, it picks if ripe. When the held tool has nothing
+to do on the tile ahead, Use tool falls back to the hand.
+
+## Fishing
+A pond in the lower right. Casting costs 2 energy and opens a small game:
+wait for the bite, press to hook within a second, then land three presses on
+a moving green band within nine seconds (a miss loses one). The host then
+rolls the fish: minnow any time; sunny bream on spring and summer days; rain
+carp in rain; moonfin from 6pm; frostfin in winter; a 5% golden koi. Fish
+sell for 15-200, cook into two meals and are tallied on the journal's Fish
+page.
+
+## Shipping bin and decor
+- The bin beside the home takes anything with a sell price; its contents are
+  sold at the night's prices and listed on the morning screen.
+- Bristle's Decor tab sells eight pieces (80-250 coins). Decor can stand on
+  the home's floor or in the garden; the rug is flat and walkable. Moving to
+  a bigger home returns any piece that would overlap the new built-in
+  furniture. There are no chests: the backpack has no size limit.
+
+## Goals and festivals
+- Eleven goals (`GameState.GOALS`) are checked every night and pay once,
+  150-500 coins each; finishing the other ten awards the Golden Laurel hat.
+- Day 14 of each season is a festival, announced the morning before and on
+  the day, with bunting across the yard: Bloom Show (50 coins per radiant
+  plant that night, up to 12), Firefly Night (petting counts double), Harvest
+  Fair (all sales x1.5), Lantern Night (three lanterns: 100 coins and winter
+  seeds).
+
+Not built (yet): mining, animals, villagers.
 
 ## Clock tower
 A tower left of the home whose face shows the garden's real time. Using it

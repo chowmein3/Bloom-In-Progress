@@ -39,6 +39,12 @@ func _process(delta: float) -> void:
 			return
 
 
+## The time of day including the part of a ten-minute step already gone by,
+## for anything that should change smoothly (the light).
+func exact_minutes() -> float:
+	return minutes + (0.0 if paused else _accum / REAL_SECONDS_PER_STEP * STEP_MINUTES)
+
+
 func season() -> int:
 	@warning_ignore("integer_division")
 	return (day_index / DAYS_PER_SEASON) % 4
