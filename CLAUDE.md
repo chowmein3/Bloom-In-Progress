@@ -16,8 +16,10 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `Assets.sound()`; they fall back to the raw files when the project was never
   imported. `scripts/settings.gd`: per-player preferences.
 - `export_presets.cfg`, `tools/build.sh`, `packaging/`: the downloadable
-  Windows/Linux builds. `.github/workflows/release.yml` tests, builds and
-  publishes them as the "latest" release on every push to `main`.
+  Windows/Linux builds. `tools/publish_downloads.sh` force-pushes the zips
+  to the `downloads` branch, which the README links to;
+  `.github/workflows/release.yml` tests, builds and publishes on every push
+  to `main` (when Actions can run for the account).
 - `scripts/main.gd`: builds the scene in code and starts solo/host/join games.
   `menu.gd`, `ground.gd`, `plant_view.gd`, `tree_view.gd`, `player.gd`,
   `hud.gd`, `minimap.gd`, `journal.gd`, `rain.gd` (weather) and `effects.gd`
