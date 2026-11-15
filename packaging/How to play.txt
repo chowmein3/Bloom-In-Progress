@@ -31,6 +31,7 @@ PLAY TOGETHER
 
 KEYS
   WASD / arrows  move            E    backpack (seeds, coins, hats)
+  Shift (hold)   run
   Space / F      use tool        J    garden journal
   1-5            choose tool     M    map on/off
   Q              change seed     N    music on/off
@@ -42,3 +43,6 @@ GOOD TO KNOW
   Coins:   pick grown plants with the basket (5) and sell them to Bristle,
            the hedgehog at the stall next to your home (face the stall,
            press Space). Buy seeds, better tools, a bigger home and hats.
+  Clock:   the tower left of your home sets any date, time and weather,
+           so you can see the garden in every season. Nothing grows or
+           wilts for the time you skip.

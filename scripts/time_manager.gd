@@ -66,6 +66,16 @@ func start_next_day() -> void:
 	time_changed.emit()
 
 
+## Jump straight to a date and time (the clock tower does this).
+func set_clock(new_day_index: int, new_minutes: int, rain: bool) -> void:
+	day_index = maxi(new_day_index, 0)
+	@warning_ignore("integer_division")
+	minutes = clampi(new_minutes / STEP_MINUTES * STEP_MINUTES, DAY_START, DAY_END - STEP_MINUTES)
+	_accum = 0.0
+	raining = rain and season() != 3  # it never rains in winter
+	time_changed.emit()
+
+
 func reset() -> void:
 	day_index = 0
 	minutes = DAY_START

@@ -77,6 +77,19 @@ blooms and radiant blooms are announced on the morning screen.
   portrait and the hat wardrobe.
 - Prices and upgrade tables live in `GameState` (`UPGRADES`, `HATS`).
 
+## Clock tower
+A tower left of the home whose face shows the garden's real time. Using it
+opens a screen to set the season, day, year, time (10-minute steps, 6am to
+1:50am) and weather. Pressing CHANGE TIME! jumps the calendar and clock
+without simulating the days between: nothing grows, wilts or is saved early;
+plants only wake or go dormant for the new season, and rain waters the soil.
+The jump plays a four-second, deliberately overblown animation (racing sky,
+sun and moon chasing round a spinning clock, flying calendar pages, a flash,
+then a calm "It is now..."), on both players' screens in co-op.
+
+Players run while Shift is held (1.75x). The walk is a four-step cycle (left
+foot, together, right foot, together) with arms swinging opposite.
+
 ## Menus
 The title menu follows the usual farm-sim flow: **New** (name a garden),
 **Load** (list of saved gardens with their date, with delete), **Co-op**

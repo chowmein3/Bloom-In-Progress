@@ -282,7 +282,8 @@ def make_plants():
 
 
 # ---------------------------------------------------------------- players
-# assets/sprites/player_<slot>.png: 16x24 frames, 2 columns (standing, step),
+# assets/sprites/player_<slot>.png: 16x24 frames, 3 columns (standing, left
+# foot forward, right foot forward; the game plays 1-0-2-0 as the walk),
 # 5 rows (facing down, up, left, right, asleep). Feet on y=22. Players are
 # drawn bare-headed; the hat they wear is laid on top from hats.png.
 
@@ -290,23 +291,35 @@ def player_frame(direction, step, overalls):
     c = Canvas(16, 24)
     skin, hair = rgb("#ffd9b8"), rgb("#8a5a3c")
     boots, shirt = rgb("#6b4a36"), rgb("#fff4dc")
-    lift = 1 if step else 0
+    # step: 0 standing, 1 left foot forward, 2 right foot forward. The arms
+    # swing opposite the legs.
     side = direction in ("left", "right")
     if side:
-        c.rect(5, 20 - lift, 3, 3 + lift - (1 if step else 0), boots)
-        c.rect(8, 20, 3, 3, boots)
+        forward = 1 if direction == "right" else -1
+        if step == 0:
+            c.rect(5, 20, 3, 3, boots)
+            c.rect(8, 20, 3, 3, boots)
+        else:
+            # Legs apart: one foot planted ahead, the other lifting behind.
+            ahead, behind = (9, 4) if forward == 1 else (4, 9)
+            c.rect(ahead, 20, 3, 3, boots)
+            c.rect(behind, 19, 3, 3, boots)
+            c.rect(6, 19, 4, 1, overalls)
         c.rect(5, 13, 6, 7, overalls)
         c.rect(6, 12, 4, 2, shirt)
-        c.rect(7, 14, 2, 4, shirt)  # arm
-        c.rect(7, 18, 2, 1, skin)
+        swing = 0 if step == 0 else (forward if step == 1 else -forward)
+        c.rect(7 + swing, 14, 2, 4, shirt)  # arm
+        c.rect(7 + swing * 2, 18, 2, 1, skin)
     else:
-        c.rect(4, 20 - lift, 3, 3, boots)
-        c.rect(9, 20 - (0 if step else 0) + (0 if not step else 0), 3, 3, boots)
+        c.rect(4, 20 - (1 if step == 1 else 0), 3, 3, boots)
+        c.rect(9, 20 - (1 if step == 2 else 0), 3, 3, boots)
         c.rect(4, 13, 8, 7, overalls)
-        c.rect(3, 13, 1, 5, shirt)
-        c.rect(12, 13, 1, 5, shirt)
-        c.rect(3, 18, 1, 1, skin)
-        c.rect(12, 18, 1, 1, skin)
+        left_arm = 1 if step == 2 else 0  # the arm opposite the lifted foot swings up
+        right_arm = 1 if step == 1 else 0
+        c.rect(3, 13 - left_arm, 1, 5, shirt)
+        c.rect(12, 13 - right_arm, 1, 5, shirt)
+        c.rect(3, 18 - left_arm, 1, 1, skin)
+        c.rect(12, 18 - right_arm, 1, 1, skin)
         if direction == "down":
             c.rect(6, 12, 4, 2, shirt)
             c.dot(5, 14, light(overalls, 0.5))  # buttons
@@ -354,10 +367,10 @@ def sleeping_head():
 
 def make_players():
     for slot, colour in ((1, "#4f7fd1"), (2, "#e0739f")):
-        out = Image.new("RGBA", (32, 120), (0, 0, 0, 0))
+        out = Image.new("RGBA", (48, 120), (0, 0, 0, 0))
         for row, direction in enumerate(("down", "up", "left", "right")):
-            for col in (0, 1):
-                out.paste(player_frame(direction, col == 1, rgb(colour)), (col * 16, row * 24))
+            for col in (0, 1, 2):
+                out.paste(player_frame(direction, col, rgb(colour)), (col * 16, row * 24))
         out.paste(sleeping_head(), (0, 96))
         save(out, "player_%d.png" % slot)
 
@@ -530,6 +543,32 @@ def make_cottage():
         for i, colour in enumerate(("#ff8fb3", "#ffd24a", "#ff8fb3")):
             c.dot(x + 1 + i * 2, 35, rgb(colour))
     save(c.finish(), "home_2.png")
+
+
+# assets/sprites/tower.png: the clock tower, 32x48, base on the bottom row.
+# Its clock face is left blank (centre 15.5, 20.5); the game draws the hands.
+
+def make_tower():
+    c = Canvas(32, 48)
+    stone, roof, wood = rgb("#b9b3c4"), rgb("#7a5aa8"), rgb("#8a5e3a")
+    c.rect(7, 12, 18, 34, stone)
+    for y in range(16, 46, 6):
+        c.rect(7, y, 18, 1, shade(stone, 0.18))
+    for x, y in ((12, 13), (20, 19), (10, 31), (18, 37), (14, 43)):
+        c.rect(x, y, 1, 3, shade(stone, 0.18))
+    c.rect(5, 44, 22, 2, shade(stone, 0.25))  # step
+    c.tri(15.5, 1, 12, 11, roof)
+    c.rect(15, 0, 2, 2, rgb("#ffd24a"))  # finial
+    c.ell(15.5, 20.5, 7.4, 7.4, wood)
+    c.ell(15.5, 20.5, 6, 6, rgb("#fff6dc"))
+    for dx, dy in ((0, -5), (5, 0), (0, 5), (-5, 0)):
+        c.dot(15 + dx, 20 + dy, DARK)
+        c.dot(16 + dx if dx == 0 else 15 + dx, 20 + dy if dx == 0 else 21 + dy, DARK)
+    c.rect(12, 34, 8, 12, wood)  # door
+    c.ell(15.5, 34, 4, 3, wood, top_only=True)
+    c.dot(18, 40, rgb("#ffd24a"))
+    c.rect(13, 29, 6, 2, rgb("#ffd24a"))  # bell slot
+    save(c.finish(), "tower.png")
 
 
 # ---------------------------------------------------------- inside the home
@@ -948,6 +987,7 @@ if __name__ == "__main__":
     make_cottage()
     make_rooms()
     make_stall()
+    make_tower()
     make_items()
     make_tree()
     print("sprites written to", os.path.normpath(OUT))
