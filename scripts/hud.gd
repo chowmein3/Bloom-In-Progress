@@ -10,6 +10,8 @@ const HELP_ROWS: Array = [
 	["1 - 5", "Choose tool"],
 	["Q", "Change seed"],
 	["Tent", "Sleep (Space)"],
+	["J", "Garden journal"],
+	["M", "Music on/off"],
 	["H", "Hide this help"],
 ]
 const INK := Color(0.11, 0.09, 0.17, 0.86)
@@ -144,7 +146,7 @@ func _ready() -> void:
 	_fade.modulate.a = 0.0
 	_root.add_child(_fade)
 	_fade_label = _text("")
-	_fade_label.add_theme_font_size_override("font_size", 12)
+	_fade_label.add_theme_font_size_override("font_size", 10)
 	_fade_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_fade_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fade_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -303,13 +305,23 @@ func _on_day_advanced(summary: Dictionary) -> void:
 		content = "You dozed off among the plants...\n" + content
 	elif bool(summary.get("raining", false)):
 		content += "\nIt's raining today"
+	var extra: Array = []
+	var tree_news: Dictionary = summary.get("tree", {})
+	if not tree_news.is_empty():
+		extra.append("The Heart Tree grew into a %s!" % GameState.TREE_STAGE_NAMES[int(tree_news["stage"])])
+		if str(tree_news.get("gifts", "")) != "":
+			extra.append("It dropped %s" % tree_news["gifts"])
+	for line: String in summary.get("discoveries", []):
+		extra.append(line)
+	if not extra.is_empty():
+		content += "\n\n" + "\n".join(extra)
 	_fade_label.text = content
 	_fade.modulate.a = 1.0
 	_fade_label.modulate.a = 1.0
 	if player != null:
 		player.set("frozen", true)
 	var tween: Tween = create_tween()
-	tween.tween_interval(1.0)
+	tween.tween_interval(1.0 + 0.8 * extra.size())  # longer when there is news to read
 	tween.tween_property(_fade, "modulate:a", 0.0, 0.6)
 	tween.parallel().tween_property(_fade_label, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(func() -> void:

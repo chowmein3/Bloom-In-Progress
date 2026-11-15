@@ -19,15 +19,39 @@ signal notice(text: String)
 signal day_advanced(summary: Dictionary)
 signal state_reloaded
 signal sleepers_changed
+signal tree_changed
+signal journal_changed
 
 const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/sunpuff.tres",
 	"res://data/plants/moonbell.tres",
+	"res://data/plants/dewcup.tres",
+	"res://data/plants/pricklepal.tres",
 	"res://data/plants/gigglecap.tres",
+	"res://data/plants/lanternsquash.tres",
 	"res://data/plants/frostwhisker.tres",
+	"res://data/plants/snowpip.tres",
 ]
 const WORLD_SIZE := Vector2i(28, 18)  # in 16px tiles
 const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
+## The Heart Tree: one shared plant that grows on the love the whole garden
+## gets. Water it and hug it (pet) like any plant.
+const TREE_RECT := Rect2i(9, 4, 2, 2)
+const TREE_STAGE_NAMES: Array[String] = ["Heart Seed", "Heart Sprout", "Heart Sapling", "Young Heart Tree", "Heart Tree in bloom"]
+const TREE_STAGE_LOVE: Array[int] = [0, 40, 120, 260, 450]  # love needed to reach each stage
+const TREE_GIFTS: Dictionary = {  # seeds dropped on reaching a stage
+	1: {"pricklepal": 3},
+	2: {"gigglecap": 3, "lanternsquash": 3},
+	3: {"frostwhisker": 3, "snowpip": 3},
+	4: {"sunpuff": 2, "dewcup": 2},
+}
+const TREE_LOVE_PER_PLANT := 1  # per plant cared for that day...
+const TREE_LOVE_PLANT_CAP := 12  # ...up to this many
+const TREE_LOVE_WATERED := 3
+const TREE_LOVE_HUG := 2  # per player who hugged it
+const JOURNAL_PLANTED := 1
+const JOURNAL_BLOOMED := 2
+const JOURNAL_RADIANT := 3
 const MAX_ENERGY := 100
 const COST_TILL := 2
 const COST_WATER := 1
@@ -48,6 +72,8 @@ var plants: Dictionary = {}  # Vector2i -> plant Dictionary (see _new_plant)
 var seeds: Dictionary = {}  # species id -> count (shared by all players)
 var produce: Dictionary = {}  # species id -> count (shared by all players)
 var energy: Dictionary = {}  # player id -> int
+var tree: Dictionary = {"love": 0, "watered": false, "hugged_by": {}}
+var journal: Dictionary = {}  # species id -> best milestone so far (JOURNAL_*)
 var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for the others
 var rng := RandomNumberGenerator.new()
 
@@ -62,6 +88,8 @@ func _ready() -> void:
 	Net.player_joined.connect(_on_player_joined)
 	Net.player_left.connect(_on_player_left)
 	Net.session_ended.connect(_on_session_ended)
+	tree_changed.connect(_mirror_tree)
+	journal_changed.connect(_mirror_journal)
 	cell_changed.connect(_mirror_cell)
 	plant_added.connect(_mirror_cell)
 	plant_removed.connect(_mirror_cell)
@@ -78,7 +106,9 @@ func new_game() -> void:
 	plants.clear()
 	produce.clear()
 	sleeping.clear()
-	seeds = {"sunpuff": 6, "moonbell": 4, "gigglecap": 3, "frostwhisker": 2}
+	journal.clear()
+	tree = {"love": 0, "watered": false, "hugged_by": {}}
+	seeds = {"sunpuff": 6, "moonbell": 4, "dewcup": 3}
 	for pid: int in energy.keys():
 		energy[pid] = MAX_ENERGY
 	TimeManager.reset()
@@ -97,8 +127,35 @@ func in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < WORLD_SIZE.x and cell.y < WORLD_SIZE.y
 
 
-func is_blocked(cell: Vector2i) -> bool:
+func is_tent(cell: Vector2i) -> bool:
 	return TENT_RECT.has_point(cell)
+
+
+func is_tree(cell: Vector2i) -> bool:
+	return TREE_RECT.has_point(cell)
+
+
+## Tiles nobody can walk on or dig up.
+func is_blocked(cell: Vector2i) -> bool:
+	return is_tent(cell) or is_tree(cell)
+
+
+func tree_stage() -> int:
+	var stage: int = 0
+	for i in TREE_STAGE_LOVE.size():
+		if int(tree["love"]) >= TREE_STAGE_LOVE[i]:
+			stage = i
+	return stage
+
+
+## Love needed for the next stage, or -1 when fully grown.
+func tree_next_goal() -> int:
+	var stage: int = tree_stage()
+	return TREE_STAGE_LOVE[stage + 1] if stage + 1 < TREE_STAGE_LOVE.size() else -1
+
+
+func journal_level(species_id: String) -> int:
+	return int(journal.get(species_id, 0))
 
 
 func get_energy(player_id: int) -> int:
@@ -129,8 +186,12 @@ func plant_is_radiant(cell: Vector2i) -> bool:
 
 
 func describe_cell(cell: Vector2i) -> String:
-	if is_blocked(cell):
+	if is_tent(cell):
 		return "Tent: rest here to end the day"
+	if is_tree(cell):
+		var goal: int = tree_next_goal()
+		var progress: String = "love %d/%d" % [int(tree["love"]), goal] if goal > 0 else "fully grown"
+		return "%s, %s%s" % [TREE_STAGE_NAMES[tree_stage()], progress, "" if bool(tree["watered"]) else ", thirsty"]
 	if plants.has(cell):
 		var p: Dictionary = plants[cell]
 		var d: Resource = species[p["species"]]
@@ -212,6 +273,12 @@ func _do_till(player_id: int, cell: Vector2i) -> bool:
 
 
 func _do_water(player_id: int, cell: Vector2i) -> bool:
+	if is_tree(cell):
+		if bool(tree["watered"]) or not _spend(player_id, COST_WATER):
+			return false
+		tree["watered"] = true
+		tree_changed.emit()
+		return true
 	if not soil.has(cell) or bool(soil[cell]["watered"]):
 		return false
 	if not _spend(player_id, COST_WATER):
@@ -238,6 +305,7 @@ func _do_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 	seeds[species_id] = seed_count(species_id) - 1
 	plants[cell] = _new_plant(species_id)
 	_credit(plants[cell], player_id)
+	_note(species_id, JOURNAL_PLANTED)
 	inventory_changed.emit()
 	plant_added.emit(cell)
 	return true
@@ -245,6 +313,13 @@ func _do_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 
 ## Affection: each player can pet each plant once per day.
 func _do_pet(player_id: int, cell: Vector2i) -> bool:
+	if is_tree(cell):
+		if tree["hugged_by"].has(str(player_id)):
+			_notify(player_id, "The tree is still glowing from your hug")
+			return false
+		tree["hugged_by"][str(player_id)] = true
+		tree_changed.emit()
+		return true
 	if not plants.has(cell):
 		return false
 	var p: Dictionary = plants[cell]
@@ -307,8 +382,15 @@ func _do_sleep(player_id: int) -> bool:
 func end_day(passed_out: bool) -> void:
 	if not Net.is_host():
 		return
+	var tree_news: Dictionary = _grow_tree()
+	var discoveries: Array = []
 	for cell: Vector2i in plants.keys():
 		_grow_plant(cell)
+		var id: String = plants[cell]["species"]
+		var level: int = JOURNAL_RADIANT if plant_is_radiant(cell) else (JOURNAL_BLOOMED if plant_is_mature(cell) else 0)
+		if level > journal_level(id):
+			discoveries.append("%s %s for the first time" % [species[id].display_name, "turned radiant" if level == JOURNAL_RADIANT else "bloomed"])
+			_note(id, level)
 	for cell: Vector2i in soil.keys():
 		soil[cell]["watered"] = false
 		if not plants.has(cell) and rng.randf() < SOIL_REVERT_CHANCE:
@@ -321,6 +403,9 @@ func end_day(passed_out: bool) -> void:
 	if TimeManager.raining:
 		for cell: Vector2i in soil.keys():
 			soil[cell]["watered"] = true
+	tree["watered"] = TimeManager.raining
+	tree["hugged_by"] = {}
+	tree_changed.emit()
 	var dozers: Array = []
 	for pid: int in energy.keys():
 		var slept: bool = not passed_out or sleeping.has(pid)
@@ -332,10 +417,42 @@ func end_day(passed_out: bool) -> void:
 	sleeping.clear()
 	sleepers_changed.emit()
 	save_game()
-	var summary: Dictionary = {"passed_out": dozers, "raining": TimeManager.raining}
+	var summary: Dictionary = {
+		"passed_out": dozers,
+		"raining": TimeManager.raining,
+		"tree": tree_news,
+		"discoveries": discoveries,
+	}
 	day_advanced.emit(summary)
 	if _mirroring():
 		_net_day.rpc(to_snapshot(), summary)
+
+
+## Adds today's love to the Heart Tree. Returns {} or, when it reached a new
+## stage, {"stage": int, "gifts": "3 Pricklepal seeds, ..."}.
+func _grow_tree() -> Dictionary:
+	var cared: int = 0
+	for cell: Vector2i in plants.keys():
+		var p: Dictionary = plants[cell]
+		if not bool(p["dormant"]) and (bool(soil[cell]["watered"]) or not p["petted_by"].is_empty()):
+			cared += 1
+	var gained: int = mini(cared, TREE_LOVE_PLANT_CAP) * TREE_LOVE_PER_PLANT
+	if bool(tree["watered"]):
+		gained += TREE_LOVE_WATERED
+	gained += tree["hugged_by"].size() * TREE_LOVE_HUG
+	var before: int = tree_stage()
+	tree["love"] = int(tree["love"]) + gained
+	var after: int = tree_stage()
+	if after == before:
+		return {}
+	var parts: Array = []
+	for stage in range(before + 1, after + 1):
+		var gifts: Dictionary = TREE_GIFTS.get(stage, {})
+		for id: String in gifts.keys():
+			seeds[id] = seed_count(id) + int(gifts[id])
+			parts.append("%d %s seeds" % [int(gifts[id]), species[id].display_name])
+	inventory_changed.emit()
+	return {"stage": after, "gifts": ", ".join(parts)}
 
 
 func _grow_plant(cell: Vector2i) -> void:
@@ -386,6 +503,13 @@ func _credit(plant: Dictionary, player_id: int) -> void:
 	plant["caretakers"][key] = int(plant["caretakers"].get(key, 0)) + 1
 
 
+## Records a first for the garden journal.
+func _note(species_id: String, level: int) -> void:
+	if level > journal_level(species_id):
+		journal[species_id] = level
+		journal_changed.emit()
+
+
 func _everyone_asleep() -> bool:
 	for slot: int in Net.slots():
 		if not sleeping.has(slot):
@@ -434,6 +558,8 @@ func to_snapshot() -> Dictionary:
 		"plants": plants_out,
 		"seeds": seeds,
 		"produce": produce,
+		"tree": tree,
+		"journal": journal,
 		"energy": energy_out,
 	}
 
@@ -455,8 +581,22 @@ func apply_snapshot(data: Dictionary) -> void:
 		for k: String in src.get("caretakers", {}).keys():
 			p["caretakers"][k] = int(src["caretakers"][k])
 		plants[_cell(key)] = p
+	# Gardens saved before the tent or tree stood somewhere may have soil there.
+	for cell: Vector2i in soil.keys():
+		if is_blocked(cell):
+			soil.erase(cell)
+			plants.erase(cell)
 	seeds = _int_values(data.get("seeds", {}))
 	produce = _int_values(data.get("produce", {}))
+	journal = _int_values(data.get("journal", {}))
+	var saved_tree: Dictionary = data.get("tree", {})
+	tree = {"love": int(saved_tree.get("love", 0)), "watered": bool(saved_tree.get("watered", false)), "hugged_by": {}}
+	for k: String in saved_tree.get("hugged_by", {}).keys():
+		tree["hugged_by"][k] = true
+	# Older gardens: anything already growing counts as planted in the journal.
+	for cell: Vector2i in plants.keys():
+		if journal_level(plants[cell]["species"]) < JOURNAL_PLANTED:
+			journal[plants[cell]["species"]] = JOURNAL_PLANTED
 	energy.clear()
 	for key: String in data.get("energy", {}).keys():
 		energy[int(key)] = int(data["energy"][key])
@@ -560,6 +700,28 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.is_empty()
 	if valid:
 		_apply(action, slot, args)
+
+
+func _mirror_tree() -> void:
+	if _mirroring():
+		_net_tree.rpc(tree)
+
+
+func _mirror_journal() -> void:
+	if _mirroring():
+		_net_journal.rpc(journal)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_tree(new_tree: Dictionary) -> void:
+	tree = new_tree
+	tree_changed.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_journal(new_journal: Dictionary) -> void:
+	journal = new_journal
+	journal_changed.emit()
 
 
 func _mirror_cell(cell: Vector2i) -> void:

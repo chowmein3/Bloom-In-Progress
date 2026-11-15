@@ -29,6 +29,7 @@ func _ready() -> void:
 	check(not GameState.request_till(P, a), "can't till twice")
 	check(not GameState.request_till(P, Vector2i(13, 1)), "can't till under the tent")
 	check(not GameState.request_till(P, Vector2i(-1, 0)), "can't till out of bounds")
+	GameState.seeds["frostwhisker"] = 1
 	check(not GameState.request_plant(P, a, "frostwhisker"), "winter plant refused in spring")
 	check(GameState.request_plant(P, a, "sunpuff"), "plant sunpuff")
 	check(GameState.seed_count("sunpuff") == 5, "seed used up")
@@ -122,6 +123,51 @@ func _ready() -> void:
 	var today: int = TimeManager.day_index
 	GameState.request_sleep(P)
 	check(TimeManager.day_index == today + 1 and GameState.sleeping.is_empty(), "alone, sleeping ends the day at once")
+
+	print("heart tree and journal")
+	GameState.new_game()
+	var t := Vector2i(9, 4)
+	var bed := Vector2i(3, 9)
+	check(GameState.is_blocked(t) and not GameState.request_till(P, t), "the tree's ground can't be tilled")
+	check(GameState.journal_level("sunpuff") == 0, "journal starts empty")
+	GameState.request_till(P, bed)
+	GameState.request_plant(P, bed, "sunpuff")
+	check(GameState.journal_level("sunpuff") == GameState.JOURNAL_PLANTED, "planting is noted in the journal")
+	GameState.request_water(P, bed)
+	check(GameState.request_water(P, t) and not GameState.request_water(P, t), "tree can be watered once a day")
+	check(GameState.request_pet(P, t) and not GameState.request_pet(P, t), "tree can be hugged once a day per player")
+	check(GameState.request_pet(2, t), "a second player can hug it too")
+	GameState.end_day(false)
+	check(int(GameState.tree["love"]) == 1 + 3 + 2 + 2, "love = 1 cared plant + 3 watered + 2 per hug")
+	check(not bool(GameState.tree["watered"]) and GameState.tree["hugged_by"].is_empty(), "tree care resets each morning")
+	check(GameState.tree_stage() == 0 and GameState.seed_count("pricklepal") == 0, "still a seed, no gift yet")
+	GameState.tree["love"] = 39
+	GameState.request_water(P, t)
+	var news: Array = [{}]
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: news[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.tree_stage() == 1, "tree reaches the sprout stage at 40 love")
+	check(GameState.seed_count("pricklepal") == 3, "growing drops gift seeds")
+	check(int(news[0]["tree"].get("stage", 0)) == 1 and str(news[0]["tree"]["gifts"]) == "3 Pricklepal seeds", "morning summary announces it")
+	for i in 6:
+		GameState.plants[bed]["happiness"] = 50
+		GameState.request_water(P, bed)
+		GameState.day_advanced.connect(func(summary: Dictionary) -> void: news[0] = summary, CONNECT_ONE_SHOT)
+		GameState.end_day(false)
+		if GameState.plant_is_mature(bed):
+			break
+	check(GameState.journal_level("sunpuff") == GameState.JOURNAL_BLOOMED, "first bloom is noted")
+	check(news[0]["discoveries"] == ["Sunpuff bloomed for the first time"], "and announced once")
+	GameState.plants[bed]["happiness"] = 100
+	GameState.end_day(false)
+	check(GameState.journal_level("sunpuff") == GameState.JOURNAL_RADIANT, "first radiant bloom is noted")
+	var kept: String = JSON.stringify(GameState.to_snapshot())
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(JSON.stringify(GameState.to_snapshot()) == kept, "tree and journal survive save and load")
+	GameState.tree["love"] = 1000
+	check(GameState.tree_stage() == 4 and GameState.tree_next_goal() == -1, "tree tops out at full bloom")
 
 	print("curfew and energy")
 	GameState.energy[P] = 1

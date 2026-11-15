@@ -40,7 +40,7 @@ func _ready() -> void:
 	await _shot("1_first_seed")
 
 	# Fill out a little garden through the same request API the player uses.
-	var kinds: Array[String] = ["sunpuff", "moonbell", "sunpuff", "moonbell", "sunpuff"]
+	var kinds: Array[String] = ["sunpuff", "moonbell", "dewcup", "moonbell", "dewcup"]
 	for i in kinds.size():
 		var cell := Vector2i(9 + i * 2, 8)
 		GameState.request_till(P, cell)
@@ -50,6 +50,8 @@ func _ready() -> void:
 			GameState.request_water(P, cell)
 			if cell.x != 9:
 				GameState.request_pet(P, cell)
+		GameState.request_water(P, Vector2i(9, 4))
+		GameState.request_pet(P, Vector2i(9, 4))
 		if day == 4:
 			await _wait(2.0)
 			await _shot("2_growing")
@@ -61,6 +63,24 @@ func _ready() -> void:
 	GameState.request_pet(P, Vector2i(11, 8))
 	await _frames(10)
 	await _shot("3_in_bloom")
+
+	# The journal, opened with its key.
+	await _tap(KEY_J)
+	await _frames(5)
+	await _shot("5_journal")
+	await _tap(KEY_J)
+
+	# A peek at later seasons and a grown Heart Tree (set directly, for the picture only).
+	GameState.tree["love"] = 300
+	for season in [2, 3]:
+		TimeManager.day_index = season * 28 + 4
+		for cell: Vector2i in GameState.plants.keys():
+			GameState.plants[cell]["dormant"] = season == 3
+		GameState.state_reloaded.emit()
+		await _wait(0.5)
+		await _shot("6_season_%d" % season)
+	TimeManager.day_index = 12
+	GameState.state_reloaded.emit()
 
 	TimeManager.rain_chance = 1.0
 	GameState.end_day(false)

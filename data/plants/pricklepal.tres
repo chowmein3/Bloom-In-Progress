@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "pricklepal"
+display_name = "Pricklepal"
+blurb = "Prickly outside, huggable inside."
+days_per_stage = Array[int]([2, 3, 3])
+seasons = Array[int]([1])
+regrows = true
+regrow_days = 4
+shape = "cactus"

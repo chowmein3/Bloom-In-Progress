@@ -1,35 +1,58 @@
 extends Node2D
-## Draws one plant from the data in GameState.plants (placeholder art).
-## Origin is the bottom-centre of the plant's tile.
+## Draws one plant from the data in GameState.plants, using its sprite sheet
+## at assets/sprites/plants/<species id>.png (16x24 frames: seed, growing
+## stages, in bloom, radiant, resting). Origin is the bottom-centre of the tile.
 
-const DARK := Color(0.16, 0.12, 0.2)
-const DORMANT_TINT := Color(0.55, 0.5, 0.45)
+const Effects := preload("res://scripts/effects.gd")
+const FRAME := Vector2(16, 24)
+const DORMANT_TINT := Color(0.62, 0.6, 0.68)
 
 var cell: Vector2i
+var _texture: Texture2D
 var _bob: int = 0
 var _heart: float = 0.0
+var _splash: float = 0.0
 var _phase: float = 0.0
+var _was_watered: bool = false
+var _blink: int = 0
 
 
 func _ready() -> void:
 	_phase = float(hash(cell) % 100) / 10.0
+	if GameState.plants.has(cell):
+		_texture = load("res://assets/sprites/plants/%s.png" % GameState.plants[cell]["species"])
+		_was_watered = bool(GameState.soil[cell]["watered"])
 
 
 func _process(delta: float) -> void:
 	if not GameState.plants.has(cell):
 		return
+	var redraw: bool = false
 	if _heart > 0.0:
 		_heart -= delta
-		queue_redraw()
+		redraw = true
+	if _splash > 0.0:
+		_splash -= delta * 2.0
+		redraw = true
+	var now: float = Time.get_ticks_msec() / 1000.0
 	var bob: int = 0
 	if GameState.plant_is_mature(cell) and not bool(GameState.plants[cell]["dormant"]):
-		bob = int(round(sin(Time.get_ticks_msec() / 400.0 + _phase) * 0.6))
-	if bob != _bob:
+		bob = int(round(sin(now * 2.5 + _phase) * 0.6))
+	var blink: int = int(now * 1.5 + _phase) % 2  # slow tick for the little icons
+	if bob != _bob or blink != _blink:
 		_bob = bob
+		_blink = blink
+		redraw = true
+	if redraw:
 		queue_redraw()
 
 
 func refresh() -> void:
+	if GameState.plants.has(cell):
+		var watered: bool = bool(GameState.soil[cell]["watered"])
+		if watered and not _was_watered:
+			_splash = 1.0
+		_was_watered = watered
 	queue_redraw()
 
 
@@ -43,87 +66,40 @@ func show_love() -> void:
 	tween.tween_property(self, "rotation", 0.0, 0.1)
 
 
-func _px(x: int, y: int, w: int, h: int, color: Color) -> void:
-	draw_rect(Rect2(x, y, w, h), color)
-
-
 func _draw() -> void:
-	if not GameState.plants.has(cell):
+	if not GameState.plants.has(cell) or _texture == null:
 		return
 	var p: Dictionary = GameState.plants[cell]
 	var d: Resource = GameState.species[p["species"]]
 	var stage: int = GameState.plant_stage(cell)
 	var last: int = d.days_per_stage.size()
 	var dormant: bool = bool(p["dormant"])
-	var radiant: bool = GameState.plant_is_radiant(cell)
-	var ripe: bool = GameState.plant_is_ripe(cell)
-	var leaf: Color = d.leaf_color
-	var bloom: Color = d.radiant_color if radiant else d.bloom_color
-	if dormant:
-		leaf = leaf.lerp(DORMANT_TINT, 0.6)
-		bloom = bloom.lerp(DORMANT_TINT, 0.6)
+	var frame: int = mini(stage, last)
+	if stage >= last:
+		if d.regrows and not GameState.plant_is_ripe(cell):
+			frame = last + 2  # resting after being picked
+		elif GameState.plant_is_radiant(cell) and not dormant:
+			frame = last + 1
+	var tint: Color = DORMANT_TINT if dormant else Color.WHITE
+	draw_texture_rect_region(_texture, Rect2(Vector2(-8, -23 - _bob), FRAME), Rect2(Vector2(frame * FRAME.x, 0), FRAME), tint)
 
-	if stage == 0:
-		_px(-3, -5, 2, 2, Color(0.9, 0.82, 0.6))
-		_px(1, -3, 2, 2, Color(0.9, 0.82, 0.6))
-	elif stage < last:
-		var h: int = 2 + stage * 3
-		_px(-1, -h - 1, 2, h, leaf)
-		_px(-3, -h, 2, 2, leaf.lightened(0.15))
-		_px(1, -h + 1, 2, 2, leaf.lightened(0.15))
-		if stage == last - 1:
-			_px(-2, -h - 4, 4, 3, bloom.darkened(0.25))  # bud
-	else:
-		var b: int = -_bob
-		var happy: bool = int(p["happiness"]) >= 50
-		match d.shape:
-			"mushroom":
-				_px(-2, -7, 4, 6, Color(0.95, 0.9, 0.8))
-				_px(-6, -12 + b, 12, 5, bloom)
-				_px(-4, -14 + b, 8, 2, bloom)
-				_px(-4, -11 + b, 2, 2, Color.WHITE)
-				_px(2, -13 + b, 2, 2, Color.WHITE)
-				_face(-2, -6, happy, dormant)
-			"bush":
-				_px(-6, -11 + b, 12, 10, leaf)
-				_px(-4, -13 + b, 8, 2, leaf)
-				_px(-5, -10 + b, 3, 2, leaf.lightened(0.15))
-				if ripe:
-					_px(-5, -6 + b, 2, 2, bloom)
-					_px(3, -9 + b, 2, 2, bloom)
-					_px(0, -12 + b, 2, 2, bloom)
-				_face(-2, -8 + b, happy, dormant)
-			_:
-				_px(-1, -10, 2, 9, leaf)
-				_px(-4, -6, 3, 2, leaf.lightened(0.15))
-				_px(1, -8, 3, 2, leaf.lightened(0.15))
-				_px(-4, -18 + b, 8, 8, bloom)
-				_px(-5, -16 + b, 10, 4, bloom)
-				_px(-2, -17 + b, 4, 6, bloom.lightened(0.25))
-				_face(-2, -15 + b, happy, dormant)
-		if radiant and not dormant:
-			var tick: int = int(Time.get_ticks_msec() / 400.0 + _phase) % 2
-			_px(-7 + tick * 2, -17, 1, 1, Color.WHITE)
-			_px(6 - tick * 2, -12, 1, 1, Color.WHITE)
-			_px(-6, -8 - tick * 2, 1, 1, Color.WHITE)
-
+	# Little mood icons above the plant.
+	var top: float = -27.0 if stage >= last else -14.0 - stage * 3.0
 	if _heart > 0.0:
-		var hy: int = -24 - int((1.0 - _heart) * 8.0)
-		var red := Color(1, 0.35, 0.5, clampf(_heart * 2.0, 0.0, 1.0))
-		_px(-3, hy, 2, 1, red)
-		_px(1, hy, 2, 1, red)
-		_px(-3, hy + 1, 6, 2, red)
-		_px(-2, hy + 3, 4, 1, red)
-		_px(-1, hy + 4, 2, 1, red)
-
-
-## Two eyes and a mouth, 4px wide starting at (x, y).
-func _face(x: int, y: int, happy: bool, asleep: bool) -> void:
-	if asleep:
-		_px(x, y + 1, 1, 1, DARK)
-		_px(x + 3, y + 1, 1, 1, DARK)
-		return
-	_px(x, y, 1, 2, DARK)
-	_px(x + 3, y, 1, 2, DARK)
-	if happy:
-		_px(x + 1, y + 3, 2, 1, DARK)
+		var rise: float = (1.0 - _heart) * 8.0
+		var alpha: float = clampf(_heart * 2.0, 0.0, 1.0)
+		if p["petted_by"].size() >= 2:  # a duet: both of you loved it today
+			Effects.heart(self, -4, top - rise, alpha)
+			Effects.note(self, 5, top - rise - 2, alpha)
+		else:
+			Effects.heart(self, 0, top - rise, alpha)
+	elif dormant:
+		Effects.zzz(self, 5, top + 2 - _blink, 0.85)
+	elif not bool(GameState.soil[cell]["watered"]):
+		Effects.droplet(self, 0, top + 1 - _blink, 0.9)
+	if _splash > 0.0:
+		var spread: float = (1.0 - _splash) * 7.0
+		var blue := Color(0.6, 0.85, 1.0, _splash)
+		for side: float in [-1.0, 1.0]:
+			draw_rect(Rect2(side * (2.0 + spread) - 1, -6 - spread * 0.8, 2, 2), blue)
+			draw_rect(Rect2(side * (1.0 + spread * 0.5) - 1, -9 - spread, 1, 2), blue)
