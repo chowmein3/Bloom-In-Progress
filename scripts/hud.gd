@@ -1,33 +1,50 @@
 extends CanvasLayer
-## Clock, energy, tool bar, the "what am I looking at" line, help card and
-## messages. Sizes are in game units (320x180); the window scales them up, so
-## text stays sharp.
+## The in-game HUD: minimap (top left, M), info box with date, time, weather
+## and Heart Tree love (top right), energy bar (bottom right), icon tool bar
+## (bottom), help card (H) and messages. Sizes are in game units (320x180);
+## the window scales them up, so text stays sharp.
 
-const TOOL_NAMES: Array[String] = ["Hoe", "Water", "Seeds", "Pet", "Pick"]
+const Minimap := preload("res://scripts/minimap.gd")
 const HELP_ROWS: Array = [
 	["WASD", "Move"],
 	["Space", "Use tool"],
-	["1 - 5", "Choose tool"],
+	["1-5", "Choose tool"],
 	["Q", "Change seed"],
-	["Tent", "Sleep (Space)"],
-	["J", "Garden journal"],
-	["M", "Music on/off"],
-	["H", "Hide this help"],
+	["Tent", "Sleep"],
+	["J", "Journal"],
+	["M", "Map"],
+	["N", "Music"],
+	["H", "Help"],
 ]
-const INK := Color(0.11, 0.09, 0.17, 0.86)
-const CREAM := Color(1.0, 0.97, 0.88)
-const GOLD := Color(1.0, 0.84, 0.4)
+const ICON := 12  # size of one frame in assets/sprites/ui_icons.png
+const ICON_SUN := 5
+const ICON_RAIN := 6
+const ICON_SNOW := 7
+const ICON_MOON := 8
+const ICON_LOVE := 9
+const PAPER := Color(0.98, 0.91, 0.74)
+const SLOT := Color(0.93, 0.8, 0.58)
+const WOOD := Color(0.42, 0.26, 0.15)
+const INK := Color(0.3, 0.18, 0.12)
+const ACCENT := Color(0.75, 0.28, 0.2)
 
 var player: Node2D
+var remote_players: Dictionary = {}  # shared with main.gd, for the minimap
 
 var _root: Control
-var _clock: Label
+var _icons: Texture2D = load("res://assets/sprites/ui_icons.png")
+var _map: PanelContainer
+var _date: Label
+var _time: Label
+var _weather: TextureRect
+var _love: Label
 var _energy_fill: ColorRect
 var _banner: Label
 var _message: Label
 var _inspect: Label
 var _seed_line: Label
-var _slots: Array[PanelContainer] = []
+var _seed_count: Label
+var _slots: Array[Panel] = []
 var _help: PanelContainer
 var _help_status: Label
 var _help_chosen: bool = false
@@ -39,104 +56,116 @@ var _message_time: float = 0.0
 func _ready() -> void:
 	layer = 10
 	var theme := Theme.new()
-	theme.default_font_size = 8
+	theme.default_font_size = 6
 	_root = Control.new()
 	_root.theme = theme
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	# Top left: date and time.
-	_clock = _text("")
-	var clock_panel: PanelContainer = _panel(_clock)
-	clock_panel.position = Vector2(4, 4)
+	# Top left: minimap.
+	var minimap := Minimap.new()
+	minimap.player = player
+	minimap.remote_players = remote_players
+	_map = _panel(minimap, 1)
+	_map.position = Vector2(3, 3)
 
-	# Top right: energy.
-	var energy_row := HBoxContainer.new()
-	energy_row.add_theme_constant_override("separation", 4)
-	energy_row.add_child(_text("Energy"))
+	# Top right: date, time and weather, Heart Tree love.
+	var info := VBoxContainer.new()
+	info.add_theme_constant_override("separation", -1)
+	_date = _text("")
+	info.add_child(_date)
+	_weather = _icon(ICON_SUN)
+	_time = _text("")
+	info.add_child(_row([_weather, _time]))
+	_love = _text("")
+	info.add_child(_row([_icon(ICON_LOVE), _love]))
+	var info_panel: PanelContainer = _panel(info)
+	_pin(info_panel, Control.PRESET_TOP_RIGHT, Vector2(-3, 3))
+
+	# Bottom right: energy.
+	var energy_box := VBoxContainer.new()
+	energy_box.add_theme_constant_override("separation", 0)
+	var e: Label = _text("E")
+	e.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	energy_box.add_child(e)
 	var bar := ColorRect.new()
-	bar.color = Color(0.25, 0.22, 0.32)
-	bar.custom_minimum_size = Vector2(50, 6)
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.color = Color(0.3, 0.2, 0.16)
+	bar.custom_minimum_size = Vector2(5, 34)
 	_energy_fill = ColorRect.new()
-	_energy_fill.size = Vector2(50, 6)
 	bar.add_child(_energy_fill)
-	energy_row.add_child(bar)
-	var energy_panel: PanelContainer = _panel(energy_row)
-	energy_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	energy_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	energy_panel.offset_left = -4
-	energy_panel.offset_right = -4
-	energy_panel.offset_top = 4
-	energy_panel.offset_bottom = 4
+	energy_box.add_child(bar)
+	var energy_panel: PanelContainer = _panel(energy_box, 1)
+	_pin(energy_panel, Control.PRESET_BOTTOM_RIGHT, Vector2(-3, -3))
 
 	# Top centre: co-op status banner and short messages.
 	var top := VBoxContainer.new()
-	top.add_theme_constant_override("separation", 2)
+	top.add_theme_constant_override("separation", 1)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(top)
-	top.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	top.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	top.position.y = 34
+	_pin(top, Control.PRESET_CENTER_TOP, Vector2(0, 4))
 	_banner = _text("")
-	_banner.add_theme_color_override("font_color", GOLD)
+	_banner.add_theme_color_override("font_color", ACCENT)
 	_centered(top, _banner)
 	_message = _text("")
 	_centered(top, _message)
 
 	# Bottom centre: what you're facing, seed choice, tool bar.
 	var bottom := VBoxContainer.new()
-	bottom.add_theme_constant_override("separation", 2)
+	bottom.add_theme_constant_override("separation", 1)
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(bottom)
-	bottom.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	bottom.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	bottom.position.y -= 4
+	_pin(bottom, Control.PRESET_CENTER_BOTTOM, Vector2(0, -3))
 	_inspect = _text("")
 	_centered(bottom, _inspect)
 	_seed_line = _text("")
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
-	bar_row.add_theme_constant_override("separation", 2)
-	bar_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	bottom.add_child(bar_row)
-	for i in TOOL_NAMES.size():
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 3)
+	bar_row.add_theme_constant_override("separation", 1)
+	for i in 5:
+		var slot := Panel.new()
+		slot.custom_minimum_size = Vector2(16, 16)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var picture: TextureRect = _icon(i)
+		picture.position = Vector2(2, 3)
+		slot.add_child(picture)
 		var number: Label = _text(str(i + 1))
-		number.add_theme_color_override("font_color", GOLD)
-		row.add_child(number)
-		row.add_child(_text(TOOL_NAMES[i]))
-		var slot := PanelContainer.new()
-		slot.add_child(row)
+		number.add_theme_font_size_override("font_size", 5)
+		number.add_theme_color_override("font_color", ACCENT)
+		number.position = Vector2(2, -1)
+		slot.add_child(number)
+		if i == 2:
+			_seed_count = _text("")
+			_seed_count.add_theme_font_size_override("font_size", 5)
+			_seed_count.add_theme_color_override("font_color", Color.WHITE)
+			_seed_count.add_theme_color_override("font_outline_color", INK)
+			_seed_count.add_theme_constant_override("outline_size", 3)
+			_seed_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			_seed_count.position = Vector2(0, 8)
+			_seed_count.size = Vector2(15, 8)
+			slot.add_child(_seed_count)
 		bar_row.add_child(slot)
 		_slots.append(slot)
+	var bar_panel := PanelContainer.new()
+	bar_panel.add_theme_stylebox_override("panel", _style(PAPER, 2))
+	bar_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bar_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_panel.add_child(bar_row)
+	bottom.add_child(bar_panel)
 
-	# Right: how to play.
+	# Left, under the map: how to play.
 	var help_box := VBoxContainer.new()
-	help_box.add_theme_constant_override("separation", 1)
-	var title: Label = _text("How to play")
-	title.add_theme_color_override("font_color", GOLD)
-	help_box.add_child(title)
+	help_box.add_theme_constant_override("separation", -2)
 	for entry: Array in HELP_ROWS:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
 		var key: Label = _text(entry[0])
-		key.custom_minimum_size.x = 30
-		key.add_theme_color_override("font_color", GOLD)
-		row.add_child(key)
-		row.add_child(_text(entry[1]))
-		help_box.add_child(row)
+		key.custom_minimum_size.x = 20
+		key.add_theme_color_override("font_color", ACCENT)
+		help_box.add_child(_row([key, _text(entry[1])]))
 	_help_status = _text("")
-	_help_status.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
+	_help_status.add_theme_color_override("font_color", Color(0.2, 0.4, 0.6))
 	help_box.add_child(_help_status)
 	_help = _panel(help_box)
-	_help.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-	_help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_help.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_help.position.x -= 4
+	_help.position = Vector2(3, 46)
 
 	# Night fade.
 	_fade = ColorRect.new()
@@ -145,8 +174,9 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fade.modulate.a = 0.0
 	_root.add_child(_fade)
-	_fade_label = _text("")
-	_fade_label.add_theme_font_size_override("font_size", 10)
+	_fade_label = Label.new()
+	_fade_label.add_theme_color_override("font_color", PAPER)
+	_fade_label.add_theme_font_size_override("font_size", 9)
 	_fade_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_fade_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fade_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -156,6 +186,7 @@ func _ready() -> void:
 	TimeManager.time_changed.connect(_update_clock)
 	GameState.energy_changed.connect(func(_id: int) -> void: _update_energy())
 	GameState.inventory_changed.connect(_update_tool)
+	GameState.tree_changed.connect(_update_love)
 	GameState.state_reloaded.connect(refresh)
 	GameState.sleepers_changed.connect(_update_banner)
 	GameState.notice.connect(show_message)
@@ -167,40 +198,79 @@ func _ready() -> void:
 	refresh()
 
 
+# ----------------------------------------------------------------- pieces
+
 func _text(content: String) -> Label:
 	var label := Label.new()
 	label.text = content
-	label.add_theme_color_override("font_color", CREAM)
+	label.add_theme_color_override("font_color", INK)
 	return label
 
 
-func _style(selected: bool) -> StyleBoxFlat:
+## One frame of the icon sheet.
+func _icon(index: int) -> TextureRect:
+	var frame := AtlasTexture.new()
+	frame.atlas = _icons
+	frame.region = Rect2(index * ICON, 0, ICON, ICON)
+	var picture := TextureRect.new()
+	picture.texture = frame
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	picture.custom_minimum_size = Vector2(ICON, ICON - 2)
+	picture.size = Vector2(ICON, ICON)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return picture
+
+
+func _row(children: Array) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	for child: Control in children:
+		row.add_child(child)
+	return row
+
+
+## A parchment box with a wooden edge.
+func _style(fill: Color, margin: int = 3, edge: Color = WOOD) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.3, 0.25, 0.4, 0.95) if selected else INK
-	box.set_corner_radius_all(2)
-	box.content_margin_left = 4
-	box.content_margin_right = 4
-	box.content_margin_top = 1
-	box.content_margin_bottom = 1
-	if selected:
-		box.set_border_width_all(1)
-		box.border_color = GOLD
+	box.bg_color = fill
+	box.set_corner_radius_all(1)
+	box.set_border_width_all(1)
+	box.border_color = edge
+	box.content_margin_left = margin
+	box.content_margin_right = margin
+	box.content_margin_top = mini(margin, 1)
+	box.content_margin_bottom = mini(margin, 1)
 	return box
 
 
-func _panel(content: Control) -> PanelContainer:
+func _panel(content: Control, margin: int = 3) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(false))
+	panel.add_theme_stylebox_override("panel", _style(PAPER, margin))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(content)
 	_root.add_child(panel)
 	return panel
 
 
-## Puts `label` in its own dark panel inside `box`; the panel hides when empty.
+## Anchors `control` to a corner or edge of the screen, `nudge` units inwards,
+## growing away from that edge as its content changes.
+func _pin(control: Control, preset: Control.LayoutPreset, nudge: Vector2) -> void:
+	control.set_anchors_and_offsets_preset(preset)
+	var right: bool = preset == Control.PRESET_TOP_RIGHT or preset == Control.PRESET_BOTTOM_RIGHT
+	var bottom: bool = preset == Control.PRESET_BOTTOM_RIGHT or preset == Control.PRESET_CENTER_BOTTOM
+	var centre: bool = preset == Control.PRESET_CENTER_TOP or preset == Control.PRESET_CENTER_BOTTOM
+	control.grow_horizontal = Control.GROW_DIRECTION_BOTH if centre else (Control.GROW_DIRECTION_BEGIN if right else Control.GROW_DIRECTION_END)
+	control.grow_vertical = Control.GROW_DIRECTION_BEGIN if bottom else Control.GROW_DIRECTION_END
+	control.offset_left = nudge.x
+	control.offset_right = nudge.x
+	control.offset_top = nudge.y
+	control.offset_bottom = nudge.y
+
+
+## Puts `label` in its own box inside `box`; the box hides when empty.
 func _centered(box: VBoxContainer, label: Label) -> void:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(false))
+	panel.add_theme_stylebox_override("panel", _style(PAPER))
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(label)
@@ -217,6 +287,8 @@ func _set_line(label: Label, content: String) -> void:
 	panel.reset_size()
 
 
+# ---------------------------------------------------------------- updates
+
 func _process(delta: float) -> void:
 	if player != null:
 		_set_line(_inspect, GameState.describe_cell(player.call("target_cell")))
@@ -230,6 +302,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_help"):
 		_help_chosen = true
 		_help.visible = not _help.visible
+	elif event.is_action_pressed("toggle_map"):
+		_map.visible = not _map.visible
+		_help.position.y = 46 if _map.visible else 3
 
 
 func show_message(content: String, seconds: float = 3.0) -> void:
@@ -248,26 +323,40 @@ func refresh() -> void:
 	_update_clock()
 	_update_energy()
 	_update_tool()
+	_update_love()
 	_update_banner()
 	set_status(_help_status.text)
 
 
 func _update_clock() -> void:
-	_clock.text = "%s %d, Year %d\n%s  %s" % [
-		TimeManager.season_name(), TimeManager.day_of_season(), TimeManager.year(),
-		TimeManager.time_string(), "Rainy" if TimeManager.raining else "Clear",
-	]
+	_date.text = "%s %d" % [TimeManager.season_name(), TimeManager.day_of_season()]
+	_time.text = TimeManager.time_string()
+	var picture: int = ICON_SUN
+	if TimeManager.raining:
+		picture = ICON_RAIN
+	elif TimeManager.minutes >= 20 * 60:
+		picture = ICON_MOON
+	elif TimeManager.season() == 3:
+		picture = ICON_SNOW
+	(_weather.texture as AtlasTexture).region.position.x = picture * ICON
 	# The help card starts open on the very first day; H toggles it any time.
 	if not _help_chosen:
 		_help.visible = TimeManager.day_index == 0
+
+
+func _update_love() -> void:
+	var goal: int = GameState.tree_next_goal()
+	_love.text = "%d/%d" % [int(GameState.tree["love"]), goal] if goal > 0 else str(int(GameState.tree["love"]))
 
 
 func _update_energy() -> void:
 	if player == null:
 		return
 	var e: int = GameState.get_energy(player.get("player_id"))
-	_energy_fill.size.x = 50.0 * e / GameState.MAX_ENERGY
-	_energy_fill.color = Color(0.5, 0.9, 0.45) if e > 25 else Color(0.95, 0.5, 0.3)
+	var height: float = 34.0 * e / GameState.MAX_ENERGY
+	_energy_fill.position = Vector2(0, 34.0 - height)
+	_energy_fill.size = Vector2(5, height)
+	_energy_fill.color = Color(0.36, 0.8, 0.36) if e > 25 else Color(0.95, 0.5, 0.3)
 
 
 func _update_tool() -> void:
@@ -275,12 +364,11 @@ func _update_tool() -> void:
 		return
 	var index: int = player.get("tool_index")
 	for i in _slots.size():
-		_slots[i].add_theme_stylebox_override("panel", _style(i == index))
-	var line: String = ""
-	if index == 2:
-		var id: String = player.get("seed_id")
-		line = "%s seeds x%d   (Q to change)" % [GameState.species[id].display_name, GameState.seed_count(id)]
-	_set_line(_seed_line, line)
+		var chosen: bool = i == index
+		_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if chosen else SLOT, 0, ACCENT if chosen else WOOD))
+	var id: String = player.get("seed_id")
+	_seed_count.text = str(GameState.seed_count(id))
+	_set_line(_seed_line, "%s seeds  (Q: change)" % GameState.species[id].display_name if index == 2 else "")
 
 
 func _update_banner() -> void:

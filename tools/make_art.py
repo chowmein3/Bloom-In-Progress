@@ -469,7 +469,85 @@ def make_tree():
     save(sheet([tree_frame(s) for s in range(5)]), "heart_tree.png")
 
 
+# --------------------------------------------------------------- UI icons
+# assets/sprites/ui_icons.png: 12x12 frames left to right:
+#   hoe, watering can, seed bag, petting hand (heart), basket,
+#   sun, rain cloud, snow cloud, moon, love heart
+
+def icon(draw):
+    c = Canvas(12, 12)
+    draw(c)
+    return c.finish()
+
+
+def make_icons():
+    wood, metal, blue = rgb("#9a6a42"), rgb("#c9ccd6"), rgb("#5aa0e0")
+    cloud, sun = rgb("#dfe6f0"), rgb("#ffd24a")
+
+    def hoe(c):
+        for i in range(7):
+            c.rect(2 + i, 9 - i, 2, 1, wood)
+        c.rect(6, 2, 4, 2, metal)
+        c.rect(9, 3, 1, 3, metal)
+
+    def can(c):
+        c.rect(3, 5, 5, 5, blue)
+        c.rect(8, 6, 1, 2, blue)
+        c.rect(9, 4, 1, 3, blue)
+        c.rect(10, 3, 1, 2, blue)
+        c.rect(1, 6, 2, 1, blue)
+        c.rect(1, 7, 1, 2, blue)
+        c.rect(4, 3, 3, 1, blue)
+
+    def seeds(c):
+        c.rect(3, 5, 6, 5, rgb("#e3c48a"))
+        c.rect(4, 4, 4, 1, rgb("#e3c48a"))
+        c.rect(5, 2, 2, 2, rgb("#e3c48a"))
+        c.rect(4, 3, 4, 1, rgb("#c9644a"))
+        c.dot(5, 7, rgb("#4da355"))
+        c.dot(6, 6, rgb("#4da355"))
+        c.dot(6, 7, rgb("#4da355"))
+        c.dot(6, 8, rgb("#4da355"))
+
+    def heart(c, colour=rgb("#ff7fa8")):
+        for x, y, w in ((2, 3, 3), (7, 3, 3), (1, 4, 10), (1, 5, 10), (2, 6, 8), (3, 7, 6), (4, 8, 4), (5, 9, 2)):
+            c.rect(x, y, w, 1, colour)
+
+    def basket(c):
+        c.rect(2, 6, 8, 2, rgb("#c08a4e"))
+        c.rect(3, 8, 6, 2, rgb("#c08a4e"))
+        c.rect(3, 3, 1, 3, wood)
+        c.rect(8, 3, 1, 3, wood)
+        c.rect(4, 2, 4, 1, wood)
+        c.dot(4, 5, rgb("#ff7fa8"))
+        c.dot(6, 5, rgb("#ffd24a"))
+        c.dot(7, 5, rgb("#8f9bff"))
+
+    def sunny(c):
+        c.ell(5.5, 5.5, 3.2, 3.2, sun)
+        for x, y in ((5, 0), (6, 0), (5, 11), (6, 11), (0, 5), (0, 6), (11, 5), (11, 6), (1, 1), (10, 1), (1, 10), (10, 10)):
+            c.dot(x, y, sun)
+
+    def cloudy(c, drops):
+        c.ell(4, 5, 3, 2.4, cloud)
+        c.ell(7.5, 4.2, 3, 2.8, cloud)
+        c.rect(2, 5, 8, 2, cloud)
+        for x, y in ((3, 9), (6, 10), (9, 9)):
+            c.dot(x, y, drops)
+            if drops != WHITE:
+                c.dot(x, y - 1, drops)
+
+    def moon(c):
+        c.ell(5.5, 5.5, 3.6, 3.6, rgb("#f3ecc8"))
+        c.ell(7.5, 4.5, 3.0, 3.0, None)
+
+    draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
+             lambda c: heart(c, rgb("#ff5d7a"))]
+    save(sheet([icon(d) for d in draws]), "ui_icons.png")
+
+
 if __name__ == "__main__":
+    make_icons()
     make_plants()
     make_players()
     make_tiles()
