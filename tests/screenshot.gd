@@ -14,6 +14,7 @@ func _ready() -> void:
 	TimeManager.paused = true
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://screenshot_save.json"
 	GameState.new_game()

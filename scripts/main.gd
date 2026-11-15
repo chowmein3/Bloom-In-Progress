@@ -24,6 +24,7 @@ const BedView := preload("res://scripts/bed_view.gd")
 const Inventory := preload("res://scripts/inventory.gd")
 const Shop := preload("res://scripts/shop.gd")
 const Clock := preload("res://scripts/clock.gd")
+const ObjectView := preload("res://scripts/object_view.gd")
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -39,6 +40,7 @@ var _camera: Camera2D
 var _weather: CanvasLayer
 var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
+var _things: Dictionary = {}  # Vector2i -> ObjectView
 var _light: CanvasModulate
 
 
@@ -165,6 +167,7 @@ func _ready() -> void:
 		if _views.has(cell):
 			_views[cell].show_love())
 	GameState.cell_changed.connect(_refresh_view)
+	GameState.object_changed.connect(_refresh_thing)
 	GameState.day_advanced.connect(_on_day_advanced)
 	GameState.economy_changed.connect(_on_area_changed)
 	GameState.state_reloaded.connect(_on_area_changed)
@@ -405,6 +408,26 @@ func _rebuild_views() -> void:
 	_views.clear()
 	for cell: Vector2i in GameState.plants.keys():
 		_add_view(cell)
+	for cell: Vector2i in _things.keys():
+		_things[cell].queue_free()
+	_things.clear()
+	for cell: Vector2i in GameState.objects.keys():
+		_refresh_thing(cell)
+
+
+## Keeps the standing things (debris, fences, sprinklers, lanterns) in step.
+func _refresh_thing(cell: Vector2i) -> void:
+	if _things.has(cell):
+		_things[cell].queue_free()
+		_things.erase(cell)
+	var kind: String = GameState.object_kind(cell)
+	if kind == "" or kind == "path":  # stepping stones are drawn flat by the ground
+		return
+	var thing := ObjectView.new()
+	thing.kind = kind
+	thing.position = Vector2(cell * TILE) + Vector2(8, 16)
+	_entities.add_child(thing)
+	_things[cell] = thing
 
 
 func _add_view(cell: Vector2i) -> void:
@@ -464,7 +487,7 @@ func _setup_input() -> void:
 	_bind("toggle_music", [KEY_N])
 	_bind("toggle_map", [KEY_M])
 	_bind("close", [KEY_ESCAPE])
-	for i in 5:
+	for i in 6:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
 
 

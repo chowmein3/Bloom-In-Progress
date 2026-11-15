@@ -8,10 +8,12 @@ const TILE := 16
 const GRASS_COLUMNS: Array[int] = [0, 1, 0, 2, 1, 0, 3, 1]  # mostly plain, a few with tufts or a flower
 
 var _tiles: Texture2D = Assets.texture("res://assets/tiles/ground.png")
+var _path: Texture2D = Assets.texture("res://assets/sprites/items/path.png")
 
 
 func _ready() -> void:
 	GameState.cell_changed.connect(func(_c: Vector2i) -> void: queue_redraw())
+	GameState.object_changed.connect(func(_c: Vector2i) -> void: queue_redraw())
 	GameState.plant_removed.connect(func(_c: Vector2i) -> void: queue_redraw())
 	GameState.day_advanced.connect(func(_s: Dictionary) -> void: queue_redraw())
 	GameState.state_reloaded.connect(queue_redraw)
@@ -28,3 +30,10 @@ func _draw() -> void:
 			if GameState.soil.has(cell):
 				column = 5 if bool(GameState.soil[cell]["watered"]) else 4
 				draw_texture_rect_region(_tiles, where, Rect2(column * TILE, row * TILE, TILE, TILE))
+				if bool(GameState.soil[cell].get("mulch", false)):  # rich dark crumbs
+					draw_rect(Rect2(where.position + Vector2(2, 2), Vector2(12, 12)), Color(0.2, 0.12, 0.08, 0.35))
+					for speck in 5:
+						var h: int = hash(cell * (speck + 3))
+						draw_rect(Rect2(where.position + Vector2(3 + h % 10, 3 + (h >> 5) % 10), Vector2(1, 1)), Color(0.55, 0.8, 0.4))
+			elif GameState.object_kind(cell) == "path":
+				draw_texture(_path, where.position)

@@ -11,8 +11,8 @@ const HELP_ROWS: Array = [
 	["WASD", "Move"],
 	["Shift", "Run"],
 	["Space", "Use tool"],
-	["1-5", "Choose tool"],
-	["Q", "Change seed"],
+	["1-6", "Choose tool"],
+	["Q", "Change seed/item"],
 	["E", "Backpack"],
 	["J", "Journal"],
 	["M", "Map"],
@@ -50,6 +50,8 @@ var _message: Label
 var _inspect: Label
 var _seed_line: Label
 var _seed_count: Label
+var _item_picture: TextureRect
+var _item_count: Label
 var _slots: Array[Panel] = []
 var _help: PanelContainer
 var _help_status: Label
@@ -130,27 +132,30 @@ func _ready() -> void:
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
 	bar_row.add_theme_constant_override("separation", 1)
-	for i in 5:
+	for i in 6:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(16, 16)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var picture: TextureRect = _icon(i)
-		picture.position = Vector2(2, 3)
-		slot.add_child(picture)
+		if i < 5:
+			var picture: TextureRect = _icon(i)
+			picture.position = Vector2(2, 3)
+			slot.add_child(picture)
+		else:  # the item slot shows whatever is being held
+			_item_picture = TextureRect.new()
+			_item_picture.position = Vector2(0, 0)
+			_item_picture.size = Vector2(16, 16)
+			_item_picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+			_item_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.add_child(_item_picture)
+			_item_count = _count_label()
+			slot.add_child(_item_count)
 		var number: Label = _text(str(i + 1))
 		number.add_theme_font_size_override("font_size", 5)
 		number.add_theme_color_override("font_color", ACCENT)
 		number.position = Vector2(2, -1)
 		slot.add_child(number)
 		if i == 2:
-			_seed_count = _text("")
-			_seed_count.add_theme_font_size_override("font_size", 5)
-			_seed_count.add_theme_color_override("font_color", Color.WHITE)
-			_seed_count.add_theme_color_override("font_outline_color", INK)
-			_seed_count.add_theme_constant_override("outline_size", 3)
-			_seed_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			_seed_count.position = Vector2(0, 8)
-			_seed_count.size = Vector2(15, 8)
+			_seed_count = _count_label()
 			slot.add_child(_seed_count)
 		bar_row.add_child(slot)
 		_slots.append(slot)
@@ -208,6 +213,19 @@ func _ready() -> void:
 
 
 # ----------------------------------------------------------------- pieces
+
+## The small white number in the corner of a tool bar slot.
+func _count_label() -> Label:
+	var count: Label = _text("")
+	count.add_theme_font_size_override("font_size", 5)
+	count.add_theme_color_override("font_color", Color.WHITE)
+	count.add_theme_color_override("font_outline_color", INK)
+	count.add_theme_constant_override("outline_size", 3)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	count.position = Vector2(0, 8)
+	count.size = Vector2(15, 8)
+	return count
+
 
 func _text(content: String) -> Label:
 	var label := Label.new()
@@ -383,7 +401,16 @@ func _update_tool() -> void:
 		_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if chosen else SLOT, 0, ACCENT if chosen else WOOD))
 	var id: String = player.get("seed_id")
 	_seed_count.text = str(GameState.seed_count(id))
-	_set_line(_seed_line, "%s seeds  (Q: change)" % GameState.species[id].display_name if index == 2 else "")
+	var held: String = player.get("item_id")
+	var has_item: bool = GameState.item_count(held) > 0
+	_item_picture.texture = Assets.texture("res://assets/sprites/items/%s.png" % held) if has_item else null
+	_item_count.text = str(GameState.item_count(held)) if has_item else ""
+	var line: String = ""
+	if index == 2:
+		line = "%s seeds  (Q: change)" % GameState.species[id].display_name
+	elif index == 5:
+		line = "%s  (Q: change)" % GameState.name_of(held) if has_item else "Empty hands. Make things in the backpack (E)"
+	_set_line(_seed_line, line)
 
 
 func _update_banner() -> void:

@@ -18,6 +18,7 @@ func _ready() -> void:
 	TimeManager.paused = true
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://test_save.json"
 	GameState.register_player(P)
@@ -285,6 +286,101 @@ func _ready() -> void:
 	check(TimeManager.minutes == 25 * 60 + 50, "times after 2am become 1:50am")
 	GameState.request_set_time(P, 999999, 6 * 60, false)
 	check(TimeManager.year() == 99, "the calendar stops at year 99")
+	GameState.new_game()
+
+	print("gathering")
+	GameState.new_game()
+	check(GameState.objects.is_empty(), "with wild growth off, the ground starts clear")
+	GameState.wild_growth = true
+	GameState.scatter_debris(40)
+	var debris: int = GameState.objects.size()
+	check(debris > 20 and debris <= GameState.MAX_DEBRIS, "debris scatters over the garden, up to a limit")
+	var clear_yard: bool = true
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.YARD.has_point(at) or GameState.is_blocked(at):
+			clear_yard = false
+	check(clear_yard, "but never in the yard around the home")
+	GameState.end_day(false)
+	GameState.wild_growth = false
+	var rock := Vector2i(1, 15)
+	GameState.objects.clear()
+	GameState.objects[rock] = {"kind": "rock"}
+	check(GameState.can_walk(rock) and not GameState.request_till(P, rock), "debris can be walked over but not tilled")
+	check(GameState.request_harvest(P, rock), "the basket clears a rock")
+	check(not GameState.objects.has(rock) and GameState.item_count("stone") >= 1, "leaving stone in the backpack")
+
+	print("crafting and placing")
+	GameState.items = {"stone": 5, "wood": 4, "fiber": 6}
+	check(GameState.craft_problem("sprinkler") == "Needs gardening level 2", "the sprinkler recipe is locked at level 1")
+	check(GameState.request_craft(P, "path") and GameState.item_count("path") == 1 and GameState.item_count("stone") == 4, "a stepping stone costs one stone")
+	check(GameState.request_craft(P, "mulch") and GameState.item_count("mulch") == 2 and GameState.item_count("fiber") == 3, "three fiber make two mulch")
+	check(GameState.request_craft(P, "fence") and not GameState.request_craft(P, "nonsense"), "fences can be made; unknown recipes can't")
+	GameState.xp = 40
+	check(GameState.garden_level() == 2 and GameState.max_energy() == 102, "40 experience is gardening level 2, with a little more energy")
+	check(GameState.request_craft(P, "sprinkler") and GameState.item_count("stone") == 1 and GameState.item_count("wood") == 0, "now the sprinkler can be made")
+	check(not GameState.request_craft(P, "sprinkler"), "but not without the materials")
+	var bed_a := Vector2i(2, 15)
+	var bed_b := Vector2i(4, 15)
+	var post := Vector2i(3, 15)
+	GameState.request_till(P, bed_a)
+	GameState.request_till(P, bed_b)
+	check(not GameState.request_place(P, bed_a, "sprinkler"), "things can't be placed on tilled soil")
+	check(GameState.request_place(P, post, "sprinkler") and GameState.object_kind(post) == "sprinkler", "a sprinkler goes on open ground")
+	check(not GameState.can_walk(post) and GameState.item_count("sprinkler") == 0, "it is solid, and leaves the backpack")
+	check(GameState.request_place(P, Vector2i(3, 16), "path") and GameState.can_walk(Vector2i(3, 16)), "a stepping stone can be walked on")
+	check(not GameState.request_place(P, Vector2i(3, 16), "fence") and not GameState.request_place(P, Vector2i(13, 1), "fence"), "one thing per tile, and not on the home")
+	check(not GameState.request_place(P, post, "mulch") and GameState.request_place(P, bed_a, "mulch"), "mulch only goes on tilled soil")
+	check(not GameState.request_place(P, bed_a, "mulch") and GameState.item_count("mulch") == 1, "a bed is mulched once")
+	GameState.request_plant(P, bed_b, "sunpuff")
+	GameState.end_day(false)
+	check(bool(GameState.soil[bed_a]["watered"]) and bool(GameState.soil[bed_b]["watered"]), "next morning the sprinkler has watered both sides")
+	for night in 40:
+		GameState.end_day(false)
+	check(GameState.soil.has(bed_a), "a mulched bed never grasses over")
+	check(GameState.request_harvest(P, post) and GameState.item_count("sprinkler") == 1 and not GameState.objects.has(post), "the basket picks a sprinkler back up")
+	var crafted: String = JSON.stringify(GameState.to_snapshot())
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(JSON.stringify(GameState.to_snapshot()) == crafted, "items, placed things, mulch and experience survive save and load")
+
+	print("cooking")
+	GameState.new_game()
+	GameState.produce = {"moonbell": 4, "sunpuff": 1, "dewcup": 1}
+	check(GameState.craft_problem("tea") == "Needs a stove (the Cabin has one)", "cooking needs a stove")
+	GameState.upgrades["home"] = 1
+	check(GameState.request_craft(P, "tea") and int(GameState.produce["moonbell"]) == 2 and GameState.item_count("tea") == 1, "two moonbells brew a tea")
+	GameState.energy[P] = GameState.max_energy()
+	check(not GameState.request_eat(P, "tea"), "a meal is saved while energy is full")
+	GameState.energy[P] = 50
+	check(GameState.request_eat(P, "tea") and GameState.get_energy(P) == 80 and GameState.item_count("tea") == 0, "drinking it restores 30 energy")
+	check(not GameState.request_eat(P, "wood") and not GameState.request_eat(P, "tea"), "only meals you have can be eaten")
+
+	print("gardening skill and requests")
+	GameState.new_game()
+	check(GameState.garden_level() == 1 and GameState.next_level_xp() == 40, "a new garden is level 1")
+	var told: Array = []
+	GameState.notice.connect(func(text: String) -> void: told.append(text))
+	var patch := Vector2i(6, 15)
+	GameState.request_till(P, patch)
+	GameState.request_plant(P, patch, "sunpuff")
+	for night in 5:
+		GameState.plants[patch]["happiness"] = 50
+		GameState.request_water(P, patch)
+		GameState.end_day(false)
+	check(GameState.xp == 5, "each plant cared for earns a point a day")
+	GameState.xp = 35
+	GameState.request_harvest(P, patch)
+	check(GameState.xp == 43 and GameState.garden_level() == 2, "harvesting earns 8 and can raise the level")
+	check(told.any(func(text: String) -> bool: return text.begins_with("Gardening level 2")), "which is announced")
+	check(not GameState.wanted.is_empty() and GameState.species.has(GameState.wanted["species"]), "Bristle posts a request in the morning")
+	GameState.wanted = {"species": "sunpuff", "count": 3, "reward": 180}
+	GameState.produce["sunpuff"] = 2
+	check(not GameState.request_deliver(P), "a request needs the full amount")
+	GameState.produce["sunpuff"] = 4
+	var purse: int = GameState.coins
+	check(GameState.request_deliver(P) and GameState.coins == purse + 180 and int(GameState.produce["sunpuff"]) == 1, "delivering pays the doubled reward")
+	check(GameState.wanted.is_empty() and GameState.xp == 63, "and earns 20 experience")
 	GameState.new_game()
 
 	print("curfew and energy")

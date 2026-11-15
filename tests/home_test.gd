@@ -17,6 +17,7 @@ func _ready() -> void:
 		out_dir = args[0]
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
+	GameState.wild_growth = false  # no surprise debris where a test wants to dig
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://home_test_save.json"
 	GameState.new_game()
@@ -108,7 +109,7 @@ func _ready() -> void:
 	_expect(bag.visible and bool(player.get("reading")), "E opens the backpack")
 	await _wait(0.1)
 	await _shot("home_6_backpack")
-	var slots: Array[Node] = bag.find_children("*", "Button", true, false)
+	var slots: Array[Node] = bag.find_children("*", "GridContainer", true, false)[0].get_children()
 	(slots[1] as Button).emit_signal("pressed")  # the second seed packet
 	_expect(str(player.get("seed_id")) == "moonbell" and int(player.get("tool_index")) == 2, "clicking a seed packet holds those seeds")
 	await _tap(KEY_J)
@@ -122,6 +123,50 @@ func _ready() -> void:
 	var front: Vector2i = player.call("target_cell")
 	await _tap(KEY_SPACE)
 	_expect(GameState.soil.has(front) and GameState.soil.has(front + Vector2i(0, 1)) and GameState.soil.has(front + Vector2i(0, 2)), "one swing of the Sturdy Hoe tills three tiles ahead")
+
+	print("crafting, placing, cooking")
+	GameState.items = {"stone": 4, "wood": 4, "fiber": 3}  # as if gathered
+	GameState.produce["moonbell"] = 2
+	GameState.xp = 40  # gardening level 2
+	GameState.inventory_changed.emit()
+	await _tap(KEY_E)
+	_click(bag, "Crafting")
+	await _wait(0.1)
+	await _shot("home_6b_crafting")
+	_expect(_row_button(bag, "Garden Lantern").disabled and not _row_button(bag, "Sprinkler").disabled, "recipes above the gardening level are locked; the sprinkler is open at level 2")
+	_row_button(bag, "Sprinkler").emit_signal("pressed")
+	_row_button(bag, "Fence").emit_signal("pressed")
+	_expect(GameState.item_count("sprinkler") == 1 and GameState.item_count("fence") == 1 and GameState.item_count("stone") == 1 and GameState.item_count("wood") == 0, "Make turns materials into a sprinkler and a fence")
+	_click(bag, "Kitchen")
+	await _wait(0.1)
+	_row_button(bag, "Moonbell Tea").emit_signal("pressed")
+	_expect(GameState.item_count("tea") == 1, "with the Cabin's stove, two moonbells cook into tea")
+	await _shot("home_6c_kitchen")
+	_click(bag, "Items")
+	await _wait(0.1)
+	for slot: Node in bag.find_children("*", "GridContainer", true, false)[0].get_children():
+		if slot is Button and (slot as Button).icon != null and str((slot as Button).icon.resource_path).ends_with("sprinkler.png"):
+			slot.emit_signal("pressed")
+	_expect(str(player.get("item_id")) == "sprinkler" and int(player.get("tool_index")) == 5, "clicking the sprinkler holds it in the item slot")
+	await _tap(KEY_E)
+	await _hold(KEY_A, 0.15)
+	var spot: Vector2i = player.call("target_cell")
+	await _tap(KEY_SPACE)
+	_expect(GameState.object_kind(spot) == "sprinkler" and GameState.item_count("sprinkler") == 0, "Space sets the held sprinkler down on the tile ahead")
+	_expect(not GameState.can_walk(spot), "and it stands in the way like any solid thing")
+	await _tap(KEY_Q)
+	_expect(str(player.get("item_id")) != "sprinkler", "Q moves on to the next thing in the backpack")
+	player.call("hold_item", "tea")
+	GameState.energy[P] = 50
+	await _tap(KEY_SPACE)
+	_expect(GameState.get_energy(P) == 80 and GameState.item_count("tea") == 0, "Space with a meal in hand eats it for energy")
+	await _wait(0.2)
+	await _shot("home_6d_sprinkler")
+	await _tap(KEY_5)
+	await _tap(KEY_SPACE)
+	_expect(not GameState.objects.has(spot) and GameState.item_count("sprinkler") == 1, "the basket picks the sprinkler back up")
+	await _tap(KEY_6)
+	await _hold(KEY_S, 0.15)
 
 	print("the cabin")
 	await _wait(0.2)
@@ -206,6 +251,17 @@ func _button(screen: Node, text: String) -> Button:
 	for node: Node in screen.find_children("*", "Button", true, false):
 		if not node.is_queued_for_deletion() and str(node.get("text")).begins_with(text):
 			return node
+	return null
+
+
+## The button on the list row of `screen` whose title starts with `title`.
+func _row_button(screen: Node, title: String) -> Button:
+	for node: Node in screen.find_children("*", "Button", true, false):
+		if node.is_queued_for_deletion() or not node.get_parent() is HBoxContainer:
+			continue
+		for label: Node in node.get_parent().find_children("*", "Label", true, false):
+			if str(label.get("text")).begins_with(title):
+				return node
 	return null
 
 

@@ -545,6 +545,119 @@ def make_cottage():
     save(c.finish(), "home_2.png")
 
 
+# assets/sprites/items/<id>.png for every GameState.ITEMS entry and every kind
+# of debris: 16x16. Placed things and debris use the same picture on the
+# ground, so each should sit on the bottom of its tile.
+
+def make_things():
+    wood, stone, green = rgb("#a8744a"), rgb("#aaa6b8"), rgb("#5aa85a")
+
+    def log_pile(c):
+        c.rect(2, 9, 12, 4, wood)
+        c.rect(4, 5, 10, 4, light(wood, 0.12))
+        for x, y in ((2, 9), (4, 5)):
+            c.rect(x, y, 2, 4, rgb("#e3c48a"))
+
+    def stones(c):
+        c.ell(5.5, 11, 4, 3.4, stone)
+        c.ell(10.5, 9.5, 4, 4.4, light(stone, 0.12))
+
+    def fiber(c):
+        straw = rgb("#b9d36a")
+        c.rect(4, 2, 8, 12, straw)
+        for x in (6, 9):
+            c.rect(x, 2, 1, 12, shade(straw, 0.2))
+        c.rect(3, 7, 10, 2, rgb("#c9644a"))
+
+    def mulch(c):
+        c.rect(3, 4, 10, 10, rgb("#8a5e3a"))
+        c.rect(4, 2, 8, 2, rgb("#6b4630"))
+        c.rect(5, 7, 6, 4, rgb("#5aa85a"))
+        c.dot(7, 8, rgb("#fbeed3"))
+        c.dot(8, 9, rgb("#fbeed3"))
+
+    def path(c):
+        c.rect(2, 3, 12, 10, stone)
+        c.rect(1, 5, 14, 6, stone)
+        c.rect(4, 5, 5, 1, light(stone, 0.3))
+        c.rect(9, 10, 3, 1, shade(stone, 0.2))
+
+    def fence(c):
+        for x in (2, 12):
+            c.rect(x, 3, 2, 12, wood)
+            c.rect(x, 2, 2, 1, light(wood, 0.3))
+        c.rect(0, 6, 16, 2, light(wood, 0.12))
+        c.rect(0, 11, 16, 2, light(wood, 0.12))
+
+    def sprinkler(c):
+        metal = rgb("#8fb0c8")
+        c.rect(7, 6, 2, 9, metal)
+        c.rect(3, 5, 10, 2, metal)
+        c.rect(6, 3, 4, 2, rgb("#5a7f9a"))
+        c.rect(5, 14, 6, 1, rgb("#5a7f9a"))
+        for x, y in ((2, 3), (13, 3), (1, 8), (14, 8)):
+            c.dot(x, y, rgb("#5aa0e0"))
+
+    def lantern(c):
+        c.rect(7, 8, 2, 7, rgb("#6b5a4a"))
+        c.rect(5, 14, 6, 1, rgb("#6b5a4a"))
+        c.rect(5, 3, 6, 6, rgb("#ffe07a"))
+        c.rect(4, 2, 8, 1, rgb("#6b5a4a"))
+        c.rect(6, 1, 4, 1, rgb("#6b5a4a"))
+        c.dot(7, 5, WHITE)
+
+    def bowl(c, food, bits):
+        c.ell(7.5, 9, 6, 4.5, rgb("#fbeed3"), bottom_only=True)
+        c.rect(2, 8, 12, 2, food)
+        c.ell(7.5, 8, 5, 2.5, food, top_only=True)
+        for i, colour in enumerate(bits):
+            c.dot(4 + i * 3, 7, rgb(colour))
+            c.dot(5 + i * 3, 6, rgb(colour))
+
+    def tea(c):
+        c.rect(3, 6, 8, 7, rgb("#fbeed3"))
+        c.rect(4, 7, 6, 2, rgb("#8f9bff"))
+        c.rect(11, 7, 2, 1, rgb("#fbeed3"))
+        c.rect(12, 8, 1, 3, rgb("#fbeed3"))
+        c.rect(11, 11, 2, 1, rgb("#fbeed3"))
+        c.dot(6, 3, WHITE)
+        c.dot(7, 2, WHITE)
+        c.dot(8, 4, WHITE)
+
+    def pie(c):
+        c.ell(7.5, 9, 6.5, 3.5, rgb("#e0a85a"))
+        c.ell(7.5, 8, 5, 2.4, rgb("#f08a2e"))
+        c.rect(1, 10, 14, 3, rgb("#c98a45"))
+        c.dot(6, 8, rgb("#ffd35c"))
+        c.dot(9, 7, rgb("#ffd35c"))
+
+    def branch(c):
+        for i in range(10):
+            c.rect(3 + i, 12 - i // 2, 2, 2, wood)
+        c.rect(8, 6, 2, 3, wood)
+        c.rect(10, 5, 2, 2, green)
+
+    def rock(c):
+        c.ell(7.5, 10.5, 5.5, 4.2, stone)
+        c.ell(6, 9, 2.5, 1.5, light(stone, 0.25))
+
+    def weed(c):
+        c.ell(7.5, 12, 5.5, 2.6, green)
+        c.tri(4, 6, 1.8, 6, green)
+        c.tri(8, 3, 2.0, 9, light(green, 0.2))
+        c.tri(11.5, 7, 1.8, 5, green)
+
+    drawings = {
+        "wood": log_pile, "stone": stones, "fiber": fiber, "mulch": mulch, "path": path, "fence": fence,
+        "sprinkler": sprinkler, "lantern": lantern, "tea": tea, "pie": pie,
+        "salad": lambda c: bowl(c, rgb("#6fc46a"), ("#ffcf4a", "#ff8fb3", "#ffcf4a")),
+        "stew": lambda c: bowl(c, rgb("#b5523f"), ("#f3e9d2", "#5fae6a", "#f3e9d2")),
+        "branch": branch, "rock": rock, "weed": weed,
+    }
+    for name, draw in drawings.items():
+        save(piece(16, 16, draw), "items", name + ".png")
+
+
 # assets/sprites/tower.png: the clock tower, 32x48, base on the bottom row.
 # Its clock face is left blank (centre 15.5, 20.5); the game draws the hands.
 
@@ -654,6 +767,15 @@ def bookshelf(c):
             c.rect(3 + i * 2, y + 1, 2, 4, rgb(colour))
 
 
+def stove(c):
+    c.rect(1, 3, 14, 12, rgb("#5a5a66"))
+    c.rect(1, 3, 14, 2, rgb("#3a3a44"))
+    c.rect(3, 8, 10, 5, rgb("#2e2a33"))
+    c.rect(5, 10, 6, 2, rgb("#f08a2e"))
+    c.rect(4, 1, 3, 2, rgb("#8a8a96"))  # a pot on top
+    c.rect(10, 0, 2, 3, rgb("#3a3a44"))  # flue
+
+
 def window(c):
     c.rect(1, 1, 14, 12, rgb("#8a5e3a"))
     c.rect(3, 3, 10, 8, rgb("#bfe6ff"))
@@ -757,12 +879,14 @@ def make_rooms():
         elif level == 1:
             put(piece(16, 16, window), 4, 0, 6)
             put(piece(16, 16, table), 5, 2)
+            put(piece(16, 16, stove), 7, 2)
             put(piece(32, 16, drawers), 8, 2)
             put(piece(16, 24, pot_plant), 9, 7, -8)
         else:
             put(piece(16, 16, window), 5, 0, 4)
             put(piece(16, 16, window), 6, 0, 4)
             put(piece(16, 16, nightstand), 4, 2)
+            put(piece(16, 16, stove), 6, 2)
             put(piece(32, 32, fireplace), 8, 1)
             put(piece(16, 24, bookshelf), 11, 2, -8)
             put(piece(16, 24, pot_plant), 11, 8, -8)
@@ -988,6 +1112,7 @@ if __name__ == "__main__":
     make_rooms()
     make_stall()
     make_tower()
+    make_things()
     make_items()
     make_tree()
     print("sprites written to", os.path.normpath(OUT))

@@ -6,6 +6,11 @@ START
            The first time, Windows may say "Windows protected your PC".
            Click "More info", then "Run anyway". (The game is not signed,
            which costs money; that is all the warning means.)
+  Mac:     right-click (or Control-click) "Bloom In Progress" and choose
+           Open, then Open again. On newer macOS, if there is no Open
+           button: System Settings > Privacy & Security > Open Anyway.
+           (Same reason: the game is not signed.) If macOS asks to let the
+           game find devices on your network, click Allow.
   Linux:   run BloomInProgress.x86_64
 
 PLAY TOGETHER
@@ -33,7 +38,7 @@ KEYS
   WASD / arrows  move            E    backpack (seeds, coins, hats)
   Shift (hold)   run
   Space / F      use tool        J    garden journal
-  1-5            choose tool     M    map on/off
+  1-6            choose tool     M    map on/off
   Q              change seed     N    music on/off
   Esc            pause menu      H    help card
 
@@ -43,6 +48,12 @@ GOOD TO KNOW
   Coins:   pick grown plants with the basket (5) and sell them to Bristle,
            the hedgehog at the stall next to your home (face the stall,
            press Space). Buy seeds, better tools, a bigger home and hats.
+  Making:  clear branches, rocks and weeds with the basket (5) for wood,
+           stone and fiber. In the backpack (E), the Crafting tab turns
+           them into paths, fences, mulch, sprinklers and lanterns. Click
+           one to hold it, press 6, then Space to set it down.
+  Cooking: with the Cabin's stove, the Kitchen tab turns harvest into
+           meals. Hold one (6) and press Space to eat it for energy.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or
            wilts for the time you skip.

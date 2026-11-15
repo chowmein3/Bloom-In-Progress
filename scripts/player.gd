@@ -17,7 +17,8 @@ const TILE := 16
 const SPEED := 64.0
 const SPRINT := 1.75  # times faster while Shift is held
 const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
-const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Hands", "Basket"]
+const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Hands", "Basket", "Item"]
+const ITEM_TOOL := 5  # the slot that holds something from the backpack
 ## Points around the feet that must all be on walkable tiles.
 const FOOTPRINT: Array[Vector2] = [Vector2(-4, -1), Vector2(4, -1), Vector2(-4, -6), Vector2(4, -6)]
 
@@ -25,6 +26,7 @@ var player_id: int = 1
 var facing := Vector2i(0, 1)
 var tool_index: int = 0
 var seed_id: String = "sunpuff"
+var item_id: String = ""  # the placeable thing or meal in the item slot
 var frozen: bool = false  # during the night fade
 var in_menu: bool = true  # until a game is started
 var reading: bool = false  # while the journal, backpack or shop is open
@@ -177,7 +179,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("use"):
 		use_tool()
 	elif event.is_action_pressed("next_seed"):
-		cycle_seed()
+		if tool_index == ITEM_TOOL:
+			cycle_item()
+		else:
+			cycle_seed()
 	elif event.is_action_pressed("cycle_tool"):
 		select_tool((tool_index + 1) % TOOLS.size())
 	else:
@@ -195,6 +200,28 @@ func select_tool(index: int) -> void:
 func hold_seed(id: String) -> void:
 	seed_id = id
 	select_tool(2)
+
+
+## Hold a placeable thing or a meal (from the backpack) in the item slot.
+func hold_item(id: String) -> void:
+	item_id = id
+	select_tool(ITEM_TOOL)
+
+
+## Things from the backpack that can be held: placeables, mulch and meals.
+func holdable_items() -> Array:
+	var out: Array = []
+	for id: String in GameState.ITEMS.keys():
+		if GameState.item_count(id) > 0 and str(GameState.ITEMS[id]["kind"]) != "material":
+			out.append(id)
+	return out
+
+
+func cycle_item() -> void:
+	var ids: Array = holdable_items()
+	if not ids.is_empty():
+		item_id = ids[(ids.find(item_id) + 1) % ids.size()]
+	loadout_changed.emit()
 
 
 func cycle_seed() -> void:
@@ -236,6 +263,21 @@ func use_tool() -> void:
 		2: GameState.request_plant(player_id, target, seed_id)
 		3: GameState.request_pet(player_id, target)
 		4: GameState.request_harvest(player_id, target)
+		5: _use_item(target)
+
+
+func _use_item(target: Vector2i) -> void:
+	if GameState.item_count(item_id) < 1:
+		var others: Array = holdable_items()
+		if others.is_empty():
+			GameState.notice.emit("Nothing to use. Make something in the backpack (E)")
+			return
+		item_id = others[0]
+		loadout_changed.emit()
+	if str(GameState.ITEMS[item_id]["kind"]) == "meal":
+		GameState.request_eat(player_id, item_id)
+	else:
+		GameState.request_place(player_id, target, item_id)
 
 
 ## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 3 columns

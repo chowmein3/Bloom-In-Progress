@@ -174,6 +174,13 @@ func _item_icon(id: String, seeds: bool) -> TextureRect:
 func _fill_sell() -> void:
 	var me: int = player.get("player_id")
 	var any: bool = false
+	if not GameState.wanted.is_empty():  # Bristle's request pays double
+		var asked: String = GameState.wanted["species"]
+		var amount: int = GameState.wanted["count"]
+		var have: int = int(GameState.produce.get(asked, 0))
+		_row(_item_icon(asked, false), "Wanted: %d %s" % [amount, GameState.name_of(asked)], "Bristle pays double. You have %d." % have, str(int(GameState.wanted["reward"])), [
+			_button("Deliver", have >= amount, func() -> void: GameState.request_deliver(me), "Just what I was after. Thank you!"),
+		])
 	for id: String in GameState.species.keys():
 		var count: int = int(GameState.produce.get(id, 0))
 		if count <= 0:

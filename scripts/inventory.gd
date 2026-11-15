@@ -1,17 +1,26 @@
 extends CanvasLayer
-## The backpack (E): the garden's shared seeds and harvest in a grid, the
-## purse, and the player's own corner: who they are, what the garden owns,
-## and which hat they wear. Click a seed packet to hold those seeds.
+## The backpack (E). Three tabs:
+##   Items    - the garden's shared seeds, harvest, materials and made things
+##              in a grid, plus the player's own corner (portrait, hats).
+##              Click seeds, placeable things or meals to hold them.
+##   Crafting - recipes made from gathered materials.
+##   Kitchen  - meals cooked from the harvest (needs the Cabin's stove).
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
-const COLUMNS := 8
-const SLOTS := 16
+const TABS: Array[String] = ["Items", "Crafting", "Kitchen"]
+const COLUMNS := 10
+const MIN_SLOTS := 20
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
+var tab: String = "Items"
 
 var _root: Control
+var _tab_row: HBoxContainer
+var _items_page: VBoxContainer
+var _recipes_page: ScrollContainer
+var _recipes: VBoxContainer
 var _grid: GridContainer
 var _info: Label
 var _coins: Label
@@ -33,27 +42,33 @@ func _ready() -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_root)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 3)
+	box.add_theme_constant_override("separation", 2)
 	Ui.popup(_root).add_child(box)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 3)
 	header.add_child(Ui.label("Backpack", Ui.ACCENT, 10))
+	header.add_child(Ui.label("  E or Esc to close", Ui.FAINT))
 	header.add_child(Ui.spacer())
 	header.add_child(Ui.picture(_icons, Rect2(10 * 12, 0, 12, 12)))
 	_coins = Ui.label("", Ui.INK, 8)
 	header.add_child(_coins)
 	box.add_child(header)
+	_tab_row = HBoxContainer.new()
+	_tab_row.add_theme_constant_override("separation", 1)
+	box.add_child(_tab_row)
+	_info = Ui.label("", Ui.FAINT)
+	_info.custom_minimum_size = Vector2(212, 9)
+	_info.clip_text = true
 
+	# --- Items page
+	_items_page = VBoxContainer.new()
+	_items_page.add_theme_constant_override("separation", 2)
 	_grid = GridContainer.new()
 	_grid.columns = COLUMNS
 	_grid.add_theme_constant_override("h_separation", 1)
 	_grid.add_theme_constant_override("v_separation", 1)
-	box.add_child(_grid)
-	_info = Ui.label("", Ui.FAINT)
-	_info.custom_minimum_size.y = 9
-	box.add_child(_info)
-
+	_items_page.add_child(_grid)
 	var lower := HBoxContainer.new()
 	lower.add_theme_constant_override("separation", 6)
 	_portrait = Control.new()
@@ -64,7 +79,7 @@ func _ready() -> void:
 	frame.add_child(_portrait)
 	lower.add_child(frame)
 	var about := VBoxContainer.new()
-	about.add_theme_constant_override("separation", 0)
+	about.add_theme_constant_override("separation", -1)
 	about.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title = Ui.label("", Ui.ACCENT, 8)
 	about.add_child(_title)
@@ -75,12 +90,26 @@ func _ready() -> void:
 	_hat_row.add_theme_constant_override("separation", 1)
 	about.add_child(_hat_row)
 	lower.add_child(about)
-	box.add_child(lower)
-	box.add_child(Ui.label("E or Esc to close", Ui.FAINT))
+	_items_page.add_child(lower)
+	box.add_child(_items_page)
+
+	# --- Crafting and Kitchen page
+	_recipes_page = ScrollContainer.new()
+	_recipes_page.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_recipes_page.custom_minimum_size = Vector2(212, 104)
+	_recipes = VBoxContainer.new()
+	_recipes.add_theme_constant_override("separation", 1)
+	_recipes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_recipes_page.add_child(_recipes)
+	box.add_child(_recipes_page)
+	box.add_child(_info)
 
 	GameState.inventory_changed.connect(_rebuild)
 	GameState.economy_changed.connect(_rebuild)
 	GameState.state_reloaded.connect(_rebuild)
+	GameState.notice.connect(func(text: String) -> void:
+		if visible:
+			_info.text = text)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -103,24 +132,56 @@ func close() -> void:
 	Sound.play("page")
 
 
+func show_tab(new_tab: String) -> void:
+	tab = new_tab
+	_rebuild()
+
+
 func _rebuild() -> void:
 	if not visible:
 		return
 	_coins.text = str(GameState.coins)
-	_info.text = "Seeds and harvest are shared by the whole garden."
+	for child: Node in _tab_row.get_children():
+		_tab_row.remove_child(child)
+		child.queue_free()
+	for name_of: String in TABS:
+		var button := Button.new()
+		button.text = name_of
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if name_of == tab:
+			button.add_theme_stylebox_override("normal", Ui.box(Color(1.0, 0.95, 0.8), Ui.ACCENT))
+		button.pressed.connect(show_tab.bind(name_of))
+		_tab_row.add_child(button)
+	_items_page.visible = tab == "Items"
+	_recipes_page.visible = tab != "Items"
+	if tab == "Items":
+		_info.text = "Everything here is shared by the whole garden."
+		_fill_items()
+	else:
+		_info.text = "Level up by caring for plants and harvesting." if tab == "Crafting" else "Meals restore energy. Hold one (6) and press Space."
+		_fill_recipes(tab == "Kitchen")
+
+
+# ------------------------------------------------------------ items page
+
+func _fill_items() -> void:
 	for child: Node in _grid.get_children():
 		_grid.remove_child(child)
 		child.queue_free()
 	var shown: int = 0
 	for id: String in GameState.species.keys():
 		if GameState.seed_count(id) > 0:
-			_add_slot(id, true)
+			_add_slot(id, "seed")
 			shown += 1
 	for id: String in GameState.species.keys():
 		if int(GameState.produce.get(id, 0)) > 0:
-			_add_slot(id, false)
+			_add_slot(id, "harvest")
 			shown += 1
-	while shown < SLOTS or shown % COLUMNS != 0:
+	for id: String in GameState.ITEMS.keys():
+		if GameState.item_count(id) > 0:
+			_add_slot(id, "item")
+			shown += 1
+	while shown < MIN_SLOTS or shown % COLUMNS != 0:
 		var empty := Panel.new()
 		empty.custom_minimum_size = Vector2(20, 20)
 		empty.add_theme_stylebox_override("panel", Ui.box(Ui.SLOT))
@@ -129,13 +190,12 @@ func _rebuild() -> void:
 
 	var me: int = player.get("player_id")
 	_title.text = GameState.garden_name
-	var tools: Array = []
-	for kind: String in ["hoe", "can"]:
-		var level: int = GameState.upgrade_level(kind)
-		tools.append(GameState.UPGRADES[kind][level - 1]["name"] if level > 0 else ("Hoe" if kind == "hoe" else "Watering Can"))
-	_facts.text = "%s %d, Year %d\nHome: %s\n%s" % [
+	var next: int = GameState.next_level_xp()
+	var skill: String = "Gardening level %d" % GameState.garden_level()
+	skill += "  (%d/%d)" % [GameState.xp, next] if next > 0 else "  (the best!)"
+	_facts.text = "%s %d, Year %d.  Home: %s\n%s" % [
 		TimeManager.season_name(), TimeManager.day_of_season(), TimeManager.year(),
-		GameState.HOME_NAMES[GameState.home_level()], ", ".join(tools),
+		GameState.HOME_NAMES[GameState.home_level()], skill,
 	]
 	for child: Node in _hat_row.get_children():
 		_hat_row.remove_child(child)
@@ -151,7 +211,6 @@ func _rebuild() -> void:
 		frame.region = Rect2(GameState.HAT_ORDER.find(hat) * 16, 0, 16, 12)
 		button.icon = frame
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.tooltip_text = GameState.HATS[hat]["name"]
 		if wearing:
 			button.add_theme_stylebox_override("normal", Ui.box(Color(1.0, 0.95, 0.8), Ui.ACCENT))
 		button.pressed.connect(func() -> void: GameState.request_wear(me, hat))
@@ -160,14 +219,14 @@ func _rebuild() -> void:
 	_portrait.queue_redraw()
 
 
-func _add_slot(id: String, is_seed: bool) -> void:
-	var d: Resource = GameState.species[id]
-	var count: int = GameState.seed_count(id) if is_seed else int(GameState.produce.get(id, 0))
+## `sort` is "seed", "harvest" or "item".
+func _add_slot(id: String, sort: String) -> void:
+	var count: int = GameState.seed_count(id) if sort == "seed" else GameState.stock_of(id)
 	var slot := Button.new()
 	slot.custom_minimum_size = Vector2(20, 20)
-	slot.icon = Assets.texture("res://assets/sprites/items/%s%s.png" % [id, "_seeds" if is_seed else ""])
+	slot.icon = Assets.texture("res://assets/sprites/items/%s%s.png" % [id, "_seeds" if sort == "seed" else ""])
 	slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var holding: bool = is_seed and str(player.get("seed_id")) == id
+	var holding: bool = (sort == "seed" and str(player.get("seed_id")) == id) or (sort == "item" and str(player.get("item_id")) == id)
 	if holding:
 		slot.add_theme_stylebox_override("normal", Ui.box(Color(1.0, 0.95, 0.8), Ui.ACCENT))
 	var number: Label = Ui.label(str(count), Color.WHITE, 5)
@@ -179,7 +238,8 @@ func _add_slot(id: String, is_seed: bool) -> void:
 	number.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.add_child(number)
 	var words: String
-	if is_seed:
+	if sort == "seed":
+		var d: Resource = GameState.species[id]
 		var seasons: Array = []
 		for s: int in d.seasons:
 			seasons.append(SEASONS[s])
@@ -187,8 +247,16 @@ func _add_slot(id: String, is_seed: bool) -> void:
 		slot.pressed.connect(func() -> void:
 			player.call("hold_seed", id)
 			_rebuild())
+	elif sort == "harvest":
+		words = "%s x%d. Bristle pays %d coins each." % [GameState.name_of(id), count, int(GameState.species[id].sell_price)]
 	else:
-		words = "%s x%d. Bristle pays %d coins each." % [d.display_name, count, int(d.sell_price)]
+		var info: Dictionary = GameState.ITEMS[id]
+		words = "%s x%d. %s" % [info["name"], count, info["blurb"]]
+		if str(info["kind"]) != "material":
+			words += " In your hand (6)." if holding else " Click to hold."
+			slot.pressed.connect(func() -> void:
+				player.call("hold_item", id)
+				_rebuild())
 	slot.mouse_entered.connect(func() -> void: _info.text = words)
 	_grid.add_child(slot)
 
@@ -201,3 +269,58 @@ func _draw_portrait() -> void:
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(me))
 	if hat >= 0:
 		_portrait.draw_texture_rect_region(_hats, Rect2(0, 0, 32, 24), Rect2(hat * 16, 0, 16, 12))
+
+
+# ---------------------------------------------------------- recipe pages
+
+func _fill_recipes(kitchen: bool) -> void:
+	for child: Node in _recipes.get_children():
+		_recipes.remove_child(child)
+		child.queue_free()
+	if kitchen and not GameState.has_kitchen():
+		_recipes.add_child(Ui.label("Cooking needs a stove.\nThe Cabin has one: see Bristle's stall, Home.", Ui.FAINT))
+		return
+	var me: int = player.get("player_id")
+	for id: String in GameState.RECIPES.keys():
+		var recipe: Dictionary = GameState.RECIPES[id]
+		if bool(recipe.get("kitchen", false)) != kitchen:
+			continue
+		var problem: String = GameState.craft_problem(id)
+		var needs: Array = []
+		for part: String in recipe["needs"].keys():
+			needs.append("%d %s (have %d)" % [int(recipe["needs"][part]), GameState.name_of(part), GameState.stock_of(part)])
+		var made: int = recipe["makes"]
+		var title: String = "%s%s" % [GameState.name_of(id), " x%d" % made if made > 1 else ""]
+		if GameState.item_count(id) > 0:
+			title += "   (you have %d)" % GameState.item_count(id)
+		var note: String = ", ".join(needs)
+		if problem.begins_with("Needs"):
+			note = problem
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		var icon := TextureRect.new()
+		icon.texture = Assets.texture("res://assets/sprites/items/%s.png" % id)
+		icon.custom_minimum_size = Vector2(16, 16)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		if problem.begins_with("Needs"):
+			icon.modulate = Color(0.3, 0.18, 0.12, 0.5)
+		row.add_child(icon)
+		var words := VBoxContainer.new()
+		words.add_theme_constant_override("separation", -2)
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		words.add_child(Ui.label(title))
+		words.add_child(Ui.label(note, Ui.FAINT, 5))
+		row.add_child(words)
+		var make := Button.new()
+		make.text = "Cook" if kitchen else "Make"
+		make.disabled = problem != ""
+		make.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		make.pressed.connect(func() -> void: GameState.request_craft(me, id))
+		make.mouse_entered.connect(func() -> void: _info.text = str(GameState.ITEMS[id]["blurb"]))
+		row.add_child(make)
+		var panel := PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", Ui.box(Color(1.0, 0.96, 0.85), Color(0.8, 0.68, 0.5), 2))
+		panel.add_child(row)
+		panel.mouse_entered.connect(func() -> void: _info.text = str(GameState.ITEMS[id]["blurb"]))
+		_recipes.add_child(panel)
