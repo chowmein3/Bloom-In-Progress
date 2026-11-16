@@ -10,6 +10,8 @@ var _t: float = 0.0
 
 
 func _process(delta: float) -> void:
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	scale = Vector2.ONE * maxf(view.x / 320.0, view.y / 180.0)  # cover wider or taller windows
 	_t += delta
 	queue_redraw()
 

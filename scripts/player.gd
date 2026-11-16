@@ -125,12 +125,9 @@ func _process(delta: float) -> void:
 		var step: Vector2 = dir.normalized() * SPEED * pace * delta
 		_try_move(Vector2(step.x, 0))
 		if not _try_move(Vector2(0, step.y)):
-			# Walking into the home's door goes in; walking down off the mat goes out.
-			if step.y < 0.0 and not indoors() and _cell_at(position + Vector2(0, step.y - 6.0)) == GameState.home_door():
-				go_inside()
-			elif step.y < 0.0 and not indoors() and GameState.is_mine_entrance(_cell_at(position + Vector2(0, step.y - 6.0))):
-				go_into_mine()
-			elif step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
+			# Going in is done by hand (F on the door or cave mouth). Walking
+			# down off the door mat or ladder goes back out.
+			if step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
 				go_outside()
 		var stride_before: int = int(_walk * 4.5)
 		_walk += delta * pace
@@ -385,6 +382,8 @@ func use_tool() -> void:
 		use_hand()
 	elif tool_index == ROD_TOOL:
 		GameState.notice.emit("Face the pond to cast")
+	elif tool_index == PICK_TOOL:
+		GameState.notice.emit("Nothing to break here. Rocks and ore are in the mine")
 
 
 ## Eats the held meal or sets the held thing down. False when it had

@@ -584,9 +584,9 @@ func _ready() -> void:
 			rocks.append(at)
 	check(rocks.size() >= 10 and GameState.is_mine_entrance(Vector2i(25, 2)) and not GameState.can_walk(Vector2i(25, 2)), "the mine has an entrance in the garden and rocks inside")
 	check(not GameState.can_walk(rocks[0]) and GameState.can_walk(Vector2i(cave.position.x + 6, cave.end.y - 1)), "rocks block the way; the ladder tile is always clear")
-	check(not GameState.request_mine(P, rocks[0]) and not GameState.request_harvest(P, rocks[0]), "rocks need a pickaxe")
+	check(not GameState.request_harvest(P, rocks[0]), "a bare hand can't lift a rock")
 	GameState.coins = 500
-	check(GameState.request_buy_upgrade(P, "pickaxe") and GameState.request_mine(P, rocks[0]), "with one, a rock breaks")
+	check(GameState.request_mine(P, rocks[0]), "the pickaxe every gardener starts with breaks it")
 	var got: int = GameState.item_count("stone") + GameState.item_count("copper") + GameState.item_count("goldore") + GameState.item_count("amethyst")
 	check(got >= 1 and not GameState.objects.has(rocks[0]) and GameState.get_energy(P) == 98, "giving stone or ore for 2 energy")
 	check(not GameState.request_place(P, rocks[0], "path"), "nothing can be built down there")
