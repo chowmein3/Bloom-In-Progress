@@ -7,12 +7,15 @@ extends Node2D
 ## space, so going indoors is a jump in position (see GameState.INTERIOR_ORIGIN).
 
 const Assets := preload("res://scripts/assets.gd")
+const Effects := preload("res://scripts/effects.gd")
 
 signal loadout_changed
 signal area_changed  # stepped indoors or back out
 signal shop_requested  # used the shopkeeper's stall
 signal clock_requested  # used the clock tower
 signal bin_requested  # opened the shipping bin
+signal mail_requested
+signal board_requested
 signal villager_requested  # spoke to today's visitor
 signal fish_requested  # cast the rod into the pond
 signal acted  # swung a tool or used a hand (for the little animation)
@@ -48,6 +51,10 @@ var _texture: Texture2D
 var _texture_slot: int = -1
 var _hats: Texture2D
 var _lunge: float = 0.0  # 1 -> 0 after using a tool or hand
+var _swings: int = 0  # how many times we have acted; sent so partners see it
+var _emote: int = -1
+var _emote_time: float = 0.0
+var _icons: Texture2D
 
 
 func _ready() -> void:
@@ -55,13 +62,27 @@ func _ready() -> void:
 	_hats = Assets.texture("res://assets/sprites/hats.png")
 	GameState.economy_changed.connect(queue_redraw)
 	GameState.state_reloaded.connect(queue_redraw)
-	acted.connect(func() -> void: _lunge = 1.0)
+	_icons = Assets.texture("res://assets/sprites/ui_icons.png")
+	Net.names_changed.connect(queue_redraw)
+	Net.emote.connect(func(slot: int, index: int) -> void:
+		if slot == player_id:
+			_emote = index
+			_emote_time = 2.5)
+	acted.connect(func() -> void:
+		_lunge = 1.0
+		_swings += 1)
 	if not is_remote:
 		GameState.register_player(player_id)
 
 
 ## Latest position of a remote player, from the network.
-func remote_update(pos: Vector2, new_facing: Vector2i, moving: bool) -> void:
+func remote_update(pos: Vector2, new_facing: Vector2i, moving: bool, tool: int = 0, swings: int = 0) -> void:
+	if swings != _swings:
+		_swings = swings
+		_lunge = 1.0  # they just used a tool or their hand
+	if tool != tool_index:
+		tool_index = tool
+		queue_redraw()
 	_remote_sprinting = moving and pos.distance_to(_remote_pos) > SPEED * 0.05 * 1.3
 	_remote_pos = pos
 	_remote_moving = moving
@@ -90,6 +111,9 @@ func _process(delta: float) -> void:
 	if _lunge > 0.0:
 		_lunge = maxf(0.0, _lunge - delta * 6.0)
 		queue_redraw()
+	if _emote_time > 0.0:
+		_emote_time -= delta
+		queue_redraw()
 	# Players in bed are drawn by the bed (bed_view.gd), tucked in.
 	visible = not GameState.is_sleeping(player_id)
 	if is_remote:
@@ -111,7 +135,7 @@ func _process(delta: float) -> void:
 	_send_in -= delta
 	if _send_in <= 0.0:
 		_send_in = 0.05
-		Net.send_player_state(position, facing, dir != Vector2.ZERO)
+		Net.send_player_state(position, facing, dir != Vector2.ZERO, tool_index, _swings)
 	if busy:
 		if cursor != null:
 			cursor.visible = false
@@ -209,7 +233,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			cycle_seed()
 	elif event.is_action_pressed("cycle_tool"):
-		select_tool((tool_index + 1) % TOOLS.size())
+		var count: int = TOOLS.size() if GameState.upgrade_level("pickaxe") > 0 else TOOLS.size() - 1
+		select_tool((tool_index + 1) % count)
 	else:
 		for i in TOOLS.size():
 			if event.is_action_pressed("tool_%d" % (i + 1)):
@@ -217,6 +242,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func select_tool(index: int) -> void:
+	if index == PICK_TOOL and GameState.upgrade_level("pickaxe") < 1:
+		return  # not bought yet
 	tool_index = index
 	loadout_changed.emit()
 
@@ -287,6 +314,17 @@ func hand_action() -> String:
 		return "bin"
 	if GameState.is_mine_entrance(target):
 		return "mine"
+	if target == GameState.MAILBOX_CELL:
+		return "mail"
+	if target == GameState.BOARD_CELL:
+		return "board"
+	if GameState.MACHINES.has(GameState.object_kind(target)):
+		var machine: Dictionary = GameState.objects[target]
+		if bool(machine.get("ready", false)):
+			return "collect"
+		if int(machine.get("busy", 0)) > 0:
+			return "wait"
+		return "fill" if GameState.machine_input(GameState.object_kind(target)) != "" else "lift"
 	if target == GameState.VISITOR_CELL and GameState.visitor_today() != "":
 		return "talk"
 	var animal: int = GameState.animal_at(target)
@@ -318,7 +356,9 @@ func hand_hint() -> String:
 		"leave": return "go out"
 		"enter", "mine": return "go in"
 		"shop": return "talk"
-		"clock", "bin": return "open"
+		"clock", "bin", "mail": return "open"
+		"board": return "read"
+		"wait": return "check"
 		"lift": return "clear" if GameState.DEBRIS.has(GameState.object_kind(target)) else "pick up"
 	return action
 
@@ -334,6 +374,9 @@ func use_hand() -> void:
 		"clock": clock_requested.emit()
 		"bin": bin_requested.emit()
 		"mine": go_into_mine()
+		"mail": mail_requested.emit()
+		"board": board_requested.emit()
+		"collect", "fill", "wait": GameState.request_harvest(player_id, target)
 		"talk": villager_requested.emit()
 		"feed", "stroke": GameState.request_tend(player_id, target)
 		"hug", "pet": GameState.request_pet(player_id, target)
@@ -348,7 +391,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)
@@ -433,3 +476,25 @@ func _draw() -> void:
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(player_id))
 	if hat >= 0 and _hats != null:
 		draw_texture_rect_region(_hats, Rect2(lean + Vector2(-8, -23), Vector2(16, 12)), Rect2(hat * 16, 0, 16, 12))
+	if is_remote:
+		# Your partner's name, and a small picture of what they're holding.
+		var font: Font = ThemeDB.fallback_font
+		var label: String = Net.name_of_slot(player_id)
+		var width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x
+		draw_string_outline(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, 2, Color(0.2, 0.14, 0.23))
+		draw_string(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color(1, 0.97, 0.88))
+		var icon: int = [0, 1, 2, -1, 11, 12][clampi(tool_index, 0, 5)]
+		if icon >= 0:
+			draw_texture_rect_region(_icons, Rect2(width / 2.0 + 1, -34, 8, 8), Rect2(icon * 12, 0, 12, 12))
+	if _emote_time > 0.0 and _emote >= 0:
+		var up: float = -40.0 if is_remote else -32.0
+		var fade: float = clampf(_emote_time * 2.0, 0.0, 1.0)
+		draw_rect(Rect2(-7, up - 2, 14, 12), Color(1, 0.97, 0.88, fade))
+		draw_rect(Rect2(-7, up - 2, 14, 12), Color(0.42, 0.26, 0.15, fade), false, 1.0)
+		match _emote:
+			0: Effects.heart(self, 0, up + 1, fade)
+			1: Effects.note(self, 0, up + 1, fade)
+			2: Effects.zzz(self, 0, up + 2, fade)
+			3: draw_string(ThemeDB.fallback_font, Vector2(-2, up + 8), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.85, 0.3, 0.25, fade))
+			4: draw_string(ThemeDB.fallback_font, Vector2(-3, up + 8), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.3, 0.45, 0.8, fade))
+			5: Effects.droplet(self, 0, up + 3, fade)

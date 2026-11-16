@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "blazestar"
+display_name = "Blazestar"
+blurb = "Warm to the touch at noon."
+days_per_stage = Array[int]([2, 2, 3])
+seasons = Array[int]([1])
+regrows = false
+regrow_days = 0
+shape = "flower"
+sell_price = 55
+seed_price = 20

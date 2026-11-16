@@ -14,6 +14,7 @@ const REAL_SECONDS_PER_STEP := 7.0
 var day_index: int = 0  # days elapsed since the garden began
 var minutes: int = DAY_START
 var raining: bool = false
+var stormy: bool = false  # a rainy day with thunder; more debris blows in
 var rain_chance: float = 0.2
 var paused: bool = false
 var rng := RandomNumberGenerator.new()
@@ -69,6 +70,7 @@ func start_next_day() -> void:
 	_accum = 0.0
 	# No rain in winter (it would be snow, which doesn't water anything).
 	raining = season() != 3 and rng.randf() < rain_chance
+	stormy = raining and rng.randf() < 0.3
 	time_changed.emit()
 
 
@@ -79,6 +81,7 @@ func set_clock(new_day_index: int, new_minutes: int, rain: bool) -> void:
 	minutes = clampi(new_minutes / STEP_MINUTES * STEP_MINUTES, DAY_START, DAY_END - STEP_MINUTES)
 	_accum = 0.0
 	raining = rain and season() != 3  # it never rains in winter
+	stormy = false
 	time_changed.emit()
 
 

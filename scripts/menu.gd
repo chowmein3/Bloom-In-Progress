@@ -122,12 +122,27 @@ func _show_settings(back_to: String) -> void:
 		Sound.set_volumes(Sound.music_volume, v)
 		Settings.put("sound_volume", v)
 		Sound.play("pet"), back_to)
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 3)
+	var name_label := Label.new()
+	name_label.text = "Your name"
+	name_row.add_child(name_label)
+	var name_field := LineEdit.new()
+	name_field.text = Net.my_name
+	name_field.max_length = 16
+	name_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_field.text_changed.connect(func(text: String) -> void:
+		Net.my_name = text.strip_edges() if text.strip_edges() != "" else "Gardener"
+		Settings.put("name", Net.my_name)
+		Net.announce())
+	name_row.add_child(name_field)
+	_box.add_child(name_row)
 	var full: bool = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 	_button("Fullscreen: %s" % ("on" if full else "off"), func() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 		Settings.put("fullscreen", not full)
 		_show_settings(back_to))
-	_note("Move WASD    Run Shift    Tool Space / click\nHand F / right click    Tools 1-6    Seed or item Q\nBackpack E    Journal J    Map M    Music N    Help H")
+	_note("Move WASD    Run Shift    Tool Space / click\nHand F / right click    Tools 1-6    Seed or item Q\nBackpack E    Journal J    Map M    Music N    Help H\nEmotes T    Chat Enter")
 	_button("Back", show_pause if back_to == "pause" else show_title).grab_focus()
 
 

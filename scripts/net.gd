@@ -9,7 +9,10 @@ signal join_failed
 signal player_joined(slot: int)
 signal player_left(slot: int)
 signal session_ended(was_host: bool)
-signal player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool)
+signal player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool, tool: int, swings: int)
+signal names_changed  # someone told us their name
+signal emote(slot: int, index: int)
+signal chat(slot: int, text: String)
 signal relay_ready  # host: the garden is open on the relay; partners can join by invite code
 signal relay_failed(reason: String)  # host: the relay could not be reached or refused us
 signal open_gardens_changed  # open_gardens changed while looking up invite codes
@@ -20,6 +23,7 @@ const DEFAULT_PORT := 24565
 const MAX_PLAYERS := 2
 const HOST_SLOT := 1
 const RelayPeer := preload("res://scripts/relay_peer.gd")
+const Settings := preload("res://scripts/settings.gd")
 const JOIN_TIMEOUT := 8.0
 const RELAY_JOIN_TIMEOUT := 75.0  # a sleeping free relay can take a minute to wake
 const RELAY_RETRIES := 6
@@ -31,6 +35,10 @@ const FOUND_FOR := 4.0  # forget a host this long after its last announcement
 
 var online: bool = false
 var port: int = DEFAULT_PORT
+## What each player calls themselves: slot -> name.
+var names: Dictionary = {}
+## This player's name, from the settings screen.
+var my_name: String = str(Settings.read().get("name", "Gardener"))
 ## Address of the relay server (relay/server.js) that lets partners connect
 ## with an invite code and no router setup. "" = not set up; co-op then uses
 ## the local network or a typed address. Set in project.godot: bloom/relay_url.
@@ -321,9 +329,61 @@ func lan_addresses() -> Array[String]:
 
 
 ## Tell the other players where our character is (called a few times a second).
-func send_player_state(pos: Vector2, facing: Vector2i, moving: bool) -> void:
+func send_player_state(pos: Vector2, facing: Vector2i, moving: bool, tool: int = 0, swings: int = 0) -> void:
 	if online and _slot != 0 and _peer_slots.size() > 1:
-		_player_state.rpc(pos, facing, moving)
+		_player_state.rpc(pos, facing, moving, tool, swings)
+
+
+## The name to show for a player.
+func name_of_slot(slot: int) -> String:
+	if slot == _slot:
+		return my_name
+	return str(names.get(slot, "Your partner"))
+
+
+## Tell everyone our name (after joining, or when someone new arrives).
+func announce() -> void:
+	if online and _slot != 0 and _peer_slots.size() > 1:
+		_hello.rpc(my_name)
+
+
+## Show an emote above our head, here and for our partner.
+func send_emote(index: int) -> void:
+	emote.emit(local_id(), index)
+	if online and _slot != 0 and _peer_slots.size() > 1:
+		_emote.rpc(index)
+
+
+func send_chat(text: String) -> void:
+	chat.emit(local_id(), text.left(60))
+	if online and _slot != 0 and _peer_slots.size() > 1:
+		_chat.rpc(text.left(60))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _hello(their_name: String) -> void:
+	var slot: int = slot_of(multiplayer.get_remote_sender_id())
+	if slot == 0:
+		return
+	var is_new: bool = not names.has(slot)
+	names[slot] = their_name.strip_edges().left(16) if their_name.strip_edges() != "" else "Gardener"
+	names_changed.emit()
+	if is_new:
+		announce()  # so a newcomer learns our name too
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _emote(index: int) -> void:
+	var slot: int = slot_of(multiplayer.get_remote_sender_id())
+	if slot != 0 and index >= 0 and index < 6:
+		emote.emit(slot, index)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _chat(text: String) -> void:
+	var slot: int = slot_of(multiplayer.get_remote_sender_id())
+	if slot != 0:
+		chat.emit(slot, text.left(60))
 
 
 # ------------------------------------------------ finding each other
@@ -434,6 +494,7 @@ func _reset() -> void:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	online = false
+	names = {}
 	via_relay = false
 	_relay_code = ""
 	_relay_retry_in = -1.0
@@ -492,6 +553,7 @@ func _welcome(slot: int, roster: Dictionary) -> void:
 	_slot = slot
 	_peer_slots = roster
 	welcomed.emit()
+	announce()
 	for other: int in roster.values():
 		if other != slot:
 			player_joined.emit(other)
@@ -513,7 +575,7 @@ func _set_roster(roster: Dictionary) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _player_state(pos: Vector2, facing: Vector2i, moving: bool) -> void:
+func _player_state(pos: Vector2, facing: Vector2i, moving: bool, tool: int, swings: int) -> void:
 	var slot: int = slot_of(multiplayer.get_remote_sender_id())
 	if slot != 0:
-		player_state.emit(slot, pos, facing, moving)
+		player_state.emit(slot, pos, facing, moving, tool, swings)

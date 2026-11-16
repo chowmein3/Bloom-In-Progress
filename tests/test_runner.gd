@@ -586,7 +586,9 @@ func _ready() -> void:
 	check(not GameState.can_walk(rocks[0]) and GameState.can_walk(Vector2i(cave.position.x + 6, cave.end.y - 1)), "rocks block the way; the ladder tile is always clear")
 	check(not GameState.request_harvest(P, rocks[0]), "a bare hand can't lift a rock")
 	GameState.coins = 500
-	check(GameState.request_mine(P, rocks[0]), "the pickaxe every gardener starts with breaks it")
+	check(not GameState.request_mine(P, rocks[0]), "rocks need a pickaxe")
+	GameState.coins = 500
+	check(GameState.request_buy_upgrade(P, "pickaxe") and GameState.coins == 300 and GameState.request_mine(P, rocks[0]), "Bristle sells one for 200, and then a rock breaks")
 	var got: int = GameState.item_count("stone") + GameState.item_count("copper") + GameState.item_count("goldore") + GameState.item_count("amethyst")
 	check(got >= 1 and not GameState.objects.has(rocks[0]) and GameState.get_energy(P) == 98, "giving stone or ore for 2 energy")
 	check(not GameState.request_place(P, rocks[0], "path"), "nothing can be built down there")
@@ -606,6 +608,116 @@ func _ready() -> void:
 	GameState.request_place(P, Vector2i(10, 14), "bigsprinkler")
 	GameState.end_day(false)
 	check(bool(GameState.soil[ring[0]]["watered"]) and bool(GameState.soil[ring[1]]["watered"]), "which waters the diagonals too")
+	GameState.new_game()
+
+	print("artisan machines")
+	GameState.new_game()
+	GameState.xp = 190  # level 4
+	GameState.items = {"wood": 20, "stone": 6, "fiber": 3, "copper": 2}
+	check(GameState.request_craft(P, "jar") and GameState.request_craft(P, "beehive") and GameState.request_craft(P, "cheesepress") and GameState.request_craft(P, "press"), "the four machines can be crafted")
+	var jar_at := Vector2i(3, 12)
+	var hive_at := Vector2i(5, 12)
+	GameState.request_place(P, jar_at, "jar")
+	GameState.request_place(P, hive_at, "beehive")
+	GameState.produce = {"sunpuff": 3, "moonbell": 1}
+	check(GameState.machine_input("jar") == "sunpuff" and GameState.machine_input("cheesepress") == "", "a jar takes the harvest you have most of; a cheese press wants milk")
+	check(GameState.request_harvest(P, jar_at) and int(GameState.produce["sunpuff"]) == 1 and int(GameState.objects[jar_at]["busy"]) == 2, "by hand, an empty jar is filled with two sunpuffs")
+	check(not GameState.request_harvest(P, jar_at) and GameState.objects.has(jar_at), "while it works it can't be emptied or picked up")
+	GameState.end_day(false)
+	check(not bool(GameState.objects[jar_at].get("ready", false)), "one night isn't enough")
+	GameState.end_day(false)
+	check(bool(GameState.objects[jar_at]["ready"]), "after two nights the jam is ready")
+	check(GameState.request_harvest(P, jar_at) and GameState.item_count("jam") == 1 and GameState.sell_price_of("jam") == 110, "collected by hand: jam worth 110 from 60 coins of sunpuff")
+	GameState.end_day(false)
+	check(bool(GameState.objects[hive_at].get("ready", false)), "the beehive fills by itself in three days")
+	GameState.request_harvest(P, hive_at)
+	check(GameState.item_count("honey") == 1, "giving honey")
+	GameState.produce = {}
+	check(GameState.request_harvest(P, jar_at) and GameState.item_count("jar") == 1 and not GameState.objects.has(jar_at), "an empty jar with nothing to fill it is picked up instead")
+
+	print("mail and the notice board")
+	GameState.new_game()
+	check(GameState.mail.is_empty() and not GameState.can_walk(GameState.MAILBOX_CELL) and not GameState.can_walk(GameState.BOARD_CELL), "a mailbox and a notice board stand by the home")
+	GameState.end_day(false)
+	check(GameState.mail.size() == 1 and GameState.mail[0]["from"] == "Bristle", "a welcome letter arrives on the second morning")
+	var purse_mail: int = GameState.coins
+	check(GameState.request_open_mail(P, 0) and GameState.coins == purse_mail + 50 and GameState.mail.is_empty(), "opening it gives its 50 coins and clears it")
+	check(not GameState.request_open_mail(P, 0), "there is nothing more to open")
+	check(GameState.quests.size() == 3, "the board holds three requests")
+	GameState.quests = [{"who": "pebble", "id": "wood", "count": 3, "coins": 65, "days": 2}]
+	GameState.items["wood"] = 2
+	check(not GameState.request_quest(P, 0), "a request needs the full amount")
+	GameState.items["wood"] = 5
+	var purse_quest: int = GameState.coins
+	check(GameState.request_quest(P, 0) and GameState.coins == purse_quest + 65 and GameState.item_count("wood") == 2, "handing it in pays the reward")
+	check(int(GameState.friends["pebble"]["points"]) == 30 and int(GameState.stats["requests"]) == 1, "and pleases whoever asked")
+	GameState.quests = [{"who": "bristle", "id": "stone", "count": 2, "coins": 40, "days": 1}]
+	GameState.end_day(false)
+	var stale: bool = false
+	for quest: Dictionary in GameState.quests:
+		if quest["id"] == "stone" and int(quest["days"]) <= 0:
+			stale = true
+	check(not stale and GameState.quests.size() == 3, "old requests expire and the board refills")
+	GameState.friends["maple"] = {"points": 200, "talked": false, "gifted": false, "rewards": 2}
+	GameState.mail = []
+	GameState.end_day(false)
+	GameState.end_day(false)
+	var from_maple: int = 0
+	for letter: Dictionary in GameState.mail:
+		if letter["from"] == "Maple":
+			from_maple += 1
+	check(from_maple == 1, "a friend at two hearts writes once, not every day")
+	var letters_state: String = JSON.stringify(GameState.to_snapshot())
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(JSON.stringify(GameState.to_snapshot()) == letters_state, "letters, requests and machines survive save and load")
+
+	print("greenhouse, new plants and forage")
+	GameState.new_game()
+	check(GameState.species.size() == 16, "there are sixteen kinds of plant")
+	check(not GameState.seed_in_stock("skybell") and not GameState.seed_in_stock("snapvine"), "the new seeds aren't stocked at first")
+	GameState.xp = 40
+	check(GameState.seed_in_stock("skybell") and not GameState.seed_in_stock("snapvine"), "level 2 brings the first of them")
+	GameState.xp = 190
+	check(GameState.seed_in_stock("snapvine") and GameState.seed_in_stock("icebloom"), "level 4 the rest")
+	var glass := Vector2i(20, 14)
+	var open_air := Vector2i(3, 14)
+	GameState.request_till(P, glass)
+	GameState.request_till(P, open_air)
+	GameState.seeds["frostwhisker"] = 2
+	check(not GameState.request_plant(P, glass, "frostwhisker"), "without a greenhouse a winter plant can't go in during spring")
+	GameState.coins = 4000
+	check(GameState.request_buy_upgrade(P, "greenhouse") and GameState.in_greenhouse(glass) and not GameState.in_greenhouse(open_air), "the greenhouse covers a patch in the lower right")
+	check(GameState.request_plant(P, glass, "frostwhisker") and not GameState.request_plant(P, open_air, "frostwhisker"), "inside it any plant can be planted")
+	GameState.request_plant(P, open_air, "sunpuff")
+	GameState.request_water(P, glass)
+	GameState.end_day(false)
+	check(int(GameState.plants[glass]["days_grown"]) == 1 and not bool(GameState.plants[glass]["dormant"]), "and grows out of season")
+	GameState.request_set_time(P, 3 * 28 + 2, 9 * 60, false)
+	check(bool(GameState.plants[open_air]["dormant"]) and not bool(GameState.plants[glass]["dormant"]), "in winter only the plant outside goes dormant")
+	GameState.wild_growth = true
+	GameState.request_set_time(P, 2, 9 * 60, false)
+	for dawn in 12:
+		GameState.end_day(false)
+	var greens: int = 0
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.object_kind(at) == "wildgreens":
+			greens += 1
+	check(greens >= 1 and greens <= 5, "wild greens turn up in spring, a few at most")
+	GameState.request_set_time(P, 28 + 2, 9 * 60, false)
+	GameState.end_day(false)
+	var wrong: int = 0
+	var spot_found := Vector2i(-1, -1)
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.object_kind(at) == "wildgreens":
+			wrong += 1
+		if GameState.object_kind(at) == "sunberry":
+			spot_found = at
+	check(wrong == 0, "and are gone once summer comes")
+	GameState.wild_growth = false
+	GameState.objects[Vector2i(2, 16)] = {"kind": "sunberry"}
+	check(GameState.request_harvest(P, Vector2i(2, 16)) and GameState.item_count("sunberry") >= 1, "forage is picked by hand and can be sold")
 	GameState.new_game()
 
 	print("curfew and energy")

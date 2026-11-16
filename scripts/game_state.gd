@@ -22,6 +22,7 @@ signal sleepers_changed
 signal tree_changed
 signal journal_changed
 signal object_changed(cell: Vector2i)  # something was placed on or picked up from a garden tile
+signal mail_changed  # letters arrived or were opened, or the quest board changed
 signal animals_changed  # an animal was bought, fed, petted or woke up
 signal time_warped  # the clock tower changed the date or time
 signal economy_changed  # coins, upgrades, hats owned or hats worn changed
@@ -35,7 +36,20 @@ const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/lanternsquash.tres",
 	"res://data/plants/frostwhisker.tres",
 	"res://data/plants/snowpip.tres",
+	"res://data/plants/skybell.tres",
+	"res://data/plants/snapvine.tres",
+	"res://data/plants/blazestar.tres",
+	"res://data/plants/melonbub.tres",
+	"res://data/plants/amberleaf.tres",
+	"res://data/plants/duskberry.tres",
+	"res://data/plants/glimmercap.tres",
+	"res://data/plants/icebloom.tres",
 ]
+## Seeds Bristle starts stocking once the garden reaches a gardening level.
+const SEED_LEVELS: Dictionary = {
+	"skybell": 2, "blazestar": 2, "amberleaf": 2, "glimmercap": 2,
+	"snapvine": 4, "melonbub": 4, "duskberry": 4, "icebloom": 4,
+}
 const WORLD_SIZE := Vector2i(28, 18)  # in 16px tiles
 const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
 ## The Heart Tree: one shared plant that grows on the love the whole garden
@@ -78,6 +92,8 @@ const UPGRADES: Dictionary = {
 		{"name": "Big Watering Can", "cost": 300, "blurb": "Waters 3 tiles in a row"},
 		{"name": "Grand Watering Can", "cost": 900, "blurb": "Waters 5 tiles in a row"},
 	],
+	"pickaxe": [{"name": "Pickaxe", "cost": 200, "blurb": "Breaks the rocks in the mine"}],
+	"greenhouse": [{"name": "Greenhouse", "cost": 3000, "blurb": "A glass house where every plant grows all year"}],
 	"coop": [{"name": "Chicken Coop", "cost": 800, "blurb": "A home for up to four hens"}],
 	"barn": [{"name": "Barn", "cost": 2000, "blurb": "A home for up to two cows"}],
 	"home": [
@@ -126,7 +142,7 @@ const VISITOR_CELL := Vector2i(17, 4)  # below the stall, clear of where players
 const MAX_HEARTS := 5
 const VILLAGERS: Dictionary = {
 	"maple": {"name": "Maple", "what": "the beekeeper", "days": [0, 3],
-		"loves": ["moonbell", "tea"], "likes": ["sunpuff", "dewcup", "plumble"], "dislikes": ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie"],
+		"loves": ["moonbell", "tea", "honey"], "likes": ["sunpuff", "dewcup", "plumble", "jam"], "dislikes": ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie"],
 		"lines": ["My bees adore your garden.", "Flowers first, everything else after.", "A good day starts with something sweet."],
 		"rewards": [{"seeds": {"moonbell": 5}}, {"coins": 150}, {"items": {"tea": 3}}, {"coins": 300}, {"items": {"birdbath": 1}}]},
 	"pebble": {"name": "Pebble", "what": "the young angler", "days": [1, 4],
@@ -151,6 +167,23 @@ const ORES: Dictionary = {  # rock kind -> [item it gives, most it gives, share 
 	"ore_gold": ["goldore", 1, 0.08],
 	"ore_gem": ["amethyst", 1, 0.04],
 }
+
+## Artisan machines: placed like any made thing. By hand: fill an empty one,
+## wait `nights`, collect. A beehive needs no filling.
+const MACHINES: Dictionary = {
+	"jar": {"takes": "harvest", "count": 2, "makes": "jam", "nights": 2},
+	"press": {"takes": "plumble", "count": 2, "makes": "juice", "nights": 2},
+	"cheesepress": {"takes": "milk", "count": 1, "makes": "cheese", "nights": 1},
+	"beehive": {"takes": "", "count": 0, "makes": "honey", "nights": 3},
+}
+## The greenhouse: plants inside ignore the seasons.
+const GREENHOUSE_RECT := Rect2i(19, 13, 6, 4)
+const MAILBOX_CELL := Vector2i(11, 2)
+const BOARD_CELL := Vector2i(15, 2)
+const MAX_QUESTS := 3
+const QUEST_DAYS := 4
+## Wild things to forage, one kind a season.
+const FORAGE: Array[String] = ["wildgreens", "sunberry", "chestnut", "frostroot"]
 
 ## Fruit trees: a planted sapling takes this long to grow, then bears fruit
 ## every few days except in winter.
@@ -180,7 +213,7 @@ const GOALS: Array[Dictionary] = [
 	{"id": "cabin", "name": "Home Sweet Home", "text": "Move into the Cabin", "coins": 200},
 	{"id": "sapling", "name": "Deep Roots", "text": "Grow the Heart Tree into a sapling", "coins": 250},
 	{"id": "level5", "name": "Green Thumb", "text": "Reach gardening level 5", "coins": 400},
-	{"id": "collector", "name": "Full Journal", "text": "Plant all 8 kinds of plant", "coins": 500},
+	{"id": "collector", "name": "Plant Collector", "text": "Plant 8 kinds of plant", "coins": 500},
 	{"id": "master", "name": "Master Gardener", "text": "Finish every other goal", "hat": "laurel"},
 ]
 
@@ -219,6 +252,18 @@ const ITEMS: Dictionary = {
 	"armchair": {"name": "Armchair", "kind": "decor", "solid": true, "cost": 200, "blurb": "For admiring the garden from."},
 	"teatable": {"name": "Tea Table", "kind": "decor", "solid": true, "cost": 180, "blurb": "Set for two."},
 	"bookcase": {"name": "Little Bookcase", "kind": "decor", "solid": true, "cost": 250, "blurb": "Mostly books about plants."},
+	"jar": {"name": "Preserves Jar", "kind": "place", "solid": true, "blurb": "Fill with 2 of any harvest. Jam in two days."},
+	"press": {"name": "Juice Press", "kind": "place", "solid": true, "blurb": "Fill with 2 plumbles. Juice in two days."},
+	"cheesepress": {"name": "Cheese Press", "kind": "place", "solid": true, "blurb": "Fill with milk. Cheese tomorrow."},
+	"beehive": {"name": "Beehive", "kind": "place", "solid": true, "blurb": "Honey every three days, except in winter."},
+	"jam": {"name": "Jam", "kind": "fruit", "price": 110, "blurb": "From the preserves jar."},
+	"juice": {"name": "Plumble Juice", "kind": "fruit", "price": 240, "blurb": "From the juice press."},
+	"cheese": {"name": "Cheese", "kind": "fruit", "price": 190, "blurb": "From the cheese press."},
+	"honey": {"name": "Honey", "kind": "fruit", "price": 80, "blurb": "From the beehive."},
+	"wildgreens": {"name": "Wild Greens", "kind": "fruit", "price": 20, "blurb": "Foraged in spring."},
+	"sunberry": {"name": "Sunberry", "kind": "fruit", "price": 25, "blurb": "Foraged in summer."},
+	"chestnut": {"name": "Chestnut", "kind": "fruit", "price": 30, "blurb": "Foraged in fall."},
+	"frostroot": {"name": "Frostroot", "kind": "fruit", "price": 35, "blurb": "Foraged in winter."},
 	"scarecrow": {"name": "Scarecrow", "kind": "place", "solid": true, "blurb": "Keeps crows off plants within six tiles."},
 	"bigsprinkler": {"name": "Great Sprinkler", "kind": "place", "solid": true, "blurb": "Waters all eight tiles around it every morning."},
 	"sapling": {"name": "Plumble Sapling", "kind": "place", "solid": true, "cost": 300, "blurb": "Plant it on open ground. Grows in ten days, then bears plumbles."},
@@ -247,6 +292,10 @@ const RECIPES: Dictionary = {
 	"salad": {"needs": {"sunpuff": 1, "dewcup": 1}, "makes": 1, "level": 2, "kitchen": true},
 	"stew": {"needs": {"gigglecap": 2, "pricklepal": 1}, "makes": 1, "level": 3, "kitchen": true},
 	"pie": {"needs": {"lanternsquash": 1, "snowpip": 1}, "makes": 1, "level": 4, "kitchen": true},
+	"jar": {"needs": {"wood": 6, "stone": 2}, "makes": 1, "level": 2},
+	"beehive": {"needs": {"wood": 5, "fiber": 3}, "makes": 1, "level": 2},
+	"cheesepress": {"needs": {"wood": 4, "stone": 4}, "makes": 1, "level": 3},
+	"press": {"needs": {"wood": 4, "copper": 2}, "makes": 1, "level": 3},
 	"feed": {"needs": {"fiber": 2}, "makes": 2, "level": 1},
 	"scarecrow": {"needs": {"wood": 3, "fiber": 2}, "makes": 1, "level": 1},
 	"bigsprinkler": {"needs": {"copper": 4, "goldore": 1}, "makes": 1, "level": 4},
@@ -313,6 +362,8 @@ var xp: int = 0  # gardening experience (shared)
 var wanted: Dictionary = {}  # Bristle's request: {"species", "count", "reward"}, or {} for none
 ## Whether debris turns up in the garden by itself. Tests switch it off.
 var wild_growth: bool = true
+var mail: Array = []  # unopened letters: {"from", "text", "gift": {"coins", "items", "seeds"}}
+var quests: Array = []  # notice board: {"who", "id", "count", "coins", "days"}
 var animals: Array = []  # each {"kind", "mood", "fed", "petted_by"}; order gives its spot
 var friends: Dictionary = {}  # villager id -> {"points", "talked", "gifted", "rewards"}
 var bin: Dictionary = {}  # shipping bin: id -> count, sold overnight
@@ -342,6 +393,7 @@ func _ready() -> void:
 	economy_changed.connect(_mirror_economy)
 	object_changed.connect(_mirror_object)
 	animals_changed.connect(_mirror_animals)
+	mail_changed.connect(_mirror_mail)
 	cell_changed.connect(_mirror_cell)
 	plant_added.connect(_mirror_cell)
 	plant_removed.connect(_mirror_cell)
@@ -367,6 +419,8 @@ func new_game() -> void:
 	bin = {}
 	animals = []
 	friends = {}
+	mail = []
+	quests = []
 	stats = {"requests": 0, "cooked": {}, "fish": {}}
 	goals_done = []
 	coins = START_COINS
@@ -418,7 +472,7 @@ func is_tower(cell: Vector2i) -> bool:
 
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	if is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell) or MINE_RECT.has_point(cell):
+	if is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell) or MINE_RECT.has_point(cell) or cell == MAILBOX_CELL or cell == BOARD_CELL:
 		return true
 	if (upgrade_level("coop") > 0 and COOP_RECT.has_point(cell)) or (upgrade_level("barn") > 0 and BARN_RECT.has_point(cell)):
 		return true
@@ -451,6 +505,15 @@ func animal_count(kind: String) -> int:
 		if animal["kind"] == kind:
 			count += 1
 	return count
+
+
+func in_greenhouse(cell: Vector2i) -> bool:
+	return upgrade_level("greenhouse") > 0 and GREENHOUSE_RECT.has_point(cell)
+
+
+## Whether a plant of this species is awake on `cell` this season.
+func in_season(cell: Vector2i, species_id: String) -> bool:
+	return in_greenhouse(cell) or species[species_id].seasons.has(TimeManager.season())
 
 
 ## Id of the villager visiting today, or "".
@@ -672,7 +735,7 @@ func goal_met(id: String) -> bool:
 	match id:
 		"blooms": return _journal_count(JOURNAL_BLOOMED) >= 3
 		"radiant": return _journal_count(JOURNAL_RADIANT) >= 3
-		"collector": return _journal_count(JOURNAL_PLANTED) >= species.size()
+		"collector": return _journal_count(JOURNAL_PLANTED) >= 8
 		"sprinkler":
 			for cell: Vector2i in objects.keys():
 				if object_kind(cell) == "sprinkler":
@@ -725,6 +788,8 @@ func seed_in_stock(species_id: String) -> bool:
 		return false
 	if STARTER_SEEDS.has(species_id) or journal_level(species_id) > 0:
 		return true
+	if SEED_LEVELS.has(species_id):
+		return garden_level() >= int(SEED_LEVELS[species_id])
 	for stage: int in TREE_GIFTS.keys():
 		if stage <= tree_stage() and TREE_GIFTS[stage].has(species_id):
 			return true
@@ -799,6 +864,10 @@ func describe_cell(cell: Vector2i) -> String:
 		return "Clock tower: set any date and time"
 	if is_mine_entrance(cell):
 		return "Mine: rocks and ore inside"
+	if cell == MAILBOX_CELL:
+		return "Mailbox%s" % (": %d letters waiting" % mail.size() if not mail.is_empty() else "")
+	if cell == BOARD_CELL:
+		return "Notice board: %d requests" % quests.size()
 	if upgrade_level("coop") > 0 and COOP_RECT.has_point(cell):
 		return "Chicken coop"
 	if upgrade_level("barn") > 0 and BARN_RECT.has_point(cell):
@@ -817,6 +886,12 @@ func describe_cell(cell: Vector2i) -> String:
 		var kind: String = object_kind(cell)
 		if DEBRIS.has(kind):
 			return "%s: clear it for %s" % [DEBRIS_NAMES[kind], name_of(DEBRIS[kind]).to_lower()]
+		if MACHINES.has(kind):
+			if bool(objects[cell].get("ready", false)):
+				return "%s: %s ready" % [name_of(kind), name_of(MACHINES[kind]["makes"]).to_lower()]
+			if int(objects[cell].get("busy", 0)) > 0:
+				return "%s: %d days to go" % [name_of(kind), int(objects[cell]["busy"])]
+			return "%s: empty" % name_of(kind)
 		if kind == "sapling":
 			var age: int = int(objects[cell].get("age", 0))
 			if age < TREE_GROW_DAYS:
@@ -915,6 +990,16 @@ func request_tend(player_id: int, cell: Vector2i) -> bool:
 	return _request("tend", player_id, [cell])
 
 
+## Open the letter at `index` in the mailbox and take what it holds.
+func request_open_mail(player_id: int, index: int) -> bool:
+	return _request("open_mail", player_id, [index])
+
+
+## Hand in the notice-board request at `index`.
+func request_quest(player_id: int, index: int) -> bool:
+	return _request("quest", player_id, [index])
+
+
 func request_talk(player_id: int, villager: String) -> bool:
 	return _request("talk", player_id, [villager])
 
@@ -988,6 +1073,8 @@ func _apply(action: String, player_id: int, args: Array) -> bool:
 		"mine": return _do_mine(player_id, args[0])
 		"buy_animal": return _do_buy_animal(player_id, args[0])
 		"tend": return _do_tend(player_id, args[0])
+		"open_mail": return _do_open_mail(player_id, args[0])
+		"quest": return _do_quest(player_id, args[0])
 		"talk": return _do_talk(player_id, args[0])
 		"gift": return _do_gift(player_id, args[0], args[1])
 		"plant": return _do_plant(player_id, args[0], args[1])
@@ -1050,7 +1137,7 @@ func _do_plant(player_id: int, cell: Vector2i, species_id: String) -> bool:
 	if seed_count(species_id) <= 0:
 		_notify(player_id, "No %s seeds left" % d.display_name)
 		return false
-	if not d.seasons.has(TimeManager.season()):
+	if not in_season(cell, species_id):
 		_notify(player_id, "%s won't wake up in %s" % [d.display_name, TimeManager.season_name()])
 		return false
 	if not _spend(player_id, COST_PLANT):
@@ -1140,6 +1227,9 @@ func _do_sell(_player_id: int, id: String, count: int) -> bool:
 func _do_mine(player_id: int, cell: Vector2i) -> bool:
 	if not ORES.has(object_kind(cell)):
 		return false
+	if upgrade_level("pickaxe") < 1:
+		_notify(player_id, "That needs a pickaxe. Bristle sells one")
+		return false
 	if not _spend(player_id, COST_MINE):
 		return false
 	var ore: Array = ORES[object_kind(cell)]
@@ -1189,6 +1279,139 @@ func _do_tend(player_id: int, cell: Vector2i) -> bool:
 		return false
 	animals_changed.emit()
 	return true
+
+
+func _do_open_mail(player_id: int, index: int) -> bool:
+	if index < 0 or index >= mail.size():
+		return false
+	var gift: Dictionary = mail[index].get("gift", {})
+	mail.remove_at(index)
+	var parts: Array = _give(gift)
+	if not parts.is_empty():
+		_notify(player_id, "Inside: %s" % ", ".join(parts))
+	inventory_changed.emit()
+	economy_changed.emit()
+	mail_changed.emit()
+	return true
+
+
+func _do_quest(player_id: int, index: int) -> bool:
+	if index < 0 or index >= quests.size():
+		return false
+	var quest: Dictionary = quests[index]
+	if stock_of(quest["id"]) < int(quest["count"]):
+		_notify(player_id, "That needs %d %s" % [int(quest["count"]), name_of(quest["id"])])
+		return false
+	_take(quest["id"], int(quest["count"]))
+	coins += int(quest["coins"])
+	quests.remove_at(index)
+	stats["requests"] = int(stats["requests"]) + 1
+	inventory_changed.emit()
+	_gain_xp(15)
+	if VILLAGERS.has(str(quest["who"])):
+		_befriend(player_id, quest["who"], 30)
+	economy_changed.emit()
+	mail_changed.emit()
+	return true
+
+
+## Hands over coins, items and seeds; returns words for each ("3 Tea").
+func _give(gift: Dictionary) -> Array:
+	var parts: Array = []
+	if int(gift.get("coins", 0)) > 0:
+		coins += int(gift["coins"])
+		parts.append("%d coins" % int(gift["coins"]))
+	for id: String in gift.get("seeds", {}).keys():
+		seeds[id] = seed_count(id) + int(gift["seeds"][id])
+		parts.append("%d %s seeds" % [int(gift["seeds"][id]), name_of(id)])
+	for id: String in gift.get("items", {}).keys():
+		items[id] = item_count(id) + int(gift["items"][id])
+		parts.append("%d %s" % [int(gift["items"][id]), name_of(id)])
+	return parts
+
+
+## The morning post: a welcome, festival notices, notes from friends.
+func _deliver_mail() -> void:
+	var day: int = TimeManager.day_index
+	if day == 1:
+		mail.append({"from": "Bristle", "text": "Welcome to the neighbourhood! A little something to get you started. Come by the stall any time.", "gift": {"coins": 50}})
+	if TimeManager.day_of_season() == FESTIVAL_DAY - 2:
+		var fest: Dictionary = FESTIVALS[TimeManager.season()]
+		mail.append({"from": "The Garden Club", "text": "The %s is in two days, on the 14th. %s" % [fest["name"], fest["today"]], "gift": {}})
+	for id: String in friends.keys():
+		var friend: Dictionary = friends[id]
+		if hearts(id) >= 2 and not bool(friend.get("wrote", false)):
+			friend["wrote"] = true
+			var who: Dictionary = VILLAGERS[id]
+			var liked: String = who["likes"][0]
+			var present: Dictionary = {"coins": 100}
+			if ITEMS.has(liked):
+				present["items"] = {liked: 2}
+			mail.append({"from": who["name"], "text": "It's a joy visiting your garden. Between us, I'm very fond of %s. Here's something for you both." % name_of(who["loves"][0]).to_lower(), "gift": present})
+	mail_changed.emit()
+
+
+## Keeps the notice board stocked with requests from Bristle and the villagers.
+func _refresh_quests() -> void:
+	for i in range(quests.size() - 1, -1, -1):
+		quests[i]["days"] = int(quests[i]["days"]) - 1
+		if int(quests[i]["days"]) <= 0:
+			quests.remove_at(i)
+	var wants: Array = ["wood", "stone", "fiber", "minnow", FORAGE[TimeManager.season()]]
+	for id: String in species.keys():
+		if seed_in_stock(id) and species[id].seasons.has(TimeManager.season()):
+			wants.append(id)
+	if upgrade_level("coop") > 0:
+		wants.append("egg")
+	var askers: Array = ["bristle"] + VILLAGERS.keys()
+	var tries: int = 0
+	while quests.size() < MAX_QUESTS and tries < 12:
+		tries += 1
+		var id: String = wants[rng.randi_range(0, wants.size() - 1)]
+		var taken: bool = false
+		for quest: Dictionary in quests:
+			if quest["id"] == id:
+				taken = true
+		if taken:
+			continue
+		var count: int = rng.randi_range(2, 5)
+		var each: int = maxi(sell_price_of(id), 12)
+		quests.append({"who": askers[rng.randi_range(0, askers.size() - 1)], "id": id, "count": count, "coins": int(each * count * 1.8), "days": QUEST_DAYS})
+	mail_changed.emit()
+
+
+## Artisan machines count down, and beehives fill.
+func _run_machines() -> Array:
+	var ready: int = 0
+	for cell: Vector2i in objects.keys():
+		var kind: String = object_kind(cell)
+		if not MACHINES.has(kind) or is_indoors(cell):
+			continue
+		var machine: Dictionary = objects[cell]
+		if kind == "beehive" and int(machine.get("busy", 0)) <= 0 and not bool(machine.get("ready", false)) and TimeManager.season() != 3:
+			machine["busy"] = int(MACHINES[kind]["nights"])
+		if int(machine.get("busy", 0)) > 0:
+			machine["busy"] = int(machine["busy"]) - 1
+			if int(machine["busy"]) == 0:
+				machine["ready"] = true
+				ready += 1
+			object_changed.emit(cell)
+	return ["%d of your machines have something ready" % ready] if ready > 0 else []
+
+
+## What a machine would be filled with from the backpack right now ("" if
+## nothing suitable): its set input, or for the jar the harvest you have most of.
+func machine_input(kind: String) -> String:
+	var machine: Dictionary = MACHINES.get(kind, {})
+	var need: int = int(machine.get("count", 0))
+	if str(machine.get("takes", "")) == "harvest":
+		var best: String = ""
+		for id: String in species.keys():
+			if int(produce.get(id, 0)) >= need and (best == "" or int(produce[id]) > int(produce[best])):
+				best = id
+		return best
+	var takes: String = machine.get("takes", "")
+	return takes if takes != "" and stock_of(takes) >= need else ""
 
 
 func _do_talk(player_id: int, villager: String) -> bool:
@@ -1356,6 +1579,10 @@ func _do_buy_upgrade(player_id: int, kind: String) -> bool:
 	if next.is_empty() or not _pay(player_id, int(next["cost"])):
 		return false
 	upgrades[kind] = upgrade_level(kind) + 1
+	if kind == "greenhouse":
+		for cell: Vector2i in plants.keys():
+			plants[cell]["dormant"] = not in_season(cell, plants[cell]["species"])
+		state_reloaded.emit()
 	if kind == "coop" or kind == "barn":
 		var site: Rect2i = COOP_RECT if kind == "coop" else BARN_RECT
 		for x in site.size.x:
@@ -1399,6 +1626,28 @@ func _do_gather(player_id: int, cell: Vector2i) -> bool:
 	if ORES.has(kind):
 		_notify(player_id, "Solid rock. That needs the pickaxe (6)")
 		return false
+	if MACHINES.has(kind):
+		var machine: Dictionary = objects[cell]
+		if bool(machine.get("ready", false)):
+			var made: String = MACHINES[kind]["makes"]
+			items[made] = item_count(made) + 1
+			machine["ready"] = false
+			object_changed.emit(cell)
+			inventory_changed.emit()
+			_notify(player_id, "Collected %s" % name_of(made))
+			_gain_xp(3)
+			return true
+		if int(machine.get("busy", 0)) > 0:
+			_notify(player_id, "Still working: %d days to go" % int(machine["busy"]))
+			return false
+		var input: String = machine_input(kind)
+		if input != "":
+			_take(input, int(MACHINES[kind]["count"]))
+			machine["busy"] = int(MACHINES[kind]["nights"])
+			object_changed.emit(cell)
+			inventory_changed.emit()
+			return true
+		# Empty, and nothing to fill it with: fall through and pick it up.
 	if kind == "sapling":
 		if bool(objects[cell].get("fruit", false)):
 			objects[cell]["fruit"] = false
@@ -1510,6 +1759,29 @@ func _do_deliver(player_id: int) -> bool:
 	return true
 
 
+## One wild thing to pick turns up most mornings; last season's wilts away.
+func _grow_forage() -> void:
+	var now: String = FORAGE[TimeManager.season()]
+	var have: int = 0
+	for cell: Vector2i in objects.keys():
+		var kind: String = object_kind(cell)
+		if FORAGE.has(kind) and not is_indoors(cell):
+			if kind != now:
+				objects.erase(cell)
+				object_changed.emit(cell)
+			else:
+				have += 1
+	if have >= 5 or rng.randf() > 0.7:
+		return
+	for attempt in 12:
+		var cell := Vector2i(rng.randi_range(0, WORLD_SIZE.x - 1), rng.randi_range(0, WORLD_SIZE.y - 1))
+		if is_blocked(cell) or YARD.has_point(cell) or ANIMAL_YARD.has_point(cell) or soil.has(cell) or objects.has(cell):
+			continue
+		objects[cell] = {"kind": now}
+		object_changed.emit(cell)
+		return
+
+
 ## Fed animals give an egg or milk; mood follows how they were treated.
 func _tend_animals_overnight() -> Array:
 	var given: Dictionary = {}
@@ -1563,7 +1835,7 @@ func _crows() -> Array:
 		for guard: Vector2i in guards:
 			if absi(guard.x - cell.x) <= SCARECROW_REACH and absi(guard.y - cell.y) <= SCARECROW_REACH:
 				watched = true
-		if not watched and not bool(plants[cell]["dormant"]):
+		if not watched and not bool(plants[cell]["dormant"]) and not in_greenhouse(cell):
 			open.append(cell)
 	if open.is_empty():
 		return []
@@ -1671,7 +1943,7 @@ func _do_set_time(day_index: int, minutes: int, raining: bool) -> bool:
 	var season: int = TimeManager.season()
 	for cell: Vector2i in plants.keys():
 		var p: Dictionary = plants[cell]
-		p["dormant"] = not species[p["species"]].seasons.has(season)
+		p["dormant"] = not in_season(cell, p["species"])
 	if TimeManager.raining:
 		for cell: Vector2i in soil.keys():
 			soil[cell]["watered"] = true
@@ -1718,6 +1990,7 @@ func end_day(passed_out: bool) -> void:
 	var night_news: Array = _end_festival()
 	night_news.append_array(_tend_animals_overnight())
 	night_news.append_array(_grow_fruit_trees())
+	night_news.append_array(_run_machines())
 	if wild_growth:
 		night_news.append_array(_crows())
 	var shipped: int = 0
@@ -1744,7 +2017,7 @@ func end_day(passed_out: bool) -> void:
 	var season: int = TimeManager.season()
 	for cell: Vector2i in plants.keys():
 		var p: Dictionary = plants[cell]
-		p["dormant"] = not species[p["species"]].seasons.has(season)
+		p["dormant"] = not in_season(cell, p["species"])
 	if TimeManager.raining:
 		for cell: Vector2i in soil.keys():
 			soil[cell]["watered"] = true
@@ -1758,11 +2031,15 @@ func end_day(passed_out: bool) -> void:
 			if soil.has(cell + side):
 				soil[cell + side]["watered"] = true
 	_fill_mine()
+	_deliver_mail()
+	_refresh_quests()
+	if wild_growth:
+		_grow_forage()
 	for id: String in friends.keys():
 		friends[id]["talked"] = false
 		friends[id]["gifted"] = false
 	if wild_growth:
-		scatter_debris(rng.randi_range(1, 3))
+		scatter_debris(rng.randi_range(1, 3) + (3 if TimeManager.stormy else 0))
 	if wanted.is_empty():
 		_new_request()
 	tree["watered"] = TimeManager.raining
@@ -1783,7 +2060,9 @@ func end_day(passed_out: bool) -> void:
 	var festival: int = festival_today()
 	if festival != -1:
 		night_news.append("Today is the %s! %s" % [FESTIVALS[festival]["name"], FESTIVALS[festival]["today"]])
-	elif TimeManager.day_of_season() == FESTIVAL_DAY - 1:
+	if TimeManager.stormy:
+		night_news.append("A storm is blowing through today")
+	if festival == -1 and TimeManager.day_of_season() == FESTIVAL_DAY - 1:
 		night_news.append("Tomorrow is the %s" % FESTIVALS[TimeManager.season()]["name"])
 	inventory_changed.emit()
 	economy_changed.emit()
@@ -1833,7 +2112,7 @@ func _grow_plant(cell: Vector2i) -> void:
 	var d: Resource = species[p["species"]]
 	var happiness: int = int(p["happiness"])
 	# Out of season plants sleep: no growth, and no hurt feelings either.
-	if d.seasons.has(TimeManager.season()):
+	if in_season(cell, p["species"]):
 		if bool(soil[cell]["watered"]):
 			if not plant_is_mature(cell):
 				p["days_grown"] = int(p["days_grown"]) + 1
@@ -1932,6 +2211,7 @@ func to_snapshot() -> Dictionary:
 		"day_index": TimeManager.day_index,
 		"minutes": TimeManager.minutes,
 		"raining": TimeManager.raining,
+		"stormy": TimeManager.stormy,
 		"soil": soil_out,
 		"plants": plants_out,
 		"seeds": seeds,
@@ -1948,6 +2228,8 @@ func to_snapshot() -> Dictionary:
 		"wanted": wanted,
 		"bin": bin,
 		"animals": animals,
+		"mail": mail,
+		"quests": quests,
 		"friends": friends,
 		"stats": stats,
 		"goals_done": goals_done,
@@ -2009,11 +2291,12 @@ func apply_snapshot(data: Dictionary) -> void:
 			fits = mine_floor().has_point(at) if is_in_mine(at) else room_floor().has_point(at)
 		if (ITEMS.has(kind) or DEBRIS.has(kind) or ORES.has(kind)) and fits:
 			objects[at] = {"kind": kind}
-			for extra: String in ["age", "since"]:
+			for extra: String in ["age", "since", "busy"]:
 				if data["objects"][key].has(extra):
 					objects[at][extra] = int(data["objects"][key][extra])
-			if bool(data["objects"][key].get("fruit", false)):
-				objects[at]["fruit"] = true
+			for flag: String in ["fruit", "ready"]:
+				if bool(data["objects"][key].get(flag, false)):
+					objects[at][flag] = true
 	xp = int(data.get("xp", 0))
 	bin = {}
 	for id: String in data.get("bin", {}).keys():
@@ -2031,6 +2314,23 @@ func apply_snapshot(data: Dictionary) -> void:
 		if VILLAGERS.has(id):
 			var f: Dictionary = data["friends"][id]
 			friends[id] = {"points": int(f.get("points", 0)), "talked": bool(f.get("talked", false)), "gifted": bool(f.get("gifted", false)), "rewards": int(f.get("rewards", 0))}
+			if bool(f.get("wrote", false)):
+				friends[id]["wrote"] = true
+	mail = []
+	for letter: Variant in data.get("mail", []):
+		if typeof(letter) == TYPE_DICTIONARY:
+			var gift: Dictionary = letter.get("gift", {})
+			var clean: Dictionary = {}
+			if int(gift.get("coins", 0)) > 0:
+				clean["coins"] = int(gift["coins"])
+			for part: String in ["items", "seeds"]:
+				if not gift.get(part, {}).is_empty():
+					clean[part] = _int_values(gift[part])
+			mail.append({"from": str(letter.get("from", "")), "text": str(letter.get("text", "")), "gift": clean})
+	quests = []
+	for quest: Variant in data.get("quests", []):
+		if typeof(quest) == TYPE_DICTIONARY and (species.has(str(quest.get("id", ""))) or ITEMS.has(str(quest.get("id", "")))):
+			quests.append({"who": str(quest.get("who", "bristle")), "id": str(quest["id"]), "count": int(quest.get("count", 1)), "coins": int(quest.get("coins", 0)), "days": int(quest.get("days", 1))})
 	var has_rocks: bool = false
 	for at: Vector2i in objects.keys():
 		if is_in_mine(at):
@@ -2066,6 +2366,7 @@ func apply_snapshot(data: Dictionary) -> void:
 	TimeManager.day_index = int(data.get("day_index", 0))
 	TimeManager.minutes = int(data.get("minutes", TimeManager.DAY_START))
 	TimeManager.raining = bool(data.get("raining", false))
+	TimeManager.stormy = bool(data.get("stormy", false))
 	TimeManager.time_changed.emit()
 	state_reloaded.emit()
 
@@ -2256,6 +2557,8 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 999
 		"place":
 			valid = args.size() == 2 and args[0] is Vector2i and args[1] is String
+		"open_mail", "quest":
+			valid = args.size() == 1 and args[0] is int
 		"mine", "tend":
 			valid = args.size() == 1 and args[0] is Vector2i
 		"buy_animal", "talk":
@@ -2290,6 +2593,18 @@ func _rpc_request(action: String, args: Array) -> void:
 func _net_warp(data: Dictionary) -> void:
 	apply_snapshot(data)
 	time_warped.emit()
+
+
+func _mirror_mail() -> void:
+	if _mirroring():
+		_net_mail.rpc(mail, quests)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_mail(new_mail: Array, new_quests: Array) -> void:
+	mail = new_mail
+	quests = new_quests
+	mail_changed.emit()
 
 
 func _mirror_animals() -> void:

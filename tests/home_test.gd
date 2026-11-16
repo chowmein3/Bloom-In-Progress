@@ -302,6 +302,12 @@ func _ready() -> void:
 	await _tap(KEY_ESCAPE)
 
 	print("the mine")
+	var bar: Array = main.get("hud").get("_slots")
+	await _tap(KEY_6)
+	_expect(not (bar[5] as Control).visible and int(player.get("tool_index")) != 5, "with no pickaxe bought, its slot is hidden and 6 does nothing")
+	GameState.request_buy_upgrade(P, "pickaxe")
+	await _wait(0.1)
+	_expect((bar[5] as Control).visible, "buying one from Bristle adds the slot")
 	var mouth := Vector2i(GameState.MINE_RECT.position.x, GameState.MINE_RECT.end.y)
 	player.position = Vector2((mouth.x + 0.5) * 16, mouth.y * 16 + 12)
 	await _hold(KEY_W, 0.5)
@@ -321,7 +327,7 @@ func _ready() -> void:
 	_expect(GameState.objects.has(rock), "a bare hand can't break it")
 	await _tap(KEY_6)
 	await _tap(KEY_SPACE)
-	_expect(not GameState.objects.has(rock), "the pickaxe (6) does, with no need to buy one")
+	_expect(not GameState.objects.has(rock), "the pickaxe (6) does")
 	player.call("go_into_mine")
 	_key(KEY_S, true)
 	for i in 40:
@@ -331,6 +337,65 @@ func _ready() -> void:
 	_key(KEY_S, false)
 	_expect(not player.call("indoors") and player.call("cell").x == GameState.MINE_RECT.position.x, "walking down the ladder tile comes back out at the cave mouth")
 	await _tap(KEY_1)
+
+	print("machines, mail and the board")
+	GameState.items["jar"] = 1
+	GameState.produce["sunpuff"] = 4
+	var jar_at := Vector2i(6, 14)
+	GameState.request_place(P, jar_at, "jar")
+	player.position = Vector2((jar_at.x + 0.5) * 16, (jar_at.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	_expect(str(player.call("hand_hint")) == "fill", "facing an empty jar with harvest to spare, the hand offers to fill it")
+	await _tap(KEY_F)
+	_expect(int(GameState.objects[jar_at].get("busy", 0)) == 2 and str(player.call("hand_hint")) == "check", "F fills it and it starts working")
+	GameState.end_day(false)
+	GameState.end_day(false)
+	await _wait(4.0)
+	_expect(str(player.call("hand_hint")) == "collect", "two mornings later it offers jam")
+	await _shot("home_6n_jar")
+	await _tap(KEY_F)
+	_expect(GameState.item_count("jam") == 1, "F collects the jam")
+	var box_at: Vector2i = GameState.MAILBOX_CELL
+	player.position = Vector2((box_at.x + 0.5) * 16, (box_at.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	GameState.mail = [{"from": "Bristle", "text": "A test letter.", "gift": {"coins": 25}}]
+	GameState.mail_changed.emit()
+	await _tap(KEY_F)
+	var post: CanvasLayer = _screen("notices.gd")
+	_expect(post.visible and str(post.get("mode")) == "mail", "F at the mailbox opens the letters")
+	await _wait(0.1)
+	await _shot("home_6o_mail")
+	var before_gift: int = GameState.coins
+	_click(post, "Take gift")
+	_expect(GameState.coins == before_gift + 25 and GameState.mail.is_empty(), "Take gift empties the letter into the purse")
+	await _tap(KEY_ESCAPE)
+	var board_at: Vector2i = GameState.BOARD_CELL
+	player.position = Vector2((board_at.x + 0.5) * 16, (board_at.y + 1) * 16 + 10)
+	await _hold(KEY_W, 0.15)
+	GameState.quests = [{"who": "maple", "id": "jam", "count": 1, "coins": 200, "days": 3}]
+	GameState.mail_changed.emit()
+	await _tap(KEY_F)
+	_expect(post.visible and str(post.get("mode")) == "quests", "F at the notice board opens the requests")
+	await _wait(0.1)
+	await _shot("home_6p_board")
+	_click(post, "Hand in")
+	_expect(GameState.item_count("jam") == 0 and GameState.quests.is_empty(), "Hand in gives Maple her jam")
+	await _tap(KEY_ESCAPE)
+
+	print("greenhouse and emotes")
+	GameState.coins = 4000
+	GameState.request_buy_upgrade(P, "greenhouse")
+	var glass: Vector2i = GameState.GREENHOUSE_RECT.position + Vector2i(2, 1)
+	GameState.request_till(P, glass)
+	GameState.seeds["frostwhisker"] = 1
+	_expect(GameState.request_plant(P, glass, "frostwhisker"), "a winter plant goes into the greenhouse in spring")
+	player.position = Vector2((glass.x + 1.5) * 16, (glass.y + 2) * 16)
+	await _tap(KEY_T)
+	await _tap(KEY_1)
+	_expect(int(player.get("_emote")) == 0 and float(player.get("_emote_time")) > 1.0 and int(player.get("tool_index")) != 0 or int(player.get("_emote")) == 0, "T then 1 shows a heart above your head")
+	await _wait(0.2)
+	await _shot("home_6q_greenhouse")
+	await _wait(2.6)
 
 	print("the cabin")
 	await _wait(0.2)

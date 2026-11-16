@@ -96,7 +96,11 @@ func _ready() -> void:
 	_grid.columns = 2
 	_grid.add_theme_constant_override("h_separation", 8)
 	_grid.add_theme_constant_override("v_separation", 3)
-	box.add_child(_grid)
+	var scroll := ScrollContainer.new()  # sixteen plants don't fit on one screen
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(300, 118)
+	scroll.add_child(_grid)
+	box.add_child(scroll)
 
 	GameState.journal_changed.connect(_rebuild)
 	GameState.tree_changed.connect(_rebuild)

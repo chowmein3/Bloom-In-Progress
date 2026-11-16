@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "amberleaf"
+display_name = "Amberleaf"
+blurb = "Catches the last of the light."
+days_per_stage = Array[int]([1, 2, 2])
+seasons = Array[int]([2])
+regrows = false
+regrow_days = 0
+shape = "tulip"
+sell_price = 40
+seed_price = 14

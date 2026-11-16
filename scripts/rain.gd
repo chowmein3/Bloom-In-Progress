@@ -19,7 +19,9 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if TimeManager.raining:
 		var color := Color(0.75, 0.85, 1.0, 0.5)
-		for i in 60:
+		if TimeManager.stormy and fposmod(_t, 7.0) < 0.12:  # lightning
+			draw_rect(Rect2(-20, -20, 380, 240), Color(1, 1, 1, 0.5))
+		for i in (110 if TimeManager.stormy else 60):
 			var x: float = fposmod(float(i * 53 % 340) - _t * 40.0, 340.0) - 10.0
 			var y: float = fposmod(float(i * 97 % 200) + _t * 220.0, 200.0) - 10.0
 			draw_line(Vector2(x, y), Vector2(x - 2, y + 5), color, 1.0)

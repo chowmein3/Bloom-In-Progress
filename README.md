@@ -59,7 +59,9 @@ godot --path .
 | Shift (hold) | Run |
 | Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
 | F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
-| 1-6 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, Pickaxe. Clicking a slot works too |
+| 1-6 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, and Pickaxe once bought. Clicking a slot works too |
+| T | Emotes (then 1-6) |
+| Enter | Chat with your partner (co-op) |
 | Tab | Next tool |
 | Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
@@ -104,6 +106,23 @@ in the pause menu.
 - **Hands:** no tool is needed to pet, pick or pick things up. Face it and
   press F. A plant you haven't petted today gets petted; a ripe plant you
   already petted gets picked. The line above the tool bar shows what F will do.
+- **Artisan machines** (Crafting tab): a preserves jar (2 of any harvest make
+  jam in two days), a juice press (2 plumbles), a cheese press (milk, one day)
+  and a beehive (honey every three days, no filling). Set one down, press F to
+  fill it, and F again to collect when the green mark shows.
+- **Mailbox** (left of your home): letters arrive some mornings, a few with
+  gifts. A mark bobs above it when there's post.
+- **Notice board** (right of your home): three requests at a time from Bristle
+  and the villagers. Handing one in pays coins and pleases whoever asked.
+- **Greenhouse** (Bristle's Home tab): a glass house in the lower right where
+  any plant can be planted and grows in every season.
+- **More plants:** sixteen kinds now. Bristle stocks eight new ones as your
+  gardening level reaches 2 and 4.
+- **Foraging and storms:** a wild plant of the season turns up most mornings
+  to pick by hand, and some rainy days are storms that blow in extra debris.
+- **With a partner:** set your name in Settings; it shows above your head with
+  the tool you're holding. T opens emotes, Enter opens a chat line, and you
+  see each other use tools.
 - **Animals:** build a coop, then a barn, at Bristle's Animals tab and buy
   hens and cows. Each morning feed them (F, with animal feed in the backpack)
   and stroke them (F again). Fed animals give eggs and milk overnight; happy
@@ -112,8 +131,9 @@ in the pause menu.
   stand near the stall. Talk (F) once a day and give one gift a day; each has
   loves, likes and dislikes. Every new heart of friendship brings a present.
 - **The mine:** the cave mouth at the top right leads to a room of rocks,
-  renewed every morning. Face the cave mouth and press F to go down, then break
-  rocks with the pickaxe you start with (6, Space)
+  renewed every morning. Buy the pickaxe from Bristle's Tools tab (its slot
+  appears on the tool bar once you own it), face the cave mouth and press F to
+  go down, then break rocks (6, Space)
   for stone, copper, gold and the odd amethyst. Copper and gold make the Great
   Sprinkler, which waters all eight tiles around it.
 - **Quality:** a happy plant gives silver-quality harvest and a radiant one

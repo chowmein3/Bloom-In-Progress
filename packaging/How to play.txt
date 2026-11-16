@@ -43,7 +43,8 @@ KEYS
   Q              change seed     Esc  pause menu
 
   Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod,
-  6 pickaxe. Settings (volume, fullscreen) are in the Esc menu.
+  6 pickaxe (once bought from Bristle). T shows emotes; Enter chats with
+  your partner. Settings (name, volume, fullscreen) are in the Esc menu.
   Your hand (F) pets, picks, picks up, clears and opens things, so those
   never need a tool. If the held tool has nothing to do, Space uses the
   hand too.
@@ -73,5 +74,9 @@ GOOD TO KNOW
            stroke (F again) each animal daily for eggs and milk.
   Visitors: someone stands near the stall most days. Talk (F) and give
            a gift a day to make friends; friends send presents.
-  Mine:    the cave at the top right. Press F at its mouth to go down,
-           then 6 and Space on rocks for stone, copper, gold and gems.
+  Mine:    the cave at the top right. Buy the pickaxe from Bristle, press
+           F at the cave mouth, then 6 and Space on rocks.
+  Machines: craft a jar, press, cheese press or beehive, set it down,
+           press F to fill it and F again to collect.
+  Post:    the mailbox (left of home) and notice board (right of home)
+           have letters, gifts and requests. Press F at each.
