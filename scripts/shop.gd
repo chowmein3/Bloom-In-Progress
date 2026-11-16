@@ -124,9 +124,9 @@ func _rebuild() -> void:
 	match tab:
 		"Sell": _fill_sell()
 		"Seeds": _fill_seeds()
-		"Tools": _fill_upgrades(["hoe", "can"])
+		"Tools": _fill_upgrades(["hoe", "can", "pickaxe"])
 		"Animals": _fill_animals()
-		"Home": _fill_upgrades(["home"])
+		"Home": _fill_upgrades(["home", "greenhouse"])
 		"Decor": _fill_decor()
 		"Hats": _fill_hats()
 
@@ -233,7 +233,7 @@ func _fill_upgrades(kinds: Array) -> void:
 			house.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon = house
 		else:
-			icon = Ui.picture(_icons, Rect2(int({"hoe": 0, "can": 1}.get(kind, 0)) * 12, 0, 12, 12))
+			icon = Ui.picture(_icons, Rect2(int({"hoe": 0, "can": 1, "pickaxe": 12}.get(kind, 0)) * 12, 0, 12, 12)) if kind != "greenhouse" else null
 		if next.is_empty():
 			_row(icon, have, "The best there is. Nothing more to buy.", "", [])
 			continue

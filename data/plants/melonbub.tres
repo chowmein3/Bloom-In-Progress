@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "melonbub"
+display_name = "Melonbub"
+blurb = "Rolls a little further every night."
+days_per_stage = Array[int]([2, 3, 3, 2])
+seasons = Array[int]([1])
+regrows = false
+regrow_days = 0
+shape = "gourd"
+sell_price = 110
+seed_price = 40

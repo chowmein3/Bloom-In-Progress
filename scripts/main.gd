@@ -31,6 +31,9 @@ const Bin := preload("res://scripts/bin.gd")
 const AnimalView := preload("res://scripts/animal_view.gd")
 const MineView := preload("res://scripts/mine_view.gd")
 const Villager := preload("res://scripts/villager.gd")
+const Notices := preload("res://scripts/notices.gd")
+const GreenhouseView := preload("res://scripts/greenhouse_view.gd")
+const Social := preload("res://scripts/social.gd")
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -53,6 +56,7 @@ var _coop: Sprite2D
 var _barn: Sprite2D
 var _visitor: Sprite2D
 var _animal_views: Array = []
+var _greeted: Dictionary = {}  # slots whose arrival has been announced by name
 var _light: CanvasModulate
 
 
@@ -98,6 +102,12 @@ func _ready() -> void:
 	_coop = _standing("res://assets/sprites/coop.png", GameState.COOP_RECT, Vector2(-24, -40))
 	_barn = _standing("res://assets/sprites/barn.png", GameState.BARN_RECT, Vector2(-24, -40))
 	_standing("res://assets/sprites/mine.png", GameState.MINE_RECT, Vector2(-16, -32))
+	for fixed: Array in [["mailbox", GameState.MAILBOX_CELL], ["board", GameState.BOARD_CELL]]:
+		var post := ObjectView.new()
+		post.kind = fixed[0]
+		post.position = Vector2(fixed[1] * TILE) + Vector2(8, 16)
+		_entities.add_child(post)
+	add_child(GreenhouseView.new())
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
 	_visitor.offset = Vector2(-8, -23)
@@ -167,6 +177,20 @@ func _ready() -> void:
 	villager.player = player
 	add_child(villager)
 	player.villager_requested.connect(villager.open)
+	var notices := Notices.new()
+	notices.player = player
+	add_child(notices)
+	player.mail_requested.connect(notices.open_mail)
+	player.board_requested.connect(notices.open_board)
+	var social := Social.new()
+	social.player = player
+	add_child(social)
+	Net.chat.connect(func(slot: int, text: String) -> void: hud.call("show_message", "%s: %s" % [Net.name_of_slot(slot), text], 7.0))
+	Net.names_changed.connect(func() -> void:
+		for slot: int in Net.names.keys():
+			if not _greeted.has(slot):
+				_greeted[slot] = true
+				hud.call("show_message", "%s is in the garden!" % Net.names[slot], 5.0))
 	GameState.animals_changed.connect(_refresh_animals)
 	GameState.state_reloaded.connect(_refresh_animals)
 	TimeManager.time_changed.connect(_refresh_visitor)
@@ -405,7 +429,7 @@ func _on_player_joined(slot: int) -> void:
 	other.position = Vector2(14.5 * TILE, 5 * TILE)
 	_entities.add_child(other)
 	remote_players[slot] = other
-	hud.call("show_message", "Your partner is here!", 4.0)
+	Net.announce()  # tell the newcomer our name; theirs arrives the same way
 	if Net.is_host():
 		hud.call("set_status", "Partner connected")
 
@@ -415,14 +439,16 @@ func _on_player_left(slot: int) -> void:
 		return
 	remote_players[slot].queue_free()
 	remote_players.erase(slot)
-	hud.call("show_message", "Your partner left the garden", 4.0)
+	hud.call("show_message", "%s left the garden" % Net.name_of_slot(slot), 4.0)
+	_greeted.erase(slot)
+	Net.names.erase(slot)
 	if Net.online and Net.is_host():
 		hud.call("set_status", "Garden open. Invite code:\n%s" % pretty_code(GameState.garden_code) if Net.via_relay else "Hosting. Waiting for partner")
 
 
-func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool) -> void:
+func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool, tool: int, swings: int) -> void:
 	if remote_players.has(slot):
-		remote_players[slot].call("remote_update", pos, facing, moving)
+		remote_players[slot].call("remote_update", pos, facing, moving, tool, swings)
 
 
 ## A building sprite standing on `rect`, sorted with the players.
@@ -583,6 +609,8 @@ func _setup_input() -> void:
 	_bind_mouse("interact", MOUSE_BUTTON_RIGHT)
 	_bind("toggle_inventory", [KEY_E, KEY_I])
 	_bind("sprint", [KEY_SHIFT])
+	_bind("emote", [KEY_T])
+	_bind("chat", [KEY_ENTER])
 	_bind("next_seed", [KEY_Q])
 	_bind("cycle_tool", [KEY_TAB])
 	_bind("toggle_help", [KEY_H])

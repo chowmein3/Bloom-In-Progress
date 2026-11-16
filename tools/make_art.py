@@ -144,6 +144,14 @@ PLANTS = {
     "lanternsquash": ("gourd", 4, "#5c9a4c", "#f08a2e", "#ffd35c", "#c9641c"),
     "frostwhisker": ("flower", 3, "#6fa8b5", "#bfe9ff", "#ffffff", "#7fbfe6"),
     "snowpip": ("pine", 3, "#3f7f6a", "#ffffff", "#ffe9a8", "#2f6455"),
+    "skybell": ("flower", 3, "#4f9e6a", "#6fb8ff", "#d6ecff", "#3f7fd1"),
+    "snapvine": ("bush", 3, "#5aa85a", "#c8e05a", "#f3ffb0", "#7fb83a"),
+    "blazestar": ("flower", 3, "#4a9a4a", "#ff6a3a", "#ffc46a", "#d9443a"),
+    "melonbub": ("gourd", 4, "#4f9a4c", "#7fd08a", "#d6ffb8", "#3f8f5a"),
+    "amberleaf": ("tulip", 3, "#8a9a4a", "#f2a23a", "#ffe08a", "#c9741c"),
+    "duskberry": ("bush", 3, "#4a6a5a", "#8a4ac8", "#e0a8ff", "#5a2f8f"),
+    "glimmercap": ("mushroom", 3, "#8aa3a0", "#5ad0c8", "#b8fff3", "#eef6f3"),
+    "icebloom": ("tulip", 3, "#7fb0c0", "#d6f3ff", "#ffffff", "#9fd0ea"),
 }
 SOIL_SEED = rgb("#e9d7a3")
 GROUND = 22
@@ -836,7 +844,74 @@ def make_things():
         for x in (2, 5, 8, 10):
             c.rect(x, 13, 1, 2, rgb("#5a4a42"))
 
+    def jar(c):
+        c.rect(4, 5, 8, 10, rgb("#bfe6ff"))
+        c.rect(5, 8, 6, 6, rgb("#e0605a"))
+        c.rect(4, 3, 8, 2, rgb("#c9a26a"))
+
+    def press(c):
+        c.rect(2, 9, 12, 6, wood)
+        c.rect(7, 2, 2, 7, metal_c)
+        c.rect(4, 2, 8, 2, metal_c)
+        c.rect(4, 7, 8, 2, rgb("#b05ac8"))
+
+    def cheesepress(c):
+        c.rect(2, 8, 12, 7, wood)
+        c.rect(3, 4, 10, 4, rgb("#ffd24a"))
+        c.rect(7, 1, 2, 3, metal_c)
+        c.dot(5, 5, rgb("#f2b84a"))
+        c.dot(10, 6, rgb("#f2b84a"))
+
+    def beehive(c):
+        for i, w in enumerate((6, 10, 12, 12, 10)):
+            c.rect(8 - w // 2, 3 + i * 2, w, 2, rgb("#f2b84a") if i % 2 == 0 else rgb("#e0a03a"))
+        c.rect(3, 13, 10, 2, wood)
+        c.rect(7, 9, 2, 2, DARK)
+
+    def pot(colour):
+        def draw(c):
+            c.rect(4, 6, 8, 9, rgb("#fbeed3"))
+            c.rect(5, 8, 6, 5, rgb(colour))
+            c.rect(4, 4, 8, 2, rgb("#c9644a"))
+        return draw
+
+    def cheese(c):
+        c.tri(7.5, 4, 7, 6, rgb("#ffd24a"))
+        c.rect(1, 9, 14, 5, rgb("#f2b84a"))
+        c.dot(5, 11, rgb("#e0a03a"))
+        c.dot(10, 12, rgb("#e0a03a"))
+
+    def sprig(leaf_c, dot_c):
+        def draw(c):
+            c.ell(5, 10, 3, 4, rgb(leaf_c))
+            c.ell(10, 9, 3, 4.5, light(rgb(leaf_c), 0.15))
+            c.rect(7, 11, 2, 4, rgb(leaf_c))
+            if dot_c:
+                for x, y in ((5, 8), (10, 7), (8, 11)):
+                    c.rect(x, y, 2, 2, rgb(dot_c))
+        return draw
+
+    def mailbox(c):
+        c.rect(7, 8, 2, 7, wood)
+        c.rect(3, 3, 10, 6, rgb("#5aa0e0"))
+        c.rect(3, 3, 10, 1, light(rgb("#5aa0e0"), 0.3))
+        c.rect(12, 1, 1, 4, rgb("#e0605a"))
+        c.rect(12, 1, 3, 2, rgb("#e0605a"))
+
+    def board(c):
+        c.rect(1, 2, 14, 9, rgb("#b98a55"))
+        c.rect(2, 11, 2, 4, wood)
+        c.rect(12, 11, 2, 4, wood)
+        for x, y, colour in ((3, 3, "#fbeed3"), (8, 4, "#ffe9a8"), (5, 7, "#d6ecff")):
+            c.rect(x, y, 4, 3, rgb(colour))
+
+    metal_c = rgb("#8fb0c8")
     drawings = {
+        "jar": jar, "press": press, "cheesepress": cheesepress, "beehive": beehive,
+        "jam": pot("#e0605a"), "honey": pot("#f2b84a"), "juice": pot("#b05ac8"), "cheese": cheese,
+        "wildgreens": sprig("#5aa85a", None), "sunberry": sprig("#5aa85a", "#ff8a3a"),
+        "chestnut": sprig("#8a6238", "#c9a26a"), "frostroot": sprig("#9fd0ea", "#ffffff"),
+        "mailbox": mailbox, "board": board,
         "scarecrow": scarecrow, "bigsprinkler": bigsprinkler, "sapling": sapling, "feed": feed,
         "plumble": plumble, "egg": egg, "milk": milk, "copper": nugget("#d98a4a"), "goldore": nugget("#ffd24a"),
         "amethyst": amethyst, "omelette": omelette, "cocoa": cup("#8a5e3a"),

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/plant_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "snapvine"
+display_name = "Snapvine"
+blurb = "Its pods pop when they're ready."
+days_per_stage = Array[int]([2, 2, 2])
+seasons = Array[int]([0])
+regrows = true
+regrow_days = 2
+shape = "bush"
+sell_price = 20
+seed_price = 28

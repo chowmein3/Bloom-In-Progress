@@ -10,7 +10,7 @@ const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
 const TABS: Array[String] = ["Items", "Crafting", "Kitchen"]
 const COLUMNS := 10
-const MIN_SLOTS := 20
+const MIN_SLOTS := 30
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
@@ -68,7 +68,11 @@ func _ready() -> void:
 	_grid.columns = COLUMNS
 	_grid.add_theme_constant_override("h_separation", 1)
 	_grid.add_theme_constant_override("v_separation", 1)
-	_items_page.add_child(_grid)
+	var grid_scroll := ScrollContainer.new()  # three rows show; more scroll
+	grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	grid_scroll.custom_minimum_size = Vector2(218, 64)
+	grid_scroll.add_child(_grid)
+	_items_page.add_child(grid_scroll)
 	var lower := HBoxContainer.new()
 	lower.add_theme_constant_override("separation", 6)
 	_portrait = Control.new()

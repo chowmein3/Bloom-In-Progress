@@ -156,8 +156,8 @@ Friendship is shared by both players.
 ## The mine
 A cave mouth at the top right leads to one room, in the far part of the grid
 below the home. Twenty rocks are scattered each morning: 62% plain (stone),
-26% copper, 8% gold, 4% amethyst. Breaking one takes the pickaxe (tool 6,
-owned from the start) and 2 energy. Copper 4 + gold 1 make the Great Sprinkler (level 4).
+26% copper, 8% gold, 4% amethyst. Breaking one takes the pickaxe (200 coins
+at Bristle's; its tool bar slot is hidden until bought) and 2 energy. Copper 4 + gold 1 make the Great Sprinkler (level 4).
 There is no combat and no deeper floors.
 
 ## Farming depth
@@ -169,6 +169,39 @@ There is no combat and no deeper floors.
   plant outside every scarecrow's six-tile reach loses 25 mood.
 - **Fruit trees:** a plumble sapling (300) roots where it is set, grows for
   ten days, then fruits every three days outside winter; picked by hand.
+
+## Artisan machines
+Crafted, placed in the garden and worked by hand: F fills an empty machine
+from the backpack, F collects when ready, and an empty machine with nothing
+to fill it is picked up. Preserves jar: 2 of one normal-quality harvest (the
+kind you have most of) -> jam (110) in 2 nights. Juice press: 2 plumbles ->
+juice (240), 2 nights. Cheese press: 1 milk -> cheese (190), 1 night. Beehive:
+honey (80) every 3 nights, none in winter.
+
+## Mail and the notice board
+- Mailbox: a welcome letter with 50 coins on day 2; a notice two days before
+  each festival; one letter with a gift from each villager on reaching two
+  hearts. Opening a letter takes its gift and removes it.
+- Notice board: always three requests (2-5 of wood, stone, fiber, minnows,
+  the season's forage, in-season harvest, or eggs if there is a coop), each
+  paying about 1.8x sale value and lasting four days. Handing one in also
+  gives 15 experience, +30 friendship with the villager who asked, and counts
+  towards the Good Neighbour goal. Bristle's own daily request stays in his
+  shop.
+
+## Greenhouse, more plants, forage, storms
+- The greenhouse (3000) turns a fixed 6x4 patch into ground where any species
+  can be planted and never goes dormant; crows don't enter.
+- Eight more species, two a season, stocked from gardening level 2 and 4.
+- One forage item of the season appears most mornings (five at most) and
+  wilts when the season changes.
+- 30% of rainy days are storms: lightning, and three more debris overnight.
+
+## Co-op comforts
+Each player has a name (Settings). A partner's name and held tool show above
+their head, and their tool and hand use is visible as the same lean. T opens
+six emotes shown in a bubble; Enter sends a chat line, shown as a message.
+Join and leave messages use names.
 
 ## Doors and the window
 - Going into the home or the mine is a hand action on the door or cave mouth;

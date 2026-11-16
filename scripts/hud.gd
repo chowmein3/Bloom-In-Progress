@@ -19,6 +19,8 @@ const HELP_ROWS: Array = [
 	["M", "Map"],
 	["N", "Music"],
 	["H", "Help"],
+	["T", "Emotes"],
+	["Enter", "Chat (co-op)"],
 	["Esc", "Menu"],
 ]
 const ICON := 12  # size of one frame in assets/sprites/ui_icons.png
@@ -207,6 +209,7 @@ func _ready() -> void:
 	GameState.inventory_changed.connect(_update_tool)
 	GameState.tree_changed.connect(_update_love)
 	GameState.economy_changed.connect(_update_purse)
+	GameState.economy_changed.connect(_update_tool)
 	GameState.state_reloaded.connect(refresh)
 	GameState.sleepers_changed.connect(_update_banner)
 	GameState.notice.connect(show_message)
@@ -411,6 +414,11 @@ func _update_tool() -> void:
 		_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if chosen else SLOT, 0, ACCENT if chosen else WOOD))
 	var id: String = player.get("seed_id")
 	_seed_count.text = str(GameState.seed_count(id))
+	# The pickaxe's slot only appears once one has been bought.
+	var has_pick: bool = GameState.upgrade_level("pickaxe") > 0
+	_slots[5].visible = has_pick
+	if not has_pick and index == 5:
+		player.call("select_tool", 0)
 	var held: String = player.get("item_id")
 	var has_item: bool = GameState.item_count(held) > 0
 	_item_picture.texture = Assets.texture("res://assets/sprites/items/%s.png" % held) if has_item else null

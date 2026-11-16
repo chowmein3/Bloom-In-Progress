@@ -16,6 +16,7 @@ const GUEST_CELL := Vector2i(15, 5)  # the tile in front of the guest's start sp
 var role: String = "host"
 var out_dir: String = ""
 var save_file: String = ""
+var heard: Array = []  # emotes and chat lines received
 var failures: int = 0
 var main: Node
 
@@ -43,6 +44,9 @@ func _ready() -> void:
 	save_file = "user://coop_test_%s.json" % role
 	GameState.save_path = save_file
 	GameState.new_game()
+	Net.my_name = "%s Tester" % role.capitalize()
+	Net.chat.connect(func(_slot: int, text: String) -> void: heard.append("chat:" + text))
+	Net.emote.connect(func(_slot: int, index: int) -> void: heard.append("emote:%d" % index))
 	main = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
 	if role == "host":
@@ -79,6 +83,8 @@ func _run_host() -> void:
 	GameState.request_sell(HOST, "sunpuff", 2)
 
 	_expect(await _until(func() -> bool: return GameState.plants.has(GUEST_CELL), 10.0), "guest's planting reaches the host")
+	_expect(await _until(func() -> bool: return Net.names.get(GUEST, "") == "Guest Tester", 10.0), "host learns the guest's name")
+	_expect(await _until(func() -> bool: return heard.has("chat:hello from the guest") and heard.has("emote:1"), 10.0), "the guest's emote and chat line arrive")
 	_expect(await _until(func() -> bool: return GameState.plants[HOST_CELL]["petted_by"].has("2"), 10.0), "guest petted the host's plant")
 	_expect(await _until(func() -> bool: return GameState.tree["hugged_by"].size() == 2, 10.0), "both players hugged the Heart Tree")
 	_expect(GameState.get_energy(GUEST) <= 96, "guest's energy is tracked by the host")
@@ -156,6 +162,9 @@ func _after_join() -> void:
 	_expect(await _until(func() -> bool: return GameState.item_count("path") == 1, 10.0), "guest crafts a stepping stone")
 	GameState.request_place(GUEST, Vector2i(3, 14), "path")
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "and places it in the garden")
+	_expect(await _until(func() -> bool: return Net.names.get(HOST, "") == "Host Tester", 10.0), "guest learns the host's name")
+	Net.send_emote(1)
+	Net.send_chat("hello from the guest")
 	_expect(GameState.visitor_today() == "maple", "guest sees who is visiting today")
 	GameState.request_talk(GUEST, "maple")
 	_expect(await _until(func() -> bool: return GameState.hearts("maple") == 0 and int(GameState.friends.get("maple", {}).get("points", 0)) == 10, 10.0), "guest talks to the visitor and the friendship comes back from the host")
