@@ -26,7 +26,7 @@ func _ready() -> void:
 	layer = 12
 	_font = ThemeDB.fallback_font
 	_canvas = Control.new()
-	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_canvas.size = SIZE  # drawn at 320x180, then scaled to cover the window
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.draw.connect(_paint)
 	add_child(_canvas)
@@ -45,6 +45,10 @@ func play() -> void:
 func _process(delta: float) -> void:
 	if not playing:
 		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var cover: float = maxf(view.x / SIZE.x, view.y / SIZE.y)
+	_canvas.scale = Vector2(cover, cover)
+	_canvas.position = (view - SIZE * cover) / 2.0
 	_t += delta
 	if _t >= LENGTH:
 		playing = false

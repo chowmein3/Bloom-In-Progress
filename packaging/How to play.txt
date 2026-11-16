@@ -49,7 +49,8 @@ KEYS
   hand too.
 
 GOOD TO KNOW
-  Sleep:   walk into your tent's door, face the bed, press Space. The day
+  Sleep:   face your tent's door and press F to go in, then face the
+           bed and press F. The day
            ends when everyone is in bed. The garden is saved every night.
   Coins:   pick grown plants by hand (F) and sell them to Bristle,
            the hedgehog at the stall next to your home (face the stall,
@@ -72,5 +73,5 @@ GOOD TO KNOW
            stroke (F again) each animal daily for eggs and milk.
   Visitors: someone stands near the stall most days. Talk (F) and give
            a gift a day to make friends; friends send presents.
-  Mine:    the cave at the top right. Buy the pickaxe, then 6 and Space
-           on rocks for stone, copper, gold and gems.
+  Mine:    the cave at the top right. Press F at its mouth to go down,
+           then 6 and Space on rocks for stone, copper, gold and gems.

@@ -125,6 +125,7 @@ func _ready() -> void:
 	_camera = Camera2D.new()
 	player.add_child(_camera)
 	player.area_changed.connect(_on_area_changed)
+	get_viewport().size_changed.connect(_on_area_changed)
 
 	_light = CanvasModulate.new()
 	add_child(_light)
@@ -466,11 +467,14 @@ func _on_area_changed() -> void:
 	_refresh_visitor()
 	var inside: bool = player.call("indoors")
 	if inside:
+		# Centre the room whatever shape the window is (it may be wider or
+		# taller than 320x180 in fullscreen).
 		var middle: Vector2 = _mine.call("centre") if GameState.is_in_mine(player.call("cell")) else _interior.call("centre")
-		_camera.limit_left = int(middle.x) - 160
-		_camera.limit_right = int(middle.x) + 160
-		_camera.limit_top = int(middle.y) - 90
-		_camera.limit_bottom = int(middle.y) + 90
+		var half: Vector2 = get_viewport().get_visible_rect().size / 2.0
+		_camera.limit_left = int(middle.x - half.x)
+		_camera.limit_right = int(middle.x + half.x)
+		_camera.limit_top = int(middle.y - half.y)
+		_camera.limit_bottom = int(middle.y + half.y)
 	else:
 		_camera.limit_left = 0
 		_camera.limit_top = 0

@@ -80,7 +80,6 @@ const UPGRADES: Dictionary = {
 	],
 	"coop": [{"name": "Chicken Coop", "cost": 800, "blurb": "A home for up to four hens"}],
 	"barn": [{"name": "Barn", "cost": 2000, "blurb": "A home for up to two cows"}],
-	"pickaxe": [{"name": "Pickaxe", "cost": 200, "blurb": "Breaks the rocks in the mine"}],
 	"home": [
 		{"name": "Cabin", "cost": 1500, "blurb": "A roomier home with a stove for cooking. +15 energy each morning"},
 		{"name": "Cottage", "cost": 5000, "blurb": "Fireplace and all. +30 energy each morning"},
@@ -793,13 +792,13 @@ func describe_cell(cell: Vector2i) -> String:
 			return "Ladder: walk down to climb out" if is_in_mine(cell) else "Door mat: walk down to go outside"
 		return ""
 	if is_tent(cell):
-		return "%s: go inside to sleep" % HOME_NAMES[home_level()]
+		return "%s: your home" % HOME_NAMES[home_level()]
 	if is_stall(cell):
 		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
 	if is_mine_entrance(cell):
-		return "Mine: rocks and ore inside (bring a pickaxe)"
+		return "Mine: rocks and ore inside"
 	if upgrade_level("coop") > 0 and COOP_RECT.has_point(cell):
 		return "Chicken coop"
 	if upgrade_level("barn") > 0 and BARN_RECT.has_point(cell):
@@ -902,7 +901,7 @@ func request_deliver(player_id: int) -> bool:
 	return _request("deliver", player_id, [])
 
 
-## Break a rock in the mine (needs the pickaxe).
+## Break a rock in the mine with the pickaxe.
 func request_mine(player_id: int, cell: Vector2i) -> bool:
 	return _request("mine", player_id, [cell])
 
@@ -1140,9 +1139,6 @@ func _do_sell(_player_id: int, id: String, count: int) -> bool:
 
 func _do_mine(player_id: int, cell: Vector2i) -> bool:
 	if not ORES.has(object_kind(cell)):
-		return false
-	if upgrade_level("pickaxe") < 1:
-		_notify(player_id, "That needs a pickaxe. Bristle sells one")
 		return false
 	if not _spend(player_id, COST_MINE):
 		return false

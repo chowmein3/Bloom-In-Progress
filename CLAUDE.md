@@ -84,8 +84,10 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `start_solo()` or `start_host()`.
 - Garden state is plain dictionaries (not nodes) so it can be saved and sent
   over the network. Views read it and redraw on GameState signals.
-- The window uses `canvas_items` stretch: positions and font sizes are in
-  320x180 game units and text is drawn sharp at full window resolution.
+- The window uses `canvas_items` stretch with `expand`: positions and font
+  sizes are in game units and text is drawn sharp at full resolution. The view
+  is at least 320x180 units but can be wider or taller; never assume exactly
+  320x180, use anchors or `get_viewport().get_visible_rect().size`.
 - Use static types. Don't use `:=` on Dictionary values (they are Variant).
 - Reference scripts with `preload`, not `class_name`. Load textures and audio
   with `Assets.texture()` / `Assets.sound()`, never `preload` or bare `load()`.

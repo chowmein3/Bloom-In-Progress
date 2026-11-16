@@ -26,7 +26,7 @@ func _ready() -> void:
 	layer = 14
 	_font = ThemeDB.fallback_font
 	_canvas = Control.new()
-	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_canvas.size = Vector2(320, 180)  # drawn at 320x180, centred in the window
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.draw.connect(_paint)
 	add_child(_canvas)
@@ -62,6 +62,7 @@ func _finish(landed: bool, words: String) -> void:
 func _process(delta: float) -> void:
 	if stage == "":
 		return
+	_canvas.position = (get_viewport().get_visible_rect().size - _canvas.size) / 2.0
 	_t += delta
 	match stage:
 		"wait":

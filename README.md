@@ -69,8 +69,8 @@ godot --path .
 | H | Show or hide the help card |
 | Esc | Pause menu (resume, return to title, exit) |
 
-Walk into your home's door to go inside, face the bed and press Space to
-tuck in. Plants grow overnight if they were watered, and the game saves each
+Face your home's door and press F to go inside, then face the bed and press F
+to tuck in. Walk down off the door mat to go back out. Plants grow overnight if they were watered, and the game saves each
 night.
 
 ## Settings and saving
@@ -112,7 +112,8 @@ in the pause menu.
   stand near the stall. Talk (F) once a day and give one gift a day; each has
   loves, likes and dislikes. Every new heart of friendship brings a present.
 - **The mine:** the cave mouth at the top right leads to a room of rocks,
-  renewed every morning. Buy the pickaxe (Tools tab) and break them (6, Space)
+  renewed every morning. Face the cave mouth and press F to go down, then break
+  rocks with the pickaxe you start with (6, Space)
   for stone, copper, gold and the odd amethyst. Copper and gold make the Great
   Sprinkler, which waters all eight tiles around it.
 - **Quality:** a happy plant gives silver-quality harvest and a radiant one
