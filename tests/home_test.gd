@@ -206,7 +206,7 @@ func _ready() -> void:
 	await _shot("home_6e_hand_hint")
 	await _tap(KEY_1)
 	await _tap(KEY_SPACE)
-	_expect(not GameState.plants.has(pet_spot) and int(GameState.produce.get("sunpuff", 0)) >= 1, "Space with the hoe in hand picks it too, since the hoe has nothing to do there")
+	_expect(not GameState.plants.has(pet_spot) and GameState.total_of("sunpuff") >= 1, "Space with the hoe in hand picks it too, since the hoe has nothing to do there")
 
 	print("fishing")
 	player.position = Vector2((GameState.POND_RECT.position.x - 0.5) * 16, (GameState.POND_RECT.position.y + 1) * 16 + 10)
