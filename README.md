@@ -65,6 +65,7 @@ godot --path .
 | Tab | Next tool |
 | Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
+| 7 8 9 0 | Quick slots (drag things onto them in the backpack) |
 | J | Garden journal |
 | M | Show or hide the minimap |
 | N | Music on/off |
@@ -165,6 +166,12 @@ in the pause menu.
   back up.
 - **Cooking** (backpack, Kitchen tab, needs the Cabin's stove): turn harvest
   into meals. Hold a meal and press Space to eat it for energy.
+- **Baking** (backpack, Oven tab): buy an oven from Bristle (Decor tab) and
+  set it down in your home; F at the oven opens the tab. Banana bread, apple
+  pie and cinnamon buns restore lots of energy and sell well. Grow the core
+  parts: wheat (milled into flour on the Kitchen tab) and apple and banana
+  trees (saplings at the stall). Sugar, butter, cinnamon, eggs and spare
+  flour come from the stall's Pantry tab, or as gifts from visitors.
 - **Gardening level:** caring for plants and harvesting earn experience.
   Levels unlock recipes and add a little energy.
 - **Bristle's requests:** each morning he asks for a plant you can grow and
@@ -173,7 +180,10 @@ in the pause menu.
   season, day, year, time of day and weather, to see how the garden looks
   then. Nothing grows or wilts for the time skipped. Expect a scene.
 - **Backpack** (E): the garden's shared seeds and harvest, your coins, and the
-  hats you own. Click a seed packet to hold it; click a hat to wear it.
+  hats you own. Click a seed packet to hold it; click a hat to wear it. Drag
+  things to rearrange them, or drag one onto the hot bar row: slots 3 and 4
+  are the seed and item slots, and 7, 8, 9 and 0 are quick slots that show on
+  the tool bar (click a filled quick slot in the backpack to clear it).
 - Coins, seeds, harvest, tools, the home and the hat wardrobe are shared by
   both players. Each player picks their own hat to wear.
 

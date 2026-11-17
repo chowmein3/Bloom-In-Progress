@@ -44,13 +44,28 @@ const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/duskberry.tres",
 	"res://data/plants/glimmercap.tres",
 	"res://data/plants/icebloom.tres",
+	"res://data/plants/wheat.tres",
 ]
 ## Seeds Bristle starts stocking once the garden reaches a gardening level.
 const SEED_LEVELS: Dictionary = {
-	"skybell": 2, "blazestar": 2, "amberleaf": 2, "glimmercap": 2,
+	"wheat": 1, "skybell": 2, "blazestar": 2, "amberleaf": 2, "glimmercap": 2,
 	"snapvine": 4, "melonbub": 4, "duskberry": 4, "icebloom": 4,
 }
-const WORLD_SIZE := Vector2i(28, 18)  # in 16px tiles
+const WORLD_SIZE := Vector2i(40, 26)  # in 16px tiles
+## Trees, bushes and boulders that are part of the land. They stand in the
+## outer parts of the garden and can't be moved.
+const SCENERY: Dictionary = {
+	Vector2i(30, 2): "oak", Vector2i(34, 1): "oak", Vector2i(37, 4): "oak", Vector2i(31, 7): "oak",
+	Vector2i(36, 9): "oak", Vector2i(38, 13): "oak", Vector2i(33, 14): "oak", Vector2i(29, 19): "oak",
+	Vector2i(35, 20): "oak", Vector2i(38, 22): "oak", Vector2i(3, 20): "oak", Vector2i(8, 22): "oak",
+	Vector2i(14, 20): "oak", Vector2i(20, 23): "oak", Vector2i(25, 20): "oak", Vector2i(11, 24): "oak",
+	Vector2i(32, 4): "pine", Vector2i(38, 7): "pine", Vector2i(29, 11): "pine", Vector2i(35, 16): "pine",
+	Vector2i(31, 23): "pine", Vector2i(5, 23): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
+	Vector2i(33, 9): "bush", Vector2i(30, 15): "bush", Vector2i(37, 18): "bush", Vector2i(27, 22): "bush",
+	Vector2i(1, 19): "bush", Vector2i(12, 19): "bush", Vector2i(19, 19): "bush",
+	Vector2i(36, 6): "boulder", Vector2i(34, 23): "boulder", Vector2i(9, 20): "boulder", Vector2i(22, 21): "boulder",
+}
+const SCENERY_NAMES: Dictionary = {"oak": "Oak tree", "pine": "Pine tree", "bush": "Wild bush", "boulder": "Mossy boulder"}
 const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
 ## The Heart Tree: one shared plant that grows on the love the whole garden
 ## gets. Water it and hug it (pet) like any plant.
@@ -142,7 +157,7 @@ const VISITOR_CELL := Vector2i(17, 4)  # below the stall, clear of where players
 const MAX_HEARTS := 5
 const VILLAGERS: Dictionary = {
 	"maple": {"name": "Maple", "what": "the beekeeper", "days": [0, 3],
-		"loves": ["moonbell", "tea", "honey"], "likes": ["sunpuff", "dewcup", "plumble", "jam"], "dislikes": ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie"],
+		"loves": ["moonbell", "tea", "honey", "cinnamonbuns"], "likes": ["sunpuff", "dewcup", "plumble", "jam", "apple"], "dislikes": ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie"],
 		"lines": ["My bees adore your garden.", "Flowers first, everything else after.", "A good day starts with something sweet."],
 		"rewards": [{"seeds": {"moonbell": 5}}, {"coins": 150}, {"items": {"tea": 3}}, {"coins": 300}, {"items": {"birdbath": 1}}]},
 	"pebble": {"name": "Pebble", "what": "the young angler", "days": [1, 4],
@@ -150,9 +165,9 @@ const VILLAGERS: Dictionary = {
 		"lines": ["The big one's still in your pond. I can feel it.", "Rainy days are the best days.", "Have you tried fishing after dark?"],
 		"rewards": [{"items": {"minnow": 3}}, {"coins": 150}, {"items": {"skewer": 3}}, {"coins": 300}, {"items": {"gnome": 1}}]},
 	"thistle": {"name": "Old Thistle", "what": "the retired gardener", "days": [2, 5],
-		"loves": ["pie", "lanternsquash"], "likes": ["salad", "stew", "omelette", "egg", "milk"], "dislikes": ["stone", "wood"],
+		"loves": ["pie", "lanternsquash", "applepie", "bananabread"], "likes": ["salad", "stew", "omelette", "egg", "milk"], "dislikes": ["stone", "wood"],
 		"lines": ["In my day we watered by moonlight.", "Mulch. That's the secret. Mulch.", "You two have done wonders with this plot."],
-		"rewards": [{"items": {"mulch": 4}}, {"coins": 150}, {"items": {"sprinkler": 1}}, {"coins": 300}, {"items": {"sapling": 1}}]},
+		"rewards": [{"items": {"mulch": 4}}, {"items": {"cinnamon": 3, "sugar": 3, "butter": 2}}, {"items": {"sprinkler": 1}}, {"coins": 300}, {"items": {"sapling": 1}}]},
 }
 
 ## The mine: a cave whose rocks are renewed every morning. It sits below the
@@ -185,6 +200,9 @@ const QUEST_DAYS := 4
 ## Wild things to forage, one kind a season.
 const FORAGE: Array[String] = ["wildgreens", "sunberry", "chestnut", "frostroot"]
 
+## Fruit trees, by the sapling that grows into them, and the fruit each bears.
+const TREES: Dictionary = {"sapling": "plumble", "applesapling": "apple", "bananasapling": "banana"}
+
 ## Fruit trees: a planted sapling takes this long to grow, then bears fruit
 ## every few days except in winter.
 const TREE_GROW_DAYS := 10
@@ -196,10 +214,10 @@ const QUALITIES: Dictionary = {"silver": 1.25, "gold": 1.5}  # sell price multip
 ## One festival a season, on this day (1-28). Keyed by season.
 const FESTIVAL_DAY := 14
 const FESTIVALS: Dictionary = {
-	0: {"name": "Bloom Show", "today": "Radiant plants are judged tonight: 50 coins each."},
-	1: {"name": "Firefly Night", "today": "Plants petted today get twice the joy."},
-	2: {"name": "Harvest Fair", "today": "Bristle and the shipping bin pay half as much again today."},
-	3: {"name": "Lantern Night", "today": "Light three garden lanterns for a gift tonight."},
+	0: {"name": "Bloom Show", "today": "Party in the yard from 5pm. Radiant plants are judged tonight: 50 coins each."},
+	1: {"name": "Firefly Night", "today": "Party in the yard from 5pm. Plants petted today get twice the joy."},
+	2: {"name": "Harvest Fair", "today": "Party in the yard from 5pm. Bristle and the shipping bin pay half as much again today."},
+	3: {"name": "Lantern Night", "today": "Party in the yard from 5pm. Light three garden lanterns for a gift tonight."},
 }
 
 ## Long-term goals, checked each night. Each pays its reward once.
@@ -266,10 +284,22 @@ const ITEMS: Dictionary = {
 	"frostroot": {"name": "Frostroot", "kind": "fruit", "price": 35, "blurb": "Foraged in winter."},
 	"scarecrow": {"name": "Scarecrow", "kind": "place", "solid": true, "blurb": "Keeps crows off plants within six tiles."},
 	"bigsprinkler": {"name": "Great Sprinkler", "kind": "place", "solid": true, "blurb": "Waters all eight tiles around it every morning."},
+	"applesapling": {"name": "Apple Sapling", "kind": "place", "solid": true, "cost": 350, "blurb": "Plant it on open ground. Grows in ten days, then bears apples."},
+	"bananasapling": {"name": "Banana Sapling", "kind": "place", "solid": true, "cost": 400, "blurb": "Plant it on open ground. Grows in ten days, then bears bananas."},
+	"apple": {"name": "Apple", "kind": "fruit", "price": 50, "blurb": "Crisp tree fruit. Good in a pie."},
+	"banana": {"name": "Banana", "kind": "fruit", "price": 55, "blurb": "Tree fruit. Good in bread."},
+	"flour": {"name": "Flour", "kind": "material", "pantry": true, "cost": 35, "blurb": "Milled from wheat, or bought."},
+	"sugar": {"name": "Sugar", "kind": "material", "pantry": true, "cost": 15, "blurb": "From Bristle's pantry."},
+	"butter": {"name": "Butter", "kind": "material", "pantry": true, "cost": 25, "blurb": "From Bristle's pantry."},
+	"cinnamon": {"name": "Cinnamon", "kind": "material", "pantry": true, "cost": 30, "blurb": "From Bristle's pantry."},
+	"oven": {"name": "Oven", "kind": "decor", "solid": true, "cost": 400, "blurb": "Set it down in your home, then press F on it to bake."},
+	"bananabread": {"name": "Banana Bread", "kind": "meal", "energy": 120, "price": 260, "blurb": "Restores 120 energy."},
+	"applepie": {"name": "Apple Pie", "kind": "meal", "energy": 140, "price": 320, "blurb": "Restores 140 energy."},
+	"cinnamonbuns": {"name": "Cinnamon Buns", "kind": "meal", "energy": 90, "price": 130, "blurb": "Restores 90 energy."},
 	"sapling": {"name": "Plumble Sapling", "kind": "place", "solid": true, "cost": 300, "blurb": "Plant it on open ground. Grows in ten days, then bears plumbles."},
 	"feed": {"name": "Animal Feed", "kind": "material", "cost": 10, "blurb": "One helping for a chicken or cow."},
 	"plumble": {"name": "Plumble", "kind": "fruit", "price": 60, "blurb": "Sweet tree fruit."},
-	"egg": {"name": "Egg", "kind": "fruit", "price": 40, "blurb": "From a fed hen."},
+	"egg": {"name": "Egg", "kind": "fruit", "pantry": true, "cost": 70, "price": 40, "blurb": "From a fed hen, or Bristle's pantry."},
 	"milk": {"name": "Milk", "kind": "fruit", "price": 90, "blurb": "From a fed cow."},
 	"copper": {"name": "Copper Ore", "kind": "material", "price": 25, "blurb": "From the mine."},
 	"goldore": {"name": "Gold Nugget", "kind": "material", "price": 80, "blurb": "From the mine."},
@@ -299,6 +329,10 @@ const RECIPES: Dictionary = {
 	"feed": {"needs": {"fiber": 2}, "makes": 2, "level": 1},
 	"scarecrow": {"needs": {"wood": 3, "fiber": 2}, "makes": 1, "level": 1},
 	"bigsprinkler": {"needs": {"copper": 4, "goldore": 1}, "makes": 1, "level": 4},
+	"flour": {"needs": {"wheat": 2}, "makes": 1, "level": 1, "kitchen": true},
+	"bananabread": {"needs": {"banana": 2, "flour": 1, "egg": 1, "sugar": 1}, "makes": 1, "level": 2, "oven": true},
+	"applepie": {"needs": {"apple": 3, "flour": 1, "butter": 1, "sugar": 1}, "makes": 1, "level": 3, "oven": true},
+	"cinnamonbuns": {"needs": {"flour": 2, "butter": 1, "cinnamon": 1, "sugar": 1}, "makes": 2, "level": 1, "oven": true},
 	"omelette": {"needs": {"egg": 2}, "makes": 1, "level": 1, "kitchen": true},
 	"cocoa": {"needs": {"milk": 1, "moonbell": 1}, "makes": 1, "level": 2, "kitchen": true},
 	"skewer": {"needs": {"minnow": 2}, "makes": 1, "level": 1, "kitchen": true},
@@ -472,6 +506,8 @@ func is_tower(cell: Vector2i) -> bool:
 
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
+	if SCENERY.has(cell):
+		return true
 	if is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell) or MINE_RECT.has_point(cell) or cell == MAILBOX_CELL or cell == BOARD_CELL:
 		return true
 	if (upgrade_level("coop") > 0 and COOP_RECT.has_point(cell)) or (upgrade_level("barn") > 0 and BARN_RECT.has_point(cell)):
@@ -659,6 +695,36 @@ func harvest_total(id: String) -> int:
 	return int(produce.get(id, 0)) + item_count(id + ".silver") + item_count(id + ".gold")
 
 
+## How many of an ingredient there are counting every quality of harvest.
+## Recipes, requests and machines accept any quality.
+func total_of(id: String) -> int:
+	return harvest_total(id) if species.has(id) else item_count(id)
+
+
+## Uses up `count` of an ingredient: plain harvest first, then silver, then gold.
+func _take_any(id: String, count: int) -> void:
+	if not species.has(id):
+		items[id] = item_count(id) - count
+		return
+	var plain: int = mini(count, int(produce.get(id, 0)))
+	produce[id] = int(produce.get(id, 0)) - plain
+	count -= plain
+	for quality: String in ["silver", "gold"]:
+		var key: String = "%s.%s" % [id, quality]
+		var used: int = mini(count, item_count(key))
+		if used > 0:
+			items[key] = item_count(key) - used
+			count -= used
+
+
+## Whether an oven stands somewhere (baking recipes need one).
+func has_oven() -> bool:
+	for cell: Vector2i in objects.keys():
+		if object_kind(cell) == "oven":
+			return true
+	return false
+
+
 ## Everything in the backpack that can be sold, shipped or given.
 func sellable_ids() -> Array:
 	var ids: Array = []
@@ -708,8 +774,10 @@ func craft_problem(recipe_id: String) -> String:
 		return "Needs gardening level %d" % int(recipe["level"])
 	if bool(recipe.get("kitchen", false)) and not has_kitchen():
 		return "Needs a stove (the Cabin has one)"
+	if bool(recipe.get("oven", false)) and not has_oven():
+		return "Needs an oven (Bristle sells one)"
 	for id: String in recipe["needs"].keys():
-		if stock_of(id) < int(recipe["needs"][id]):
+		if total_of(id) < int(recipe["needs"][id]):
 			return "Not enough %s" % name_of(id)
 	return ""
 
@@ -862,6 +930,8 @@ func describe_cell(cell: Vector2i) -> String:
 		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
+	if SCENERY.has(cell):
+		return str(SCENERY_NAMES[SCENERY[cell]])
 	if is_mine_entrance(cell):
 		return "Mine: rocks and ore inside"
 	if cell == MAILBOX_CELL:
@@ -892,11 +962,12 @@ func describe_cell(cell: Vector2i) -> String:
 			if int(objects[cell].get("busy", 0)) > 0:
 				return "%s: %d days to go" % [name_of(kind), int(objects[cell]["busy"])]
 			return "%s: empty" % name_of(kind)
-		if kind == "sapling":
+		if TREES.has(kind):
 			var age: int = int(objects[cell].get("age", 0))
+			var fruit_name: String = name_of(TREES[kind])
 			if age < TREE_GROW_DAYS:
-				return "Plumble sapling, %d days to go" % (TREE_GROW_DAYS - age)
-			return "Plumble tree%s" % (", fruit ready" if bool(objects[cell].get("fruit", false)) else "")
+				return "%s sapling, %d days to go" % [fruit_name, TREE_GROW_DAYS - age]
+			return "%s tree%s" % [fruit_name, ", fruit ready" if bool(objects[cell].get("fruit", false)) else ""]
 		return name_of(kind)
 	if is_tree(cell):
 		var goal: int = tree_next_goal()
@@ -1299,10 +1370,10 @@ func _do_quest(player_id: int, index: int) -> bool:
 	if index < 0 or index >= quests.size():
 		return false
 	var quest: Dictionary = quests[index]
-	if stock_of(quest["id"]) < int(quest["count"]):
+	if total_of(quest["id"]) < int(quest["count"]):
 		_notify(player_id, "That needs %d %s" % [int(quest["count"]), name_of(quest["id"])])
 		return false
-	_take(quest["id"], int(quest["count"]))
+	_take_any(quest["id"], int(quest["count"]))
 	coins += int(quest["coins"])
 	quests.remove_at(index)
 	stats["requests"] = int(stats["requests"]) + 1
@@ -1407,11 +1478,11 @@ func machine_input(kind: String) -> String:
 	if str(machine.get("takes", "")) == "harvest":
 		var best: String = ""
 		for id: String in species.keys():
-			if int(produce.get(id, 0)) >= need and (best == "" or int(produce[id]) > int(produce[best])):
+			if harvest_total(id) >= need and (best == "" or harvest_total(id) > harvest_total(best)):
 				best = id
 		return best
 	var takes: String = machine.get("takes", "")
-	return takes if takes != "" and stock_of(takes) >= need else ""
+	return takes if takes != "" and total_of(takes) >= need else ""
 
 
 func _do_talk(player_id: int, villager: String) -> bool:
@@ -1642,20 +1713,21 @@ func _do_gather(player_id: int, cell: Vector2i) -> bool:
 			return false
 		var input: String = machine_input(kind)
 		if input != "":
-			_take(input, int(MACHINES[kind]["count"]))
+			_take_any(input, int(MACHINES[kind]["count"]))
 			machine["busy"] = int(MACHINES[kind]["nights"])
 			object_changed.emit(cell)
 			inventory_changed.emit()
 			return true
 		# Empty, and nothing to fill it with: fall through and pick it up.
-	if kind == "sapling":
+	if TREES.has(kind):
 		if bool(objects[cell].get("fruit", false)):
+			var fruit: String = TREES[kind]
 			objects[cell]["fruit"] = false
 			objects[cell]["since"] = 0
-			items["plumble"] = item_count("plumble") + 1
+			items[fruit] = item_count(fruit) + 1
 			object_changed.emit(cell)
 			inventory_changed.emit()
-			_notify(player_id, "Picked a Plumble")
+			_notify(player_id, "Picked: %s" % name_of(fruit))
 			return true
 		if int(objects[cell].get("age", 0)) > 0:
 			_notify(player_id, "It has taken root")
@@ -1713,13 +1785,9 @@ func _do_craft(player_id: int, recipe_id: String) -> bool:
 		return false
 	var recipe: Dictionary = RECIPES[recipe_id]
 	for id: String in recipe["needs"].keys():
-		var amount: int = recipe["needs"][id]
-		if species.has(id):
-			produce[id] = int(produce[id]) - amount
-		else:
-			items[id] = item_count(id) - amount
+		_take_any(id, int(recipe["needs"][id]))
 	items[recipe_id] = item_count(recipe_id) + int(recipe["makes"])
-	if bool(recipe.get("kitchen", false)):
+	if bool(recipe.get("kitchen", false)) or bool(recipe.get("oven", false)):
 		stats["cooked"][recipe_id] = true
 	inventory_changed.emit()
 	_gain_xp(2)
@@ -1746,10 +1814,10 @@ func _do_deliver(player_id: int) -> bool:
 		return false
 	var id: String = wanted["species"]
 	var count: int = wanted["count"]
-	if int(produce.get(id, 0)) < count:
+	if total_of(id) < count:
 		_notify(player_id, "Bristle wants %d %s" % [count, name_of(id)])
 		return false
-	produce[id] = int(produce[id]) - count
+	_take_any(id, count)
 	coins += int(wanted["reward"])
 	wanted = {}
 	stats["requests"] = int(stats["requests"]) + 1
@@ -1808,7 +1876,7 @@ func _tend_animals_overnight() -> Array:
 func _grow_fruit_trees() -> Array:
 	var ripe: int = 0
 	for cell: Vector2i in objects.keys():
-		if object_kind(cell) != "sapling":
+		if not TREES.has(object_kind(cell)):
 			continue
 		var tree_here: Dictionary = objects[cell]
 		tree_here["age"] = int(tree_here.get("age", 0)) + 1
@@ -1818,7 +1886,7 @@ func _grow_fruit_trees() -> Array:
 				tree_here["fruit"] = true
 				ripe += 1
 		object_changed.emit(cell)
-	return ["A plumble tree has fruit ready"] if ripe > 0 else []
+	return ["A fruit tree has fruit ready"] if ripe > 0 else []
 
 
 ## Now and then a crow pecks at a plant no scarecrow is watching.
