@@ -417,14 +417,20 @@ func _add_slot(id: String, sort: String) -> Button:
 	return slot
 
 
-## The player as they look now, twice life size.
+## The player's current appearance, fitted inside the portrait without stretching.
 func _draw_portrait() -> void:
 	var me: int = player.get("player_id")
-	var body: Texture2D = Assets.texture("res://assets/sprites/player_%d.png" % clampi(me, 1, 2))
-	_portrait.draw_texture_rect_region(body, Rect2(0, 0, 32, 48), Rect2(0, 0, 16, 24))
+	var body: Texture2D = Assets.player_texture(me)
+	var portrait_scale: float = 4.0 / 3.0
+	var world_body: Rect2 = Assets.player_draw_rect(me)
+	var body_size: Vector2 = world_body.size * portrait_scale
+	var body_position: Vector2 = (Vector2(32, 48) - body_size) * 0.5
+	_portrait.draw_texture_rect_region(body, Rect2(body_position, body_size), Assets.player_frame(me))
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(me))
 	if hat >= 0:
-		_portrait.draw_texture_rect_region(_hats, Rect2(0, 0, 32, 24), Rect2(hat * 16, 0, 16, 12))
+		var world_hat: Rect2 = Assets.player_hat_rect(me)
+		var hat_position: Vector2 = body_position + (world_hat.position - world_body.position) * portrait_scale
+		_portrait.draw_texture_rect_region(_hats, Rect2(hat_position, world_hat.size * portrait_scale), Rect2(hat * 16, 0, 16, 12))
 
 
 # ---------------------------------------------------------- recipe pages
