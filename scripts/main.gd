@@ -34,6 +34,8 @@ const Villager := preload("res://scripts/villager.gd")
 const Notices := preload("res://scripts/notices.gd")
 const GreenhouseView := preload("res://scripts/greenhouse_view.gd")
 const Social := preload("res://scripts/social.gd")
+const FestivalView := preload("res://scripts/festival_view.gd")
+const CAMERA_MARGIN := Vector2(64, 48)  # how far the view may go past the garden's edge
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -108,6 +110,19 @@ func _ready() -> void:
 		post.position = Vector2(fixed[1] * TILE) + Vector2(8, 16)
 		_entities.add_child(post)
 	add_child(GreenhouseView.new())
+	add_child(FestivalView.new())
+	# The land's own trees, bushes and boulders, and woods all round the edge.
+	for at: Vector2i in GameState.SCENERY.keys():
+		_plant_scenery(str(GameState.SCENERY[at]), Vector2(at * TILE) + Vector2(8, 16))
+	var size: Vector2i = GameState.WORLD_SIZE
+	for x in range(-4, size.x + 4, 2):
+		for y in range(-3, size.y + 4, 2):
+			if x >= 0 and x < size.x and y >= 0 and y < size.y:
+				continue
+			var h: int = hash(Vector2i(x, y))
+			if h % 4 == 0:
+				continue  # a gap now and then
+			_plant_scenery("oak" if h % 3 != 0 else "pine", Vector2(x * TILE + 8 + h % 9, y * TILE + 16 + (h >> 4) % 7))
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
 	_visitor.offset = Vector2(-8, -23)
@@ -160,6 +175,10 @@ func _ready() -> void:
 	shop.player = player
 	add_child(shop)
 	player.shop_requested.connect(shop.open)
+	player.bake_requested.connect(inventory.open_tab.bind("Oven"))
+	TimeManager.time_changed.connect(func() -> void:
+		if GameState.festival_today() != -1 and TimeManager.minutes == FestivalView.PARTY_START:
+			hud.call("show_message", "The %s party has begun in the yard!" % GameState.FESTIVALS[GameState.festival_today()]["name"], 6.0))
 	var clock := Clock.new()
 	clock.player = player
 	add_child(clock)
@@ -451,6 +470,15 @@ func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool, t
 		remote_players[slot].call("remote_update", pos, facing, moving, tool, swings)
 
 
+func _plant_scenery(kind: String, at: Vector2) -> void:
+	var sprite := Sprite2D.new()
+	sprite.texture = Assets.texture("res://assets/sprites/scenery_%s.png" % kind)
+	sprite.centered = false
+	sprite.offset = Vector2(-sprite.texture.get_width() / 2.0, -sprite.texture.get_height())
+	sprite.position = at
+	_entities.add_child(sprite)
+
+
 ## A building sprite standing on `rect`, sorted with the players.
 func _standing(path: String, rect: Rect2i, offset: Vector2) -> Sprite2D:
 	var sprite := Sprite2D.new()
@@ -502,10 +530,12 @@ func _on_area_changed() -> void:
 		_camera.limit_top = int(middle.y - half.y)
 		_camera.limit_bottom = int(middle.y + half.y)
 	else:
-		_camera.limit_left = 0
-		_camera.limit_top = 0
-		_camera.limit_right = GameState.WORLD_SIZE.x * TILE
-		_camera.limit_bottom = GameState.WORLD_SIZE.y * TILE
+		# The view may run a little past the garden's edge into the woods, so
+		# buildings along the top aren't hidden under the HUD.
+		_camera.limit_left = int(-CAMERA_MARGIN.x)
+		_camera.limit_top = int(-CAMERA_MARGIN.y)
+		_camera.limit_right = GameState.WORLD_SIZE.x * TILE + int(CAMERA_MARGIN.x)
+		_camera.limit_bottom = GameState.WORLD_SIZE.y * TILE + int(CAMERA_MARGIN.y)
 	_camera.reset_smoothing()
 	_weather.visible = not inside
 	_update_light()
@@ -620,6 +650,8 @@ func _setup_input() -> void:
 	_bind("close", [KEY_ESCAPE])
 	for i in 6:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
+	for i in 4:
+		_bind("quick_%d" % (i + 1), [[KEY_7, KEY_8, KEY_9, KEY_0][i]])
 
 
 func _bind_mouse(action: String, button: MouseButton) -> void:

@@ -99,7 +99,7 @@ func _rebuild() -> void:
 		for i in GameState.quests.size():
 			var quest: Dictionary = GameState.quests[i]
 			var who: String = "Bristle" if not GameState.VILLAGERS.has(str(quest["who"])) else str(GameState.VILLAGERS[quest["who"]]["name"])
-			var have: int = GameState.stock_of(quest["id"])
+			var have: int = GameState.total_of(quest["id"])  # any quality will do
 			var count: int = quest["count"]
 			var icon := TextureRect.new()
 			icon.texture = Assets.texture("res://assets/sprites/items/%s.png" % quest["id"])

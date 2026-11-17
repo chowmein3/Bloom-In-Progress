@@ -14,6 +14,7 @@ const HELP_ROWS: Array = [
 	["F", "Use hand"],
 	["1-6", "Choose tool"],
 	["Q", "Change seed/item"],
+	["7-0", "Quick slots"],
 	["E", "Backpack"],
 	["J", "Journal"],
 	["M", "Map"],
@@ -58,6 +59,7 @@ var _seed_count: Label
 var _item_picture: TextureRect
 var _item_count: Label
 var _slots: Array[Panel] = []
+var _quick_slots: Array[Panel] = []
 var _help: PanelContainer
 var _help_status: Label
 var _help_chosen: bool = false
@@ -167,6 +169,27 @@ func _ready() -> void:
 			slot.add_child(_seed_count)
 		bar_row.add_child(slot)
 		_slots.append(slot)
+	for i in 4:  # quick slots, filled by dragging from the backpack
+		var quick_slot := Panel.new()
+		quick_slot.custom_minimum_size = Vector2(16, 16)
+		quick_slot.mouse_filter = Control.MOUSE_FILTER_STOP
+		quick_slot.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and player != null:
+				player.call("select_quick", i))
+		var quick_picture := TextureRect.new()
+		quick_picture.size = Vector2(16, 16)
+		quick_picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		quick_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		quick_slot.add_child(quick_picture)
+		var quick_number: Label = _text(["7", "8", "9", "0"][i])
+		quick_number.add_theme_font_size_override("font_size", 5)
+		quick_number.add_theme_color_override("font_color", ACCENT)
+		quick_number.position = Vector2(2, -1)
+		quick_slot.add_child(quick_number)
+		var quick_count: Label = _count_label()
+		quick_slot.add_child(quick_count)
+		bar_row.add_child(quick_slot)
+		_quick_slots.append(quick_slot)
 	var bar_panel := PanelContainer.new()
 	bar_panel.add_theme_stylebox_override("panel", _style(PAPER, 2))
 	bar_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -409,8 +432,20 @@ func _update_tool() -> void:
 	if player == null:
 		return
 	var index: int = player.get("tool_index")
+	var quick_index: int = player.get("quick_index")
+	var quick: Array = player.get("quick")
+	for i in _quick_slots.size():
+		var key: String = quick[i]
+		var quick_id: String = key.get_slice(":", 1) if key.contains(":") else ""
+		var amount: int = 0
+		if quick_id != "":
+			amount = GameState.seed_count(quick_id) if key.begins_with("seed:") else GameState.item_count(quick_id)
+		_quick_slots[i].visible = key != ""  # empty quick slots stay out of the way
+		(_quick_slots[i].get_child(0) as TextureRect).texture = Assets.texture("res://assets/sprites/items/%s%s.png" % [GameState.base_of(quick_id), "_seeds" if key.begins_with("seed:") else ""]) if amount > 0 else null
+		(_quick_slots[i].get_child(2) as Label).text = str(amount) if amount > 0 else ""
+		_quick_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if i == quick_index else SLOT, 0, ACCENT if i == quick_index else WOOD))
 	for i in _slots.size():
-		var chosen: bool = i == index
+		var chosen: bool = i == index and quick_index < 0
 		_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if chosen else SLOT, 0, ACCENT if chosen else WOOD))
 	var id: String = player.get("seed_id")
 	_seed_count.text = str(GameState.seed_count(id))

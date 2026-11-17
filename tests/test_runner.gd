@@ -675,7 +675,7 @@ func _ready() -> void:
 
 	print("greenhouse, new plants and forage")
 	GameState.new_game()
-	check(GameState.species.size() == 16, "there are sixteen kinds of plant")
+	check(GameState.species.size() == 17, "there are seventeen kinds of plant")
 	check(not GameState.seed_in_stock("skybell") and not GameState.seed_in_stock("snapvine"), "the new seeds aren't stocked at first")
 	GameState.xp = 40
 	check(GameState.seed_in_stock("skybell") and not GameState.seed_in_stock("snapvine"), "level 2 brings the first of them")
@@ -718,6 +718,65 @@ func _ready() -> void:
 	GameState.wild_growth = false
 	GameState.objects[Vector2i(2, 16)] = {"kind": "sunberry"}
 	check(GameState.request_harvest(P, Vector2i(2, 16)) and GameState.item_count("sunberry") >= 1, "forage is picked by hand and can be sold")
+	GameState.new_game()
+
+	print("requests take any quality")
+	GameState.new_game()
+	GameState.wanted = {"species": "moonbell", "count": 2, "reward": 88}
+	GameState.produce = {}
+	GameState.items = {"moonbell.silver": 1, "moonbell.gold": 1}
+	check(GameState.total_of("moonbell") == 2 and GameState.stock_of("moonbell") == 0, "two starred moonbells count as two moonbells")
+	var before_wanted: int = GameState.coins
+	check(GameState.request_deliver(P) and GameState.coins == before_wanted + 88, "Bristle accepts them for his request")
+	check(GameState.item_count("moonbell.silver") == 0 and GameState.item_count("moonbell.gold") == 0, "and they are used up")
+	GameState.produce = {"sunpuff": 1}
+	GameState.items = {"sunpuff.silver": 2, "sunpuff.gold": 1}
+	GameState.quests = [{"who": "bristle", "id": "sunpuff", "count": 2, "coins": 50, "days": 2}]
+	check(GameState.request_quest(P, 0) and int(GameState.produce["sunpuff"]) == 0 and GameState.item_count("sunpuff.silver") == 1 and GameState.item_count("sunpuff.gold") == 1, "plain harvest is used first, then silver, keeping gold for last")
+	GameState.upgrades["home"] = 1
+	GameState.produce = {}
+	GameState.items = {"moonbell.gold": 2}
+	check(GameState.request_craft(P, "tea") and GameState.item_count("moonbell.gold") == 0, "recipes take starred harvest too")
+
+	print("baking")
+	GameState.new_game()
+	GameState.coins = 3000
+	check(GameState.seed_in_stock("wheat"), "wheat seeds are stocked from the start")
+	check(GameState.craft_problem("cinnamonbuns") == "Needs an oven (Bristle sells one)", "baking needs an oven")
+	check(GameState.request_buy_item(P, "oven", 1) and GameState.coins == 2600, "Bristle sells an oven for 400")
+	var kitchen_spot: Vector2i = GameState.room_floor().position + Vector2i(4, 2)
+	check(GameState.request_place(P, kitchen_spot, "oven") and GameState.has_oven(), "it stands in the home")
+	for buy: Array in [["sugar", 3], ["butter", 2], ["cinnamon", 1], ["flour", 2], ["egg", 1]]:
+		GameState.request_buy_item(P, buy[0], buy[1])
+	check(GameState.item_count("sugar") == 3 and GameState.item_count("egg") == 1, "sugar, butter, cinnamon, flour and eggs come from the pantry")
+	check(GameState.request_craft(P, "cinnamonbuns") and GameState.item_count("cinnamonbuns") == 2 and GameState.item_count("flour") == 0, "flour, butter, cinnamon and sugar bake into two cinnamon buns")
+	GameState.upgrades["home"] = 1
+	GameState.produce["wheat"] = 4
+	check(GameState.request_craft(P, "flour") and GameState.request_craft(P, "flour") and GameState.item_count("flour") == 2, "two wheat mill into flour at the stove")
+	GameState.xp = 190
+	check(GameState.request_buy_item(P, "applesapling", 1) and GameState.request_buy_item(P, "bananasapling", 1), "apple and banana saplings are for sale")
+	var apple_at := Vector2i(6, 14)
+	var banana_at := Vector2i(9, 14)
+	GameState.request_place(P, apple_at, "applesapling")
+	GameState.request_place(P, banana_at, "bananasapling")
+	for dawn in 13:
+		GameState.end_day(false)
+	check(GameState.request_harvest(P, apple_at) and GameState.request_harvest(P, banana_at) and GameState.item_count("apple") == 1 and GameState.item_count("banana") == 1, "each tree bears its own fruit")
+	GameState.items["apple"] = 3
+	GameState.items["banana"] = 2
+	check(GameState.request_craft(P, "applepie") and GameState.request_craft(P, "bananabread"), "apples bake into a pie and bananas into bread")
+	check(GameState.sell_price_of("applepie") == 320 and GameState.sellable_ids().has("bananabread"), "baked goods can be sold")
+	GameState.energy[P] = 10
+	check(GameState.request_eat(P, "applepie") and GameState.get_energy(P) == GameState.max_energy(), "or eaten: a pie restores 140 energy, up to full")
+
+	print("the bigger garden")
+	check(GameState.WORLD_SIZE == Vector2i(40, 26) and GameState.in_bounds(Vector2i(39, 25)), "the garden is 40 by 26 tiles")
+	check(not GameState.can_walk(Vector2i(30, 2)) and not GameState.request_till(P, Vector2i(30, 2)), "trees stand in the new land and can't be dug up")
+	var crowded: bool = false
+	for at: Vector2i in GameState.SCENERY.keys():
+		if at.x < 28 and at.y < 18:
+			crowded = true
+	check(not crowded, "none of them are in the old garden, so existing plots are untouched")
 	GameState.new_game()
 
 	print("curfew and energy")

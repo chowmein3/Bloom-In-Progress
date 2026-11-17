@@ -87,6 +87,21 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   lantern (1 of each, level 3). Placed things stand on empty garden tiles
   (not soil); the basket lifts them again. Fences, sprinklers and lanterns
   block walking; stones and debris don't.
+- **Baking:** an oven (decor, 400 coins) set down in the home unlocks the
+  Oven tab. Banana bread (2 banana, flour, egg, sugar), apple pie (3 apple,
+  flour, butter, sugar) and cinnamon buns x2 (2 flour, butter, cinnamon,
+  sugar). Wheat (2 make a flour in the kitchen) and apple and banana trees
+  are grown; sugar, butter, cinnamon and eggs are bought (Pantry tab) or
+  gifted. Recipes, requests and machines take produce of any quality,
+  plain first.
+- **Hot bar:** the backpack's order and four quick slots (keys 7, 8, 9, 0)
+  are each player's own preference, set by dragging; they aren't shared or
+  saved with the garden.
+- **The land** is 40x26 tiles; the old 28x18 yard is the top-left part and
+  the rest is meadow with trees, bushes and boulders (`SCENERY`) that block
+  walking. Woods outside the edge are decoration only. On festival days
+  bunting hangs between the tower, home and stall, and the party (confetti,
+  a message) starts at 5pm.
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each
   night, and the bed never reverts to grass.
 - **Sprinklers** water the four neighbouring soil tiles each morning.

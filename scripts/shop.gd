@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
-const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Animals", "Decor", "Hats"]
+const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Animals", "Pantry", "Decor", "Hats"]
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
@@ -127,7 +127,8 @@ func _rebuild() -> void:
 		"Tools": _fill_upgrades(["hoe", "can", "pickaxe"])
 		"Animals": _fill_animals()
 		"Home": _fill_upgrades(["home", "greenhouse"])
-		"Decor": _fill_decor()
+		"Pantry": _fill_stock(true)
+		"Decor": _fill_stock(false)
 		"Hats": _fill_hats()
 
 
@@ -180,6 +181,7 @@ func _fill_sell() -> void:
 		var asked: String = GameState.wanted["species"]
 		var amount: int = GameState.wanted["count"]
 		var have: int = int(GameState.produce.get(asked, 0))
+		have = GameState.total_of(asked)  # any quality will do
 		_row(_item_icon(asked, false), "Wanted: %d %s" % [amount, GameState.name_of(asked)], "Bristle pays double. You have %d." % have, str(int(GameState.wanted["reward"])), [
 			_button("Deliver", have >= amount, func() -> void: GameState.request_deliver(me), "Just what I was after. Thank you!"),
 		])
@@ -271,16 +273,20 @@ func _fill_animals() -> void:
 	])
 
 
-func _fill_decor() -> void:
+## Things sold one at a time: baking supplies (pantry) or furniture, the oven
+## and saplings (decor).
+func _fill_stock(pantry: bool) -> void:
 	var me: int = player.get("player_id")
+	if pantry:
+		_list.add_child(Ui.label("For baking. Wheat, apples and bananas you grow yourself.", Ui.FAINT, 5))
 	for id: String in GameState.ITEMS.keys():
 		var info: Dictionary = GameState.ITEMS[id]
 		var cost: int = int(info.get("cost", 0))
-		if cost <= 0 or id == "feed":
+		if cost <= 0 or id == "feed" or bool(info.get("pantry", false)) != pantry:
 			continue
 		var note: String = "%s You have %d." % [info["blurb"], GameState.item_count(id)]
 		_row(_item_icon(id, false), info["name"], note, str(cost), [
-			_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_item(me, id, 1), "It'll look lovely. Hold it (4) and press Space to set it down."),
+			_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_item(me, id, 1), "Fresh in this morning." if pantry else "Hold it (4) and press Space to set it down."),
 		])
 
 

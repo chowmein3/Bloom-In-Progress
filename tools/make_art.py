@@ -152,6 +152,7 @@ PLANTS = {
     "duskberry": ("bush", 3, "#4a6a5a", "#8a4ac8", "#e0a8ff", "#5a2f8f"),
     "glimmercap": ("mushroom", 3, "#8aa3a0", "#5ad0c8", "#b8fff3", "#eef6f3"),
     "icebloom": ("tulip", 3, "#7fb0c0", "#d6f3ff", "#ffffff", "#9fd0ea"),
+    "wheat": ("grain", 3, "#9fb04a", "#e8c45a", "#fff0a8", "#c99a2e"),
 }
 SOIL_SEED = rgb("#e9d7a3")
 GROUND = 22
@@ -209,6 +210,15 @@ def plant_frame(shape, kind, g, leaf, bloom, accent, rng):
             c.ell(7.5 + 4.2 * math.cos(math.radians(a)), 7.5 + 4.2 * math.sin(math.radians(a)), 1.8, 1.8, bloom)
         c.ell(7.5, 7.5, 3.3, 3.3, light(bloom, 0.45))
         c.face(6, 6)
+    elif shape == "grain":
+        for x, top in ((4, 7), (7, 4), (10, 6)):
+            c.rect(x, top + 5, 2, GROUND - top - 4, leaf)
+            if not resting:
+                c.rect(x - 1, top, 4, 6, bloom)
+                c.rect(x, top - 1, 2, 1, bloom)
+                c.dot(x, top + 2, accent)
+                c.dot(x + 1, top + 4, accent)
+        c.face(6, 15)
     elif shape == "tulip":
         stem(c, 9, leaf)
         c.rect(4, 5, 8, 6, bloom)
@@ -905,8 +915,77 @@ def make_things():
         for x, y, colour in ((3, 3, "#fbeed3"), (8, 4, "#ffe9a8"), (5, 7, "#d6ecff")):
             c.rect(x, y, 4, 3, rgb(colour))
 
+    def apple(c):
+        c.ell(7.5, 9, 5, 4.8, rgb("#e0443a"))
+        c.ell(6, 7.5, 1.6, 1.4, rgb("#ff8a7a"))
+        c.rect(7, 2, 2, 3, wood)
+        c.rect(9, 3, 3, 2, green)
+
+    def banana(c):
+        yellow = rgb("#ffd84a")
+        for i in range(9):
+            c.rect(3 + i, 11 - abs(4 - i) // 1 + (1 if i in (0, 8) else 0) - 2, 2, 3, yellow)
+        c.rect(2, 7, 2, 2, wood)
+        c.rect(12, 7, 2, 1, rgb("#8a6238"))
+
+    def sack(colour, mark):
+        def draw(c):
+            c.rect(3, 5, 10, 10, rgb(colour))
+            c.rect(4, 3, 8, 2, shade(rgb(colour), 0.15))
+            c.rect(5, 8, 6, 4, rgb(mark))
+        return draw
+
+    def butter(c):
+        c.rect(2, 7, 12, 6, rgb("#ffe07a"))
+        c.rect(2, 7, 12, 2, rgb("#fff3b8"))
+        c.rect(1, 13, 14, 1, rgb("#bfe6ff"))
+
+    def cinnamon(c):
+        for y in (5, 8, 11):
+            c.rect(2, y, 12, 2, rgb("#a8602e"))
+            c.rect(2, y, 2, 2, rgb("#c9844a"))
+
+    def oven(c):
+        c.rect(1, 2, 14, 13, rgb("#c9c2c8"))
+        c.rect(1, 2, 14, 3, rgb("#8f8894"))
+        for x in (3, 7, 11):
+            c.dot(x, 3, rgb("#e0605a"))
+        c.rect(3, 7, 10, 6, rgb("#3a2a3a"))
+        c.rect(4, 9, 8, 3, rgb("#f08a2e"))
+        c.rect(3, 6, 10, 1, rgb("#6b5a6a"))
+
+    def loaf(c):
+        c.ell(7.5, 8, 6.5, 4, rgb("#c98a45"))
+        c.rect(1, 9, 14, 5, rgb("#b0703a"))
+        for x in (4, 7, 10):
+            c.rect(x, 5, 1, 3, rgb("#ffe07a"))
+
+    def applepie(c):
+        c.ell(7.5, 9, 6.5, 3.5, rgb("#e0a85a"))
+        c.ell(7.5, 8, 5, 2.4, rgb("#f2c46a"))
+        c.rect(1, 10, 14, 3, rgb("#c98a45"))
+        for x, y in ((5, 8), (8, 7), (10, 8)):
+            c.dot(x, y, rgb("#e0443a"))
+
+    def buns(c):
+        for x, y in ((5, 10), (10.5, 9)):
+            c.ell(x, y, 4, 3.6, rgb("#d9a05a"))
+            c.ell(x, y, 2.2, 1.8, rgb("#fff3dc"))
+            c.dot(int(x), int(y), rgb("#a8602e"))
+
+    def young(fruit_c):
+        def draw(c):
+            c.rect(7, 8, 2, 7, wood)
+            c.ell(7.5, 5.5, 4, 3.6, green)
+            c.rect(5, 14, 6, 1, rgb("#8a6238"))
+            c.rect(9, 5, 2, 2, rgb(fruit_c))
+        return draw
+
     metal_c = rgb("#8fb0c8")
     drawings = {
+        "apple": apple, "banana": banana, "flour": sack("#fbeed3", "#e3c48a"), "sugar": sack("#ffffff", "#ff8fb3"),
+        "butter": butter, "cinnamon": cinnamon, "oven": oven, "bananabread": loaf, "applepie": applepie,
+        "cinnamonbuns": buns, "applesapling": young("#e0443a"), "bananasapling": young("#ffd84a"),
         "jar": jar, "press": press, "cheesepress": cheesepress, "beehive": beehive,
         "jam": pot("#e0605a"), "honey": pot("#f2b84a"), "juice": pot("#b05ac8"), "cheese": cheese,
         "wildgreens": sprig("#5aa85a", None), "sunberry": sprig("#5aa85a", "#ff8a3a"),
@@ -941,23 +1020,54 @@ def make_things():
 # villager_<id>.png: 16x24, standing, facing down.
 
 def make_farmyard():
-    bark, leaf = rgb("#8a6044"), rgb("#57a868")
-    frames = []
-    for stage in range(3):
-        c = Canvas(32, 40)
-        if stage == 0:
-            c.rect(15, 26, 2, 12, bark)
-            c.ell(15.5, 22, 6, 6, leaf)
-        else:
-            c.rect(14, 22, 4, 16, bark)
-            c.ell(15.5, 14, 12, 11, leaf)
-            c.ell(8, 19, 6, 5, leaf)
-            c.ell(23, 19, 6, 5, leaf)
-            if stage == 2:
-                for x, y in ((8, 12), (20, 9), (13, 18), (23, 17), (15, 6)):
-                    c.ell(x, y, 2, 2, rgb("#b05ac8"))
-        frames.append(c.finish())
-    save(sheet(frames), "fruit_tree.png")
+    bark = rgb("#8a6044")
+    # fruit_tree_<fruit>.png for each kind of fruit tree.
+    for fruit, leaf_c, fruit_c in (("plumble", "#57a868", "#b05ac8"), ("apple", "#4f9e5a", "#e0443a"), ("banana", "#7fc46a", "#ffd84a")):
+        leaf = rgb(leaf_c)
+        frames = []
+        for stage in range(3):
+            c = Canvas(32, 40)
+            if stage == 0:
+                c.rect(15, 26, 2, 12, bark)
+                c.ell(15.5, 22, 6, 6, leaf)
+            else:
+                c.rect(14, 22, 4, 16, bark)
+                c.ell(15.5, 14, 12, 11, leaf)
+                c.ell(8, 19, 6, 5, leaf)
+                c.ell(23, 19, 6, 5, leaf)
+                if stage == 2:
+                    for x, y in ((8, 12), (20, 9), (13, 18), (23, 17), (15, 6)):
+                        c.ell(x, y, 2, 2, rgb(fruit_c))
+            frames.append(c.finish())
+        save(sheet(frames), "fruit_tree_%s.png" % fruit)
+
+    # scenery_<kind>.png: the land's own trees, bushes and boulders.
+    c = Canvas(32, 44)
+    c.rect(13, 26, 6, 16, rgb("#7a5234"))
+    c.ell(15.5, 15, 14, 12, rgb("#3f8f52"))
+    c.ell(8, 22, 7, 6, rgb("#3f8f52"))
+    c.ell(23, 22, 7, 6, rgb("#3f8f52"))
+    c.ell(11, 11, 5, 4, rgb("#57a868"))
+    save(c.finish(), "scenery_oak.png")
+    c = Canvas(32, 44)
+    c.rect(14, 34, 4, 8, rgb("#6b4630"))
+    c.tri(15.5, 2, 6, 12, rgb("#2f6f5a"))
+    c.tri(15.5, 10, 9, 13, rgb("#2f6f5a"))
+    c.tri(15.5, 20, 12, 15, rgb("#2f6f5a"))
+    save(c.finish(), "scenery_pine.png")
+    c = Canvas(16, 16)
+    c.ell(7.5, 10, 7, 5, rgb("#4f9e5a"))
+    c.ell(5, 7, 3.5, 3, rgb("#4f9e5a"))
+    c.ell(10.5, 6.5, 3.5, 3, rgb("#62b56a"))
+    for x, y in ((4, 10), (9, 9), (11, 12)):
+        c.dot(x, y, rgb("#e0605a"))
+    save(c.finish(), "scenery_bush.png")
+    c = Canvas(16, 16)
+    c.ell(7.5, 10, 7, 5.4, rgb("#8f8a9a"))
+    c.ell(5.5, 8, 3, 2, rgb("#aaa6b8"))
+    c.rect(8, 6, 5, 2, rgb("#5aa85a"))
+    c.rect(3, 12, 4, 1, rgb("#5aa85a"))
+    save(c.finish(), "scenery_boulder.png")
 
     def building(wall, roof, door, name):
         c = Canvas(48, 40)

@@ -2,7 +2,7 @@ extends Control
 ## A small map of the whole garden (2 pixels per tile): soil, plants, the
 ## tent, the Heart Tree and both players.
 
-const SCALE := 2.0
+const SCALE := 1.4  # 40 tiles across in 56 units
 const TILE := 16.0
 const GRASS: Array[Color] = [Color(0.47, 0.76, 0.4), Color(0.37, 0.69, 0.33), Color(0.79, 0.64, 0.31), Color(0.89, 0.93, 0.95)]
 const PLAYER_COLORS: Array[Color] = [Color(0.31, 0.5, 0.82), Color(0.88, 0.45, 0.62)]

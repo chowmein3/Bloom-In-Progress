@@ -1,4 +1,5 @@
 extends Node
+const Settings := preload("res://scripts/settings.gd")
 ## Plays through the home, bed, shop and backpack in the real game scene,
 ## using key presses for everything a player does with the keyboard.
 ##   godot --headless --path . res://tests/home_test.tscn
@@ -114,6 +115,26 @@ func _ready() -> void:
 	var slots: Array[Node] = bag.find_children("*", "GridContainer", true, false)[0].get_children()
 	(slots[1] as Button).emit_signal("pressed")  # the second seed packet
 	_expect(str(player.get("seed_id")) == "moonbell" and int(player.get("tool_index")) == 2, "clicking a seed packet holds those seeds")
+	# Dragging: swap two things, then drop a seed packet on a quick slot.
+	var first: String = bag.get("_order")[0]
+	var second: String = bag.get("_order")[1]
+	var held: Variant = bag.call("_drag_from_bag", Vector2.ZERO, 0)
+	_expect(typeof(held) == TYPE_DICTIONARY and str(held["key"]) == first, "a backpack slot can be picked up")
+	bag.call("_drop_on_bag", Vector2.ZERO, held, 1)
+	_expect(str(bag.get("_order")[0]) == second and str(bag.get("_order")[1]) == first, "dropping it on another slot swaps the two")
+	bag.call("_drop_on_bag", Vector2.ZERO, {"key": first, "from": 1}, 7)
+	_expect(str(bag.get("_order")[7]) == first and str(bag.get("_order")[1]) == "", "it can be moved to an empty slot")
+	_expect(not bool(bag.call("bar_accepts", "item", first)) and bool(bag.call("bar_accepts", "quick0", first)), "seeds don't fit the item slot but do fit a quick slot")
+	bag.call("_drop_on_bar", Vector2.ZERO, {"key": first, "from": 7}, "quick0")
+	_expect(str(player.get("quick")[0]) == first, "dropping on the hot bar fills that quick slot")
+	await _tap(KEY_E)
+	await _tap(KEY_7)
+	_expect(int(player.get("quick_index")) == 0 and int(player.get("tool_index")) == 2 and "seed:" + str(player.get("seed_id")) == first, "7 picks the first quick slot and holds those seeds")
+	await _tap(KEY_1)
+	_expect(int(player.get("quick_index")) == -1, "choosing a tool leaves the quick slot")
+	player.call("set_quick", 0, "")
+	Settings.put("bag_order", [])
+	await _tap(KEY_E)
 	await _tap(KEY_J)
 	_expect(not _screen("journal.gd").visible, "another screen can't open on top")
 	await _tap(KEY_E)

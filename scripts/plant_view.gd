@@ -9,6 +9,8 @@ const Effects := preload("res://scripts/effects.gd")
 const FRAME := Vector2(16, 24)
 const DORMANT_TINT := Color(0.62, 0.6, 0.68)
 
+static var _tops: Dictionary = {}  # "species:frame" -> icon height, worked out once
+
 var cell: Vector2i
 var _texture: Texture2D
 var _bob: int = 0
@@ -68,6 +70,27 @@ func show_love() -> void:
 	tween.tween_property(self, "rotation", 0.0, 0.1)
 
 
+## Where a mood icon should sit for this frame of this plant's sheet: a few
+## pixels above its topmost drawn pixel (plants differ a lot in height).
+func _icon_height(species_id: String, frame: int) -> float:
+	var key: String = "%s:%d" % [species_id, frame]
+	if not _tops.has(key):
+		var first_row: int = int(FRAME.y) - 4
+		var image: Image = _texture.get_image()
+		if image != null:
+			for y in int(FRAME.y):
+				var found: bool = false
+				for x in int(FRAME.x):
+					if image.get_pixel(frame * int(FRAME.x) + x, y).a > 0.1:
+						found = true
+						break
+				if found:
+					first_row = y
+					break
+		_tops[key] = -23.0 + first_row - 7.0
+	return _tops[key]
+
+
 func _draw() -> void:
 	if not GameState.plants.has(cell) or _texture == null:
 		return
@@ -86,7 +109,7 @@ func _draw() -> void:
 	draw_texture_rect_region(_texture, Rect2(Vector2(-8, -23 - _bob), FRAME), Rect2(Vector2(frame * FRAME.x, 0), FRAME), tint)
 
 	# Little mood icons above the plant.
-	var top: float = -27.0 if stage >= last else -14.0 - stage * 3.0
+	var top: float = _icon_height(str(p["species"]), frame) - _bob
 	if _heart > 0.0:
 		var rise: float = (1.0 - _heart) * 8.0
 		var alpha: float = clampf(_heart * 2.0, 0.0, 1.0)

@@ -8,12 +8,14 @@ extends Node2D
 
 const Assets := preload("res://scripts/assets.gd")
 const Effects := preload("res://scripts/effects.gd")
+const Settings := preload("res://scripts/settings.gd")
 
 signal loadout_changed
 signal area_changed  # stepped indoors or back out
 signal shop_requested  # used the shopkeeper's stall
 signal clock_requested  # used the clock tower
 signal bin_requested  # opened the shipping bin
+signal bake_requested  # used the oven
 signal mail_requested
 signal board_requested
 signal villager_requested  # spoke to today's visitor
@@ -36,6 +38,10 @@ var facing := Vector2i(0, 1)
 var tool_index: int = 0
 var seed_id: String = "sunpuff"
 var item_id: String = ""  # the placeable thing or meal in the item slot
+## Four quick slots (keys 7, 8, 9, 0), each "" or "seed:<id>" / "item:<id>".
+## Filled by dragging from the backpack; remembered between sessions.
+var quick: Array = ["", "", "", ""]
+var quick_index: int = -1  # which quick slot is in hand, or -1
 var frozen: bool = false  # during the night fade
 var in_menu: bool = true  # until a game is started
 var reading: bool = false  # while the journal, backpack or shop is open
@@ -68,6 +74,11 @@ func _ready() -> void:
 		if slot == player_id:
 			_emote = index
 			_emote_time = 2.5)
+	if not is_remote:
+		var saved: Variant = Settings.read().get("quick", [])
+		if typeof(saved) == TYPE_ARRAY:
+			for i in mini(saved.size(), quick.size()):
+				quick[i] = str(saved[i])
 	acted.connect(func() -> void:
 		_lunge = 1.0
 		_swings += 1)
@@ -239,12 +250,42 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in TOOLS.size():
 			if event.is_action_pressed("tool_%d" % (i + 1)):
 				select_tool(i)
+		for i in quick.size():
+			if event.is_action_pressed("quick_%d" % (i + 1)):
+				select_quick(i)
 
 
 func select_tool(index: int) -> void:
 	if index == PICK_TOOL and GameState.upgrade_level("pickaxe") < 1:
 		return  # not bought yet
+	quick_index = -1
 	tool_index = index
+	loadout_changed.emit()
+
+
+## Put a seed or item ("seed:<id>" / "item:<id>", or "" to clear) in a quick slot.
+func set_quick(slot: int, key: String) -> void:
+	if slot < 0 or slot >= quick.size():
+		return
+	quick[slot] = key
+	if not is_remote:
+		Settings.put("quick", quick)
+	loadout_changed.emit()
+
+
+## Take what is in a quick slot in hand.
+func select_quick(slot: int) -> void:
+	if slot < 0 or slot >= quick.size() or str(quick[slot]) == "":
+		return
+	var key: String = quick[slot]
+	var id: String = key.get_slice(":", 1)
+	if key.begins_with("seed:"):
+		seed_id = id
+		tool_index = 2
+	else:
+		item_id = id
+		tool_index = ITEM_TOOL
+	quick_index = slot
 	loadout_changed.emit()
 
 
@@ -299,6 +340,8 @@ func hand_action() -> String:
 			return "sleep"
 		if GameState.ORES.has(GameState.object_kind(target)):
 			return ""  # rocks need the pickaxe
+		if GameState.object_kind(target) == "oven":
+			return "bake"
 		if GameState.objects.has(target):
 			return "lift"
 		if facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
@@ -332,7 +375,9 @@ func hand_action() -> String:
 		if not bool(GameState.animals[animal]["fed"]):
 			return "feed"
 		return "" if GameState.animals[animal]["petted_by"].has(me) else "stroke"
-	if GameState.object_kind(target) == "sapling":
+	if GameState.object_kind(target) == "oven":
+		return "bake"
+	if GameState.TREES.has(GameState.object_kind(target)):
 		return "pick" if bool(GameState.objects[target].get("fruit", false)) else ("lift" if int(GameState.objects[target].get("age", 0)) == 0 else "")
 	if GameState.is_tree(target):
 		return "" if GameState.tree["hugged_by"].has(me) else "hug"
@@ -374,6 +419,7 @@ func use_hand() -> void:
 		"clock": clock_requested.emit()
 		"bin": bin_requested.emit()
 		"mine": go_into_mine()
+		"bake": bake_requested.emit()
 		"mail": mail_requested.emit()
 		"board": board_requested.emit()
 		"collect", "fill", "wait": GameState.request_harvest(player_id, target)
@@ -391,7 +437,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)

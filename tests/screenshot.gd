@@ -91,6 +91,30 @@ func _ready() -> void:
 	await _wait(2.0)
 	await _shot("4_rainy_evening")
 
+	# A festival evening: bunting on the buildings, the party in the yard.
+	TimeManager.raining = false
+	TimeManager.rain_chance = 0.0
+	TimeManager.day_index = 0
+	while GameState.festival_today() == -1:
+		TimeManager.day_index += 1
+	TimeManager.minutes = 17 * 60 + 30
+	TimeManager.time_changed.emit()
+	GameState.state_reloaded.emit()
+	for spot: Vector2 in [Vector2(14, 5), Vector2(3, 3), Vector2(34, 21)]:
+		player.position = spot * 16.0 + Vector2(8, 8)
+		await _wait(1.5)
+		await _shot("7_festival_%d_%d" % [int(spot.x), int(spot.y)])
+	# The backpack with its hot bar row, then the oven tab.
+	GameState.items["oven"] = 1
+	GameState.items["flour"] = 3
+	GameState.inventory_changed.emit()
+	player.call("set_quick", 0, "item:flour")
+	await _tap(KEY_E)
+	await _frames(6)
+	await _shot("8_backpack")
+	await _tap(KEY_E)
+	player.call("set_quick", 0, "")
+
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://screenshot_save.json"))
 	print("SCREENSHOTS DONE" if failures == 0 else "%d CHECKS FAILED" % failures)
 	get_tree().quit(1 if failures > 0 else 0)

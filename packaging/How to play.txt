@@ -62,6 +62,12 @@ GOOD TO KNOW
            one to hold it, press 4, then Space to set it down.
   Cooking: with the Cabin's stove, the Kitchen tab turns harvest into
            meals. Hold one (4) and press Space to eat it for energy.
+  Baking:  buy an oven from Bristle, set it down at home and press F
+           at it. Grow wheat (mill it into flour in the Kitchen tab)
+           and apple or banana trees; buy sugar, butter and cinnamon
+           from the stall's Pantry tab.
+  Hot bar: in the backpack, drag things to rearrange them or onto the
+           hot bar row. Keys 7, 8, 9 and 0 pick the quick slots.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or
            wilts for the time you skip.
