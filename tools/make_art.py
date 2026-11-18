@@ -1557,7 +1557,9 @@ def make_app_icon():
 # stumps, logs and fences. Four frames left to right, one per season
 # (spring, summer, fall, winter); each stands on the bottom row, centred.
 #   oak, cherry 32x44   maple, pine 32x48   birch 24x46   apple 32x44
-#   bush, boulder, stump 16x16   log 32x16 (two tiles)   fence 16x16
+#   bush, boulder, stump 16x16   log 32x16 (two tiles)   fence, fence_upright 16x16
+#   <tree>_crown.png: the same trees without trunks (just the tops), cropped
+#   below the leaves, for the woods seen past the first rows of trees.
 # assets/sprites/scenery/cliff.png: 16x40 pieces (8 rows of grassy lip, then
 #   a 32 row rock face), columns: face, face, left end, right end; one row per
 #   season.
@@ -1625,14 +1627,36 @@ def leafy(c, blobs, col, rng, spots=None, spot_n=0):
                 placed += 1
 
 
-def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birch=False):
+def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birch=False, crown=False):
     """Four frames of a leafy tree. `seasons` gives (leaf colour, spots,
-    count) for spring, summer and fall; winter is bare."""
+    count) for spring, summer and fall; winter is bare. With `crown`, only
+    the top of the tree (no trunk; in winter a mass of snowy bare twigs),
+    cropped just below the leaves: for woods seen over the first trees."""
     frames = []
     cx = (w - 1) / 2
     for season in range(4):
         rng = random.Random(name + str(season))
         c = Canvas(w, h)
+        if crown:
+            if season == 3:  # bare twigs fanning up from below, snow along them
+                bottom = max(y + ry for (x, y, rx, ry) in blobs)
+                top = min(y - ry for (x, y, rx, ry) in blobs)
+                half = max(rx for (x, y, rx, ry) in blobs)
+                for i in range(7):
+                    t = (i + 0.5) / 7
+                    ex = cx + (t - 0.5) * 2 * half * 0.95 + rng.uniform(-1.5, 1.5)
+                    ey = top + abs(t - 0.5) * (bottom - top) * 0.7 + rng.uniform(0, 3)
+                    line(c, cx + (t - 0.5) * 4, bottom, ex, ey, bark, 1)
+                    mx, my = cx + (ex - cx) * 0.6, bottom + (ey - bottom) * 0.6
+                    for side in (-1, 1):
+                        line(c, mx, my, mx + side * rng.uniform(2, 4), my - rng.uniform(2, 5), bark, 1)
+                    c.dot(round(ex), round(ey) - 1, SNOW)
+                    c.dot(round(mx), round(my) - 1, SNOW)
+            else:
+                leaf, spots, n = seasons[season]
+                leafy(c, blobs, rgb(leaf), rng, spots, n)
+            frames.append(c.finish())
+            continue
         if season == 3:
             bare_branches(c, cx, h - 2, blobs[0][1] - blobs[0][3], max(r[2] for r in blobs) * 0.9, bark, True)
             c.rect(cx - trunk_w / 2 + 0.5, trunk, trunk_w, h - trunk - 1, bark)
@@ -1656,12 +1680,13 @@ def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birc
     return sheet(frames)
 
 
-def pine_frames(w, h):
+def pine_frames(w, h, crown=False):
     frames = []
     cx = (w - 1) / 2
     for season in range(4):
         c = Canvas(w, h)
-        c.rect(cx - 1.5, h - 12, 4, 11, rgb("#6b4630"))
+        if not crown:
+            c.rect(cx - 1.5, h - 12, 4, 11, rgb("#6b4630"))
         green = rgb(["#3a7f62", "#2f6f5a", "#2f6a52", "#2c6250"][season])
         tiers = ((3, 6, 13), (11, 9, 14), (21, 12, 15), (30, 15, 13))
         for top, half, height in tiers:
@@ -1678,6 +1703,23 @@ def pine_frames(w, h):
                 c.dot(cx, top, SNOW)
         frames.append(c.finish())
     return sheet(frames)
+
+
+def crop_crowns(img):
+    """Trims a sheet of crown frames to just below its lowest leaves."""
+    bottom = max(y for y in range(img.height) for x in range(img.width) if img.getpixel((x, y))[3] > 0)
+    return img.crop((0, 0, img.width, bottom + 1))
+
+
+def fence_upright(c, season):
+    """A fence running up and down the screen: a rail with a post."""
+    wood = rgb("#9a6b45")
+    c.rect(6, 0, 2, 16, wood)
+    c.rect(9, 0, 2, 16, shade(wood, 0.1))
+    c.rect(5, 5, 7, 10, light(wood, 0.1))
+    if season == 3:
+        c.rect(5, 4, 7, 1, SNOW)
+        c.rect(6, 0, 5, 1, SNOW)
 
 
 def small_frames(w, h, draw):
@@ -1868,7 +1910,21 @@ def make_scenery():
     }
     for kind, img in trees.items():
         save(img, "scenery", kind + ".png")
-    for kind, (w, draw) in {"bush": (16, bush), "boulder": (16, boulder), "stump": (16, stump), "log": (32, log), "fence": (16, fence)}.items():
+    # <kind>_crown.png: just the tree tops, for the woods past the first trees.
+    crowns = {
+        "oak": broadleaf(32, 44, 28, [(15.5, 15, 14, 12), (8, 22, 7, 6), (23, 22, 7, 6)],
+                         [("#5fb86a", ("#ffffff", "#ffe0ec"), 9), ("#3f8f52", None, 0), ("#d98a2b", ("#c4572f", "#f0b040"), 16)], name="oak", crown=True),
+        "maple": broadleaf(32, 48, 32, [(15.5, 14, 11, 10), (7, 21, 7, 7), (24, 21, 7, 7), (15.5, 25, 10, 7)],
+                           [("#78c45a", None, 0), ("#4c9a3e", None, 0), ("#d8402e", ("#f06a2a", "#a82a2a"), 18)], name="maple", crown=True),
+        "birch": broadleaf(24, 46, 22, [(11.5, 14, 8, 11), (6.5, 21, 5, 6), (16.5, 21, 5, 6)],
+                           [("#9ad46a", None, 0), ("#6cb04a", None, 0), ("#f0c040", ("#e8a030",), 10)], name="birch", crown=True),
+        "cherry": broadleaf(32, 44, 29, [(15.5, 15, 14, 10), (7, 20, 7, 6), (24, 20, 7, 6)],
+                            [("#f4a6c8", ("#ffffff", "#e87aa8"), 14), ("#4f9e5a", None, 0), ("#e08a3a", ("#c4572f",), 10)], name="cherry", crown=True),
+        "pine": pine_frames(32, 48, crown=True),
+    }
+    for kind, img in crowns.items():
+        save(crop_crowns(img), "scenery", kind + "_crown.png")
+    for kind, (w, draw) in {"bush": (16, bush), "boulder": (16, boulder), "stump": (16, stump), "log": (32, log), "fence": (16, fence), "fence_upright": (16, fence_upright)}.items():
         save(small_frames(w, 16, draw), "scenery", kind + ".png")
     cliff = Image.new("RGBA", (64, 160), (0, 0, 0, 0))
     for season in range(4):
