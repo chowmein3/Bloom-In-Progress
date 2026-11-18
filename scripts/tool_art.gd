@@ -6,6 +6,9 @@ extends RefCounted
 
 const COLUMNS: Array[int] = [0, 1, 2, -1, 3, 4, 5]
 const GRIP := Vector2(3, 13)
+## assets/sprites/tools_held.png: the same tools at 12x12 for the hands.
+const HELD := 12
+const HELD_GRIP := Vector2(2, 10)
 
 
 static func frame(index: int) -> Rect2:
@@ -16,3 +19,9 @@ static func frame(index: int) -> Rect2:
 	elif index == 1:
 		tier = GameState.upgrade_level("can")
 	return Rect2(column * 16, mini(tier, 2) * 16, 16, 16)
+
+
+## The smaller picture of tool `index` held in the hands.
+static func held_frame(index: int) -> Rect2:
+	var big: Rect2 = frame(index)
+	return Rect2(big.position / 16.0 * HELD, Vector2(HELD, HELD))

@@ -1895,6 +1895,8 @@ def make_scenery():
 # Rows: upgrade tier (0 plain, 1 copper, 2 gold): the hoe and can change
 # colour as they are upgraded; the others only use row 0. In every picture
 # the grip (where the hands hold it) is at pixel (3, 13).
+# assets/sprites/tools_held.png: the same tools at 12x12, as held in the
+# player's hands (in proportion to the characters); grip at (2, 10).
 
 TOOL_TIERS = [  # metal (light, mid, dark), can body (light, mid, dark)
     (("#e8ecf4", "#b4bccb", "#7c8598"), ("#9cd0f5", "#5aa0e0", "#3a70b0")),
@@ -1903,14 +1905,14 @@ TOOL_TIERS = [  # metal (light, mid, dark), can body (light, mid, dark)
 ]
 
 
-def tool_picture(fill):
+def tool_picture(fill, size=16):
     """`fill` is {(x, y): colour}; adds the dark outline round it."""
-    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     for (x, y), col in fill.items():
-        if 0 <= x < 16 and 0 <= y < 16:
+        if 0 <= x < size and 0 <= y < size:
             img.putpixel((x, y), col + (255,))
-    for y in range(16):
-        for x in range(16):
+    for y in range(size):
+        for x in range(size):
             if (x, y) in fill:
                 continue
             if any((x + dx, y + dy) in fill for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
@@ -1918,16 +1920,36 @@ def tool_picture(fill):
     return img
 
 
-def big_tool(draw_fn):
-    """Draws a tool at 4x (64x64) with clean shapes, then shrinks it to 16x16,
-    keeping a pixel where most of its 4x4 block is filled (in that block's
-    main colour), and adds the outline."""
+class Scaled:
+    """An ImageDraw that takes coordinates for a 64x64 picture and draws them
+    k times as big (for the smaller tools held in the hands)."""
+
+    def __init__(self, d, k):
+        self.d, self.k = d, k
+
+    def _pts(self, pts):
+        return [(x * self.k, y * self.k) for x, y in pts]
+
+    def polygon(self, pts, fill):
+        self.d.polygon(self._pts(pts), fill=fill)
+
+    def line(self, pts, fill, width=1):
+        self.d.line(self._pts(pts), fill=fill, width=max(1, round(width * self.k)))
+
+    def ellipse(self, box, fill):
+        self.d.ellipse([v * self.k for v in box], fill=fill)
+
+
+def big_tool(draw_fn, size=16):
+    """Draws a tool at 4x with clean shapes (coordinates as for 64x64), then
+    shrinks it to `size` square, keeping a pixel where most of its 4x4 block
+    is filled (in that block's main colour), and adds the outline."""
     from PIL import ImageDraw
-    big = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    draw_fn(ImageDraw.Draw(big))
+    big = Image.new("RGBA", (size * 4, size * 4), (0, 0, 0, 0))
+    draw_fn(Scaled(ImageDraw.Draw(big), size / 16))
     fill = {}
-    for y in range(16):
-        for x in range(16):
+    for y in range(size):
+        for x in range(size):
             counts = {}
             for dy in range(4):
                 for dx in range(4):
@@ -1936,7 +1958,7 @@ def big_tool(draw_fn):
                         counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
             if sum(counts.values()) >= 7:
                 fill[(x, y)] = max(counts, key=counts.get)
-    return tool_picture(fill)
+    return tool_picture(fill, size)
 
 
 def thick_line(d, a, b, width, col):
@@ -1966,6 +1988,7 @@ def tool_handle(fill, top_y, wood=rgb("#a8774a")):
 
 def make_tools():
     sheet_img = Image.new("RGBA", (16 * 6, 16 * 3), (0, 0, 0, 0))
+    held_img = Image.new("RGBA", (12 * 6, 12 * 3), (0, 0, 0, 0))
     for tier, (metal, body) in enumerate(TOOL_TIERS):
         M, m, n = (rgb(c) for c in metal)
         B, b, c_ = (rgb(c) for c in body)
@@ -2042,19 +2065,47 @@ def make_tools():
             d.polygon([(36, 18), (44, 14), (48, 22), (40, 28)], fill=n)  # where the handle goes in
         pictures.append(big_tool(pickaxe))
 
-        # Axe: a wedge-shaped head with a curved cutting edge, out to the left.
+        # Axe: a wedge-shaped head with a curved cutting edge, the blade out to
+        # the right of the handle's top. (Shapes are laid out as if the blade
+        # were up-left, then mirrored across the handle.)
         def axe(d):
-            big_handle(d, (44, 22))
-            d.polygon([(40, 10), (50, 14), (48, 26), (38, 24)], fill=n)  # the eye round the handle
-            d.polygon([(40, 12), (19, 6), (14, 21), (19, 35), (38, 24)], fill=m)  # the head
-            edge = bezier((19, 6), (9, 20), (19, 35))
-            d.line(edge, fill=M, width=6)  # the bright cutting edge
-            d.polygon([(40, 12), (24, 9), (25, 14), (38, 16)], fill=M)  # light on the top
+            top = (36, 30)
+            big_handle(d, top)
+
+            def flip(pts, old=(44, 22)):
+                return [(top[0] - (y - old[1]), top[1] - (x - old[0])) for x, y in pts]
+            d.polygon(flip([(40, 10), (50, 14), (48, 26), (38, 24)]), fill=n)  # the eye round the handle
+            d.polygon(flip([(40, 12), (19, 6), (14, 21), (19, 35), (38, 24)]), fill=m)  # the head
+            d.line(flip(bezier((19, 6), (9, 20), (19, 35))), fill=M, width=6)  # the bright cutting edge
+            d.polygon(flip([(40, 12), (24, 9), (25, 14), (38, 16)]), fill=M)  # light along one face
         pictures.append(big_tool(axe))
 
         for col, pic in enumerate(pictures):
             sheet_img.paste(pic, (col * 16, tier * 16))
+
+        # The smaller tools held in the hands (12x12), from the same shapes.
+        def can_shape(d):
+            thick_line(d, (30, 26), (30, 26), 1, c_)
+            d.polygon([(14, 28), (42, 28), (44, 34), (44, 54), (12, 54), (12, 34)], fill=b)
+            d.polygon([(16, 32), (22, 32), (22, 48), (16, 48)], fill=B)
+            d.line([(16, 28), (18, 16), (30, 12), (38, 18), (40, 28)], fill=c_, width=5)
+            d.polygon([(44, 40), (56, 26), (60, 30), (46, 46)], fill=b)
+            d.polygon([(54, 20), (62, 22), (60, 32), (52, 28)], fill=B)
+
+        def rod_shape(d):
+            thick_line(d, (8, 56), (56, 6), 3, rgb("#8a5a34"))
+            thick_line(d, (8, 56), (18, 46), 5, rgb("#e0b878"))
+            d.ellipse([18, 40, 28, 50], fill=n)
+            d.line([(57, 6), (60, 40)], fill=rgb("#dfe6f0"), width=2)
+            d.ellipse([56, 40, 63, 47], fill=rgb("#e0605a"))
+
+        held = [big_tool(hoe, 12), big_tool(can_shape, 12), None, big_tool(rod_shape, 12),
+                big_tool(pickaxe, 12), big_tool(axe, 12)]
+        for col, pic in enumerate(held):
+            if pic is not None:
+                held_img.paste(pic, (col * 12, tier * 12))
     save(sheet_img, "tools.png")
+    save(held_img, "tools_held.png")
 
 
 if __name__ == "__main__":

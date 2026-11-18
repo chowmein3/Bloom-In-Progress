@@ -65,7 +65,8 @@ var _swings: int = 0  # how many times we have acted; sent so partners see it
 var _acted_with: int = -1  # the tool just used, or -1 for a bare hand
 var _swing: float = 0.0  # 1 -> 0 while a tool is being swung (or the can poured)
 var _swing_tool: int = -1
-var _tools: Texture2D
+var _tools: Texture2D  # the tool pictures (for the marker over a partner)
+var _held: Texture2D  # the smaller ones held in the hands
 var _emote: int = -1
 var _emote_time: float = 0.0
 var _icons: Texture2D
@@ -83,6 +84,7 @@ func _ready() -> void:
 			_emote = index
 			_emote_time = 2.5)
 	_tools = Assets.texture("res://assets/sprites/tools.png")
+	_held = Assets.texture("res://assets/sprites/tools_held.png")
 	acted.connect(func() -> void:
 		_lunge = 1.0
 		_swings += 1
@@ -550,7 +552,7 @@ func _draw() -> void:
 	# A quick lean towards the tile ahead when a tool or hand is used.
 	var lean: Vector2 = Vector2(facing) * sin(_lunge * PI) * 3.0
 	body_rect.position += lean
-	var swinging: bool = _swing > 0.0 and _swing_tool >= 0 and _tools != null
+	var swinging: bool = _swing > 0.0 and _swing_tool >= 0 and _held != null
 	# Raised behind the head (or facing away), the tool goes behind the body.
 	var behind: bool = swinging and (facing == Vector2i.UP or (_swing_tool != 1 and _tool_angle() < (-70.0 if facing == Vector2i.DOWN else -100.0)))
 	if behind:
@@ -604,32 +606,32 @@ func _draw_tool(lean: Vector2) -> void:
 	var progress: float = 1.0 - _swing
 	var eased: float = progress * progress * (3.0 - 2.0 * progress)
 	var mirror: bool = facing.x < 0
-	var frame: Rect2 = ToolArt.frame(_swing_tool)
+	var frame: Rect2 = ToolArt.held_frame(_swing_tool)
 	var hand := Vector2(3, -8)
 	if facing.x != 0:
 		hand = Vector2(3 * facing.x, -9)
 	elif facing == Vector2i.UP:
-		hand = Vector2(-1, -18)  # facing away: held up so it shows above the head
+		hand = Vector2(-1, -21)  # facing away: held up so it shows above the head
 	var side: float = -1.0 if mirror else 1.0
 	if _swing_tool == 1:
 		# Hold the can out in front and tip it; water drips from the spout.
 		var tip: float = clampf(eased * 2.0, 0.0, 1.0) * 0.7
 		draw_set_transform(hand + lean + Vector2(2 * side, 2), tip * side, Vector2(side, 1))
-		draw_texture_rect_region(_tools, Rect2(-7, -13, 16, 16), frame)
+		draw_texture_rect_region(_held, Rect2(-5, -10, ToolArt.HELD, ToolArt.HELD), frame)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if progress > 0.35:
 			for drop in 3:
 				var fall: float = fposmod(progress * 30.0 + drop * 4.0, 10.0)
-				draw_rect(Rect2(hand + lean + Vector2((11 + drop) * side, -5 + fall), Vector2(1, 2)), Color(0.55, 0.8, 1.0, 0.9))
+				draw_rect(Rect2(hand + lean + Vector2((8 + drop) * side, -4 + fall), Vector2(1, 2)), Color(0.55, 0.8, 1.0, 0.9))
 		return
 	var pose: float = _tool_angle()
 	if pose <= -100.0:  # raised over the shoulder: hands up and back, so it shows above the head
-		hand += Vector2(-4.0 * side, -7.0)
+		hand += Vector2(-4.0 * side, -10.0)
 	# The picture points up-right (-45 degrees); turn it to the swing's angle.
 	# Facing left, the same turn is mirrored (Godot mirrors after turning).
 	var angle: float = deg_to_rad(pose + 45.0)
 	draw_set_transform(hand + lean, angle, Vector2(-1, 1) if mirror else Vector2.ONE)
-	draw_texture_rect_region(_tools, Rect2(-ToolArt.GRIP, Vector2(16, 16)), frame)
+	draw_texture_rect_region(_held, Rect2(-ToolArt.HELD_GRIP, Vector2(ToolArt.HELD, ToolArt.HELD)), frame)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

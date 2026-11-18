@@ -75,7 +75,7 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   (keys 7-0). Moving and dropping go through `request_move_slot` /
   `request_drop`; a dropped stack is an object of kind "dropped".
 - Tools are drawn from `assets/sprites/tools.png` (16x16, a row per upgrade
-  tier); `tool_art.gd` maps a tool to its picture. The HUD, shop and the
+  tier); `tools_held.png` is the same set at 12x12 for the hands; `tool_art.gd` maps a tool to its picture (`frame`, `held_frame`). The HUD, shop and the
   player's swing (`Player._draw_tool`) all use it.
 - `scripts/sound.gd` (autoload `Sound`): music and effects, driven by
   GameState signals.
