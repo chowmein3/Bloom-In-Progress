@@ -66,8 +66,9 @@ GOOD TO KNOW
            at it. Grow wheat (mill it into flour in the Kitchen tab)
            and apple or banana trees; buy sugar, butter and cinnamon
            from the stall's Pantry tab.
-  Hot bar: in the backpack, drag things to rearrange them or onto the
-           hot bar row. Keys 7, 8, 9 and 0 pick the quick slots.
+  Backpack: each player has their own coins and things. Drag a stack
+           to move it, or onto the hot bar row (keys 7, 8, 9, 0). Drag
+           it out of the backpack to drop it; walk over it to pick it up.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or
            wilts for the time you skip.

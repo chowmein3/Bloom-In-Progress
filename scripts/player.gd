@@ -38,10 +38,12 @@ var facing := Vector2i(0, 1)
 var tool_index: int = 0
 var seed_id: String = "sunpuff"
 var item_id: String = ""  # the placeable thing or meal in the item slot
-## Four quick slots (keys 7, 8, 9, 0), each "" or "seed:<id>" / "item:<id>".
-## Filled by dragging from the backpack; remembered between sessions.
-var quick: Array = ["", "", "", ""]
-var quick_index: int = -1  # which quick slot is in hand, or -1
+## The hot bar: the first four slots of this player's bag (keys 7, 8, 9, 0),
+## filled by dragging things there in the backpack.
+var quick: Array:
+	get: return GameState.bag_slots().slice(0, GameState.HOT_SLOTS)
+var quick_index: int = -1  # which hot bar slot is in hand, or -1
+var _last_cell := Vector2i(-999, -999)  # to pick up dropped things once per step onto them
 var frozen: bool = false  # during the night fade
 var in_menu: bool = true  # until a game is started
 var reading: bool = false  # while the journal, backpack or shop is open
@@ -74,11 +76,6 @@ func _ready() -> void:
 		if slot == player_id:
 			_emote = index
 			_emote_time = 2.5)
-	if not is_remote:
-		var saved: Variant = Settings.read().get("quick", [])
-		if typeof(saved) == TYPE_ARRAY:
-			for i in mini(saved.size(), quick.size()):
-				quick[i] = str(saved[i])
 	acted.connect(func() -> void:
 		_lunge = 1.0
 		_swings += 1)
@@ -172,6 +169,11 @@ func _process(delta: float) -> void:
 	elif _walk != 0.0:
 		_walk = 0.0
 		queue_redraw()
+	# Walking over something dropped picks it up.
+	if cell() != _last_cell:
+		_last_cell = cell()
+		if GameState.object_kind(_last_cell) == "dropped":
+			GameState.request_harvest(player_id, _last_cell)
 	if cursor != null:
 		cursor.position = Vector2(target_cell() * TILE)
 		cursor.visible = GameState.in_bounds(target_cell())
@@ -250,7 +252,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in TOOLS.size():
 			if event.is_action_pressed("tool_%d" % (i + 1)):
 				select_tool(i)
-		for i in quick.size():
+		for i in GameState.HOT_SLOTS:
 			if event.is_action_pressed("quick_%d" % (i + 1)):
 				select_quick(i)
 
@@ -263,21 +265,31 @@ func select_tool(index: int) -> void:
 	loadout_changed.emit()
 
 
-## Put a seed or item ("seed:<id>" / "item:<id>", or "" to clear) in a quick slot.
+## Move a seed packet or item ("seed:<id>" / "item:<id>") from the backpack
+## to hot bar slot `slot`, or with "" put that slot's stack back in the bag.
 func set_quick(slot: int, key: String) -> void:
-	if slot < 0 or slot >= quick.size():
+	var slots: Array = GameState.bag_slots()
+	if slot < 0 or slot >= GameState.HOT_SLOTS:
 		return
-	quick[slot] = key
-	if not is_remote:
-		Settings.put("quick", quick)
+	if key == "":
+		if slots[slot] != "":
+			GameState.request_move_slot(player_id, slot, slots.find("", GameState.HOT_SLOTS))
+	elif slots.has(key):
+		GameState.request_move_slot(player_id, slots.find(key), slot)
 	loadout_changed.emit()
+
+
+## Drop the whole stack of `key` on the tile ahead.
+func drop(key: String) -> bool:
+	return GameState.request_drop(player_id, key, target_cell())
 
 
 ## Take what is in a quick slot in hand.
 func select_quick(slot: int) -> void:
-	if slot < 0 or slot >= quick.size() or str(quick[slot]) == "":
+	var hot: Array = quick
+	if slot < 0 or slot >= hot.size() or str(hot[slot]) == "":
 		return
-	var key: String = quick[slot]
+	var key: String = hot[slot]
 	var id: String = key.get_slice(":", 1)
 	if key.begins_with("seed:"):
 		seed_id = id

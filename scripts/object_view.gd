@@ -11,6 +11,12 @@ var _tree: Texture2D  # three 32x40 frames: young, grown, with fruit
 
 
 func _ready() -> void:
+	if kind == "dropped":  # something a player dropped: its picture, bobbing
+		var here := Vector2i(int(floor(position.x / 16.0)), int(floor((position.y - 1.0) / 16.0)))
+		var key: String = str(GameState.objects.get(here, {}).get("key", ""))
+		var id: String = GameState.base_of(key.get_slice(":", 1))
+		_texture = Assets.texture("res://assets/sprites/items/%s%s.png" % [id, "_seeds" if key.begins_with("seed:") else ""])
+		return
 	_texture = Assets.texture("res://assets/sprites/items/%s.png" % kind)
 	if GameState.TREES.has(kind):
 		_tree = Assets.texture("res://assets/sprites/fruit_tree_%s.png" % GameState.TREES[kind])
@@ -22,7 +28,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if GameState.MACHINES.has(kind) or kind == "mailbox":
+	if GameState.MACHINES.has(kind) or kind == "mailbox" or kind == "dropped":
 		queue_redraw()  # for the little bobbing marks
 
 
@@ -31,6 +37,17 @@ func _draw() -> void:
 		draw_circle(Vector2(0, -10), 22, Color(1.0, 0.85, 0.45, 0.12))
 		draw_circle(Vector2(0, -10), 13, Color(1.0, 0.9, 0.55, 0.16))
 	var here := Vector2i(int(floor(position.x / 16.0)), int(floor((position.y - 1.0) / 16.0)))
+	if kind == "dropped":
+		var hover: float = sin(Time.get_ticks_msec() / 300.0 + position.x) * 1.5
+		draw_circle(Vector2(0, -3), 4.5, Color(0, 0, 0, 0.18))  # shadow
+		if _texture != null:
+			draw_texture_rect(_texture, Rect2(-6, -16 + hover, 12, 12), false)
+		var count: int = int(GameState.objects.get(here, {}).get("count", 1))
+		if count > 1:
+			var font: Font = ThemeDB.fallback_font
+			draw_string_outline(font, Vector2(1, -4 + hover), str(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 5, 2, Color(0.2, 0.15, 0.2))
+			draw_string(font, Vector2(1, -4 + hover), str(count), HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color.WHITE)
+		return
 	if _tree != null and int(GameState.objects.get(here, {}).get("age", 0)) > 0:
 		var growing: Dictionary = GameState.objects[here]
 		var frame: int = 0
