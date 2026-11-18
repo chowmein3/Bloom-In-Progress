@@ -96,13 +96,28 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   gifted. Recipes, requests and machines take produce of any quality,
   plain first.
 - **Backpack slots:** each bag keeps the order of its slots (saved with the
-  garden). The first four are the hot bar (keys 7, 8, 9, 0) and only take
+  garden). The first four are the hot bar (keys 8, 9, 0, -) and only take
   seeds and things you hold. Dragging moves a whole stack; dragging it out of
   the backpack drops it on the tile ahead as a "dropped" object anyone can
   walk over or press F at to pick up.
+- **Axe** (tool 7, everyone has one): trees take 3 swings (3 energy each)
+  and give 5-8 wood, stumps and logs 2 swings for 2-5. A felled tree topples
+  away from the nearest player, then its wood pops up on its tile as a
+  dropped stack. Felled trees (`GameState.felled`, saved) grow back after
+  28 days if their tiles are still clear. Only the garden's own scenery can
+  be cut, not the woods past the edge.
 - **The land** is 40x26 tiles; the old 28x18 yard is the top-left part and
-  the rest is meadow with trees, bushes and boulders (`SCENERY`) that block
-  walking. Woods outside the edge are decoration only. On festival days
+  the rest is meadow with oak, maple, birch, cherry, wild apple and pine
+  trees, bushes, boulders, stumps and logs (`SCENERY`), all changing with
+  the seasons (blossom in spring, red and gold in fall, bare and snowy in
+  winter). Each blocks only the tile it stands on, so you can walk behind
+  canopies. Dirt trails link the buildings and lead off the map. Around the
+  garden: a rocky cliff along the top with a trail climbing through a gap,
+  woods on every other side (and on the cliff top), with a fence along the
+  bottom: a close row of trees with undergrowth between the trunks along
+  each edge, then lighter woods behind, all on the garden's own level. The
+  pond is in the bottom-left corner, an organic shape with shallows, reeds
+  and lily pads. All decoration only. On festival days
   bunting hangs between the tower, home and stall, and the party (confetti,
   a message) starts at 5pm.
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each

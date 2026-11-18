@@ -40,8 +40,8 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2(cell) * SCALE, Vector2(SCALE, SCALE)), color)
 	var tent := Rect2(GameState.TENT_RECT)
 	draw_rect(Rect2(tent.position * SCALE, tent.size * SCALE), Color(0.94, 0.54, 0.47))
-	var pond := Rect2(GameState.POND_RECT)
-	draw_rect(Rect2(pond.position * SCALE, pond.size * SCALE), Color(0.36, 0.62, 0.86))
+	for water: Vector2i in GameState.POND_CELLS:
+		draw_rect(Rect2(Vector2(water) * SCALE, Vector2(SCALE, SCALE)), Color(0.36, 0.62, 0.86))
 	var tower := Rect2(GameState.TOWER_RECT)
 	draw_rect(Rect2(tower.position * SCALE, tower.size * SCALE), Color(0.55, 0.42, 0.75))
 	var stall := Rect2(GameState.STALL_RECT)

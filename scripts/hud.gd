@@ -5,6 +5,7 @@ extends CanvasLayer
 ## the window scales them up, so text stays sharp.
 
 const Assets := preload("res://scripts/assets.gd")
+const ToolArt := preload("res://scripts/tool_art.gd")
 
 const Minimap := preload("res://scripts/minimap.gd")
 const HELP_ROWS: Array = [
@@ -12,9 +13,9 @@ const HELP_ROWS: Array = [
 	["Shift", "Run"],
 	["Space", "Use tool"],
 	["F", "Use hand"],
-	["1-6", "Choose tool"],
+	["1-7", "Choose tool (7: axe)"],
 	["Q", "Change seed/item"],
-	["7-0", "Quick slots"],
+	["8 9 0 -", "Hot bar"],
 	["E", "Backpack"],
 	["J", "Journal"],
 	["M", "Map"],
@@ -31,8 +32,6 @@ const ICON_SNOW := 7
 const ICON_MOON := 8
 const ICON_LOVE := 9
 const ICON_COIN := 10
-const ICON_ROD := 11
-const ICON_PICK := 12
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
@@ -44,6 +43,8 @@ var remote_players: Dictionary = {}  # shared with main.gd, for the minimap
 
 var _root: Control
 var _icons: Texture2D = Assets.texture("res://assets/sprites/ui_icons.png")
+var _tools: Texture2D = Assets.texture("res://assets/sprites/tools.png")
+var _tool_pictures: Dictionary = {}  # tool slot -> TextureRect showing it
 var _map: PanelContainer
 var _date: Label
 var _time: Label
@@ -139,7 +140,7 @@ func _ready() -> void:
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
 	bar_row.add_theme_constant_override("separation", 1)
-	for i in 6:
+	for i in 7:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(16, 16)
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP  # clicking a slot chooses that tool
@@ -147,9 +148,18 @@ func _ready() -> void:
 			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and player != null:
 				player.call("select_tool", i))
 		if i != 3:
-			var picture: TextureRect = _icon(i if i < 3 else (ICON_ROD if i == 4 else ICON_PICK))
-			picture.position = Vector2(2, 3)
+			var picture := TextureRect.new()
+			var frame := AtlasTexture.new()
+			frame.atlas = _tools
+			frame.region = ToolArt.frame(i)
+			picture.texture = frame
+			picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+			picture.position = Vector2.ZERO
+			picture.size = Vector2(16, 16)
+			picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			slot.add_child(picture)
+			_tool_pictures[i] = picture
 		else:  # the item slot shows whatever is being held
 			_item_picture = TextureRect.new()
 			_item_picture.position = Vector2(0, 0)
@@ -181,7 +191,7 @@ func _ready() -> void:
 		quick_picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 		quick_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		quick_slot.add_child(quick_picture)
-		var quick_number: Label = _text(["7", "8", "9", "0"][i])
+		var quick_number: Label = _text(["8", "9", "0", "-"][i])
 		quick_number.add_theme_font_size_override("font_size", 5)
 		quick_number.add_theme_color_override("font_color", ACCENT)
 		quick_number.position = Vector2(2, -1)
@@ -444,6 +454,8 @@ func _update_tool() -> void:
 		(_quick_slots[i].get_child(0) as TextureRect).texture = Assets.texture("res://assets/sprites/items/%s%s.png" % [GameState.base_of(quick_id), "_seeds" if key.begins_with("seed:") else ""]) if amount > 0 else null
 		(_quick_slots[i].get_child(2) as Label).text = str(amount) if amount > 0 else ""
 		_quick_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if i == quick_index else SLOT, 0, ACCENT if i == quick_index else WOOD))
+	for i: int in _tool_pictures.keys():  # the hoe and can show their upgrade
+		(_tool_pictures[i].texture as AtlasTexture).region = ToolArt.frame(i)
 	for i in _slots.size():
 		var chosen: bool = i == index and quick_index < 0
 		_slots[i].add_theme_stylebox_override("panel", _style(Color(1.0, 0.95, 0.8) if chosen else SLOT, 0, ACCENT if chosen else WOOD))

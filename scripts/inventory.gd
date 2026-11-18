@@ -299,12 +299,12 @@ func _fill_hot_bar() -> void:
 	_bar.add_child(Ui.label("Hot bar:", Ui.FAINT))
 	for i in GameState.HOT_SLOTS:
 		var slot: Control = _slot_at(i)
-		var number: Label = Ui.label(["7", "8", "9", "0"][i], Ui.ACCENT, 5)
+		var number: Label = Ui.label(["8", "9", "0", "-"][i], Ui.ACCENT, 5)
 		number.position = Vector2(2, -1)
 		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(number)
 		if _order[i] == "":
-			slot.mouse_entered.connect(func() -> void: _info.text = "Hot bar slot (%s). Drag seeds or something to hold here." % ["7", "8", "9", "0"][i])
+			slot.mouse_entered.connect(func() -> void: _info.text = "Hot bar slot (%s). Drag seeds or something to hold here." % ["8", "9", "0", "-"][i])
 		_bar.add_child(slot)
 
 

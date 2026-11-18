@@ -59,13 +59,13 @@ godot --path .
 | Shift (hold) | Run |
 | Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
 | F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
-| 1-6 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, and Pickaxe once bought. Clicking a slot works too |
+| 1-7 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, Pickaxe once bought, and Axe. Clicking a slot works too |
 | T | Emotes (then 1-6) |
 | Enter | Chat with your partner (co-op) |
 | Tab | Next tool |
 | Q | Next seed type, or next item when the item slot is selected |
 | E / I | Backpack: seeds, harvest, coins, hats |
-| 7 8 9 0 | Quick slots (drag things onto them in the backpack) |
+| 8 9 0 - | Hot bar (drag things onto it in the backpack) |
 | J | Garden journal |
 | M | Show or hide the minimap |
 | N | Music on/off |
@@ -172,6 +172,11 @@ in the pause menu.
   parts: wheat (milled into flour on the Kitchen tab) and apple and banana
   trees (saplings at the stall). Sugar, butter, cinnamon, eggs and spare
   flour come from the stall's Pantry tab, or as gifts from visitors.
+- **Axe** (7): trees, stumps and logs in the garden come down after a few
+  swings (three for a tree), and the tree topples over and leaves a stack of
+  wood on the ground; walk over it to pick it up. They grow back after a
+  season unless something is built or dug where they stood. The woods round
+  the edge of the garden can't be cut.
 - **Gardening level:** caring for plants and harvesting earn experience.
   Levels unlock recipes and add a little energy.
 - **Bristle's requests:** each morning he asks for a plant you can grow and
@@ -182,7 +187,7 @@ in the pause menu.
 - **Backpack** (E): your own seeds, harvest and things, your coins, and the
   hats. Click a seed packet to hold it; click a hat to wear it. Drag a stack
   to move it to another slot, or onto the hot bar row: those four slots show
-  on the tool bar and keys 7, 8, 9 and 0 take them in hand. Drag a stack out
+  on the tool bar and keys 8, 9, 0 and - take them in hand. Drag a stack out
   of the backpack to drop it on the ground in front of you; walk over it (or
   press F at it) to pick it up. That's also how to give things to your partner.
 - Each player has their own coins, seeds, harvest, things and part of the

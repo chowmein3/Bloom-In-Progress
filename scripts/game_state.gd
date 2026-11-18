@@ -26,6 +26,7 @@ signal mail_changed  # letters arrived or were opened, or the quest board change
 signal animals_changed  # an animal was bought, fed, petted or woke up
 signal time_warped  # the clock tower changed the date or time
 signal economy_changed  # coins, upgrades, hats owned or hats worn changed
+signal scenery_hit(cell: Vector2i, felled: bool)  # an axe struck a tree, stump or log; `felled` when it came down
 
 const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/sunpuff.tres",
@@ -52,20 +53,80 @@ const SEED_LEVELS: Dictionary = {
 	"snapvine": 4, "melonbub": 4, "duskberry": 4, "icebloom": 4,
 }
 const WORLD_SIZE := Vector2i(40, 26)  # in 16px tiles
-## Trees, bushes and boulders that are part of the land. They stand in the
-## outer parts of the garden and can't be moved.
+## Trees, bushes, boulders, stumps and logs that are part of the land. The
+## axe cuts down trees, stumps and logs (see CHOP); bushes and boulders stay.
+## Each is drawn from assets/sprites/scenery/<kind>.png, which changes with the
+## season, and blocks only the tile its trunk or base stands on (a log, two).
 const SCENERY: Dictionary = {
-	Vector2i(30, 2): "oak", Vector2i(34, 1): "oak", Vector2i(37, 4): "oak", Vector2i(31, 7): "oak",
-	Vector2i(36, 9): "oak", Vector2i(38, 13): "oak", Vector2i(33, 14): "oak", Vector2i(29, 19): "oak",
-	Vector2i(35, 20): "oak", Vector2i(38, 22): "oak", Vector2i(3, 20): "oak", Vector2i(8, 22): "oak",
-	Vector2i(14, 20): "oak", Vector2i(20, 23): "oak", Vector2i(25, 20): "oak", Vector2i(11, 24): "oak",
+	Vector2i(30, 2): "oak", Vector2i(34, 1): "cherry", Vector2i(37, 4): "maple", Vector2i(31, 7): "birch",
+	Vector2i(36, 9): "oak", Vector2i(38, 13): "maple", Vector2i(33, 14): "apple", Vector2i(29, 19): "cherry",
+	Vector2i(35, 20): "birch", Vector2i(38, 22): "oak", Vector2i(10, 18): "maple", Vector2i(8, 22): "cherry",
+	Vector2i(14, 20): "oak", Vector2i(16, 24): "birch", Vector2i(25, 20): "apple", Vector2i(11, 24): "maple",
 	Vector2i(32, 4): "pine", Vector2i(38, 7): "pine", Vector2i(29, 11): "pine", Vector2i(35, 16): "pine",
-	Vector2i(31, 23): "pine", Vector2i(5, 23): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
+	Vector2i(31, 23): "pine", Vector2i(9, 24): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
 	Vector2i(33, 9): "bush", Vector2i(30, 15): "bush", Vector2i(37, 18): "bush", Vector2i(27, 22): "bush",
 	Vector2i(1, 19): "bush", Vector2i(12, 19): "bush", Vector2i(19, 19): "bush",
 	Vector2i(36, 6): "boulder", Vector2i(34, 23): "boulder", Vector2i(9, 20): "boulder", Vector2i(22, 21): "boulder",
+	Vector2i(32, 12): "stump", Vector2i(26, 24): "stump", Vector2i(6, 19): "stump", Vector2i(39, 1): "stump",
+	Vector2i(29, 16): "log", Vector2i(12, 22): "log",
+	Vector2i(19, 9): "oak", Vector2i(24, 10): "maple", Vector2i(21, 8): "birch", Vector2i(26, 14): "pine",
+	Vector2i(16, 17): "cherry", Vector2i(1, 13): "pine", Vector2i(12, 17): "apple", Vector2i(26, 6): "oak",
+	Vector2i(27, 11): "birch", Vector2i(37, 11): "cherry", Vector2i(30, 10): "oak", Vector2i(34, 6): "birch",
+	Vector2i(28, 24): "oak", Vector2i(15, 23): "maple", Vector2i(18, 23): "birch", Vector2i(10, 21): "oak",
+	Vector2i(14, 25): "pine", Vector2i(24, 22): "maple",
 }
-const SCENERY_NAMES: Dictionary = {"oak": "Oak tree", "pine": "Pine tree", "bush": "Wild bush", "boulder": "Mossy boulder"}
+const SCENERY_NAMES: Dictionary = {
+	"oak": "Oak tree", "maple": "Maple tree", "birch": "Birch tree", "cherry": "Cherry tree", "apple": "Wild apple tree",
+	"pine": "Pine tree", "bush": "Wild bush", "boulder": "Mossy boulder", "stump": "Old stump", "log": "Fallen log",
+}
+## Worn dirt trails, just for looks (they can still be dug). Cells outside the
+## garden carry the trails off through the cliff and the fence.
+const TRAILS: Array[Vector2i] = [
+	Vector2i(22, -5), Vector2i(22, -4), Vector2i(22, -3), Vector2i(22, -2), Vector2i(22, -1),
+	Vector2i(22, 0), Vector2i(22, 1), Vector2i(22, 2),
+	Vector2i(5, 3), Vector2i(6, 3), Vector2i(7, 3), Vector2i(8, 3), Vector2i(9, 3), Vector2i(10, 3), Vector2i(11, 3),
+	Vector2i(12, 3), Vector2i(13, 3), Vector2i(14, 3), Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3), Vector2i(18, 3),
+	Vector2i(19, 3), Vector2i(20, 3), Vector2i(21, 3), Vector2i(22, 3), Vector2i(23, 3), Vector2i(24, 3), Vector2i(25, 3), Vector2i(26, 3),
+	Vector2i(20, 18), Vector2i(20, 19), Vector2i(20, 20), Vector2i(20, 21), Vector2i(20, 22), Vector2i(20, 23),
+	Vector2i(20, 24), Vector2i(20, 25), Vector2i(20, 26), Vector2i(20, 27), Vector2i(20, 28), Vector2i(20, 29),
+]
+
+## Trees, stumps and logs in the garden can be cut down with the axe:
+## [swings needed, least wood, most wood]. They grow back after REGROW_DAYS
+## unless something is built or dug where they stood.
+const CHOP: Dictionary = {
+	"oak": [3, 6, 8], "maple": [3, 6, 8], "pine": [3, 6, 8], "birch": [3, 5, 7], "cherry": [3, 5, 7],
+	"apple": [3, 5, 7], "stump": [2, 2, 3], "log": [2, 3, 5],
+}
+const COST_CHOP := 3
+const REGROW_DAYS := 28
+
+## The tile a scenery thing is listed under (a log's left tile), or `cell`.
+func scenery_base(cell: Vector2i) -> Vector2i:
+	if not SCENERY.has(cell) and SCENERY.get(cell - Vector2i(1, 0), "") == "log":
+		return cell - Vector2i(1, 0)
+	return cell
+
+
+## The scenery thing standing on `cell` (counting the second tile of a log),
+## or "" for none or one that has been cut down.
+func scenery_at(cell: Vector2i) -> String:
+	var base: Vector2i = scenery_base(cell)
+	if not SCENERY.has(base) or felled.has(base):
+		return ""
+	return SCENERY[base]
+
+
+## The tiles a scenery thing listed at `at` stands on (a log has two).
+func scenery_tiles(at: Vector2i) -> Array:
+	return [at, at + Vector2i(1, 0)] if SCENERY.get(at, "") == "log" else [at]
+
+
+## Whether the axe can cut what stands on `cell`.
+func can_chop(cell: Vector2i) -> bool:
+	return CHOP.has(scenery_at(cell))
+
+
 const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
 ## The Heart Tree: one shared plant that grows on the love the whole garden
 ## gets. Water it and hug it (pet) like any plant.
@@ -133,7 +194,16 @@ const HATS: Dictionary = {
 }
 
 ## The fishing pond, and the shipping bin between the home and the stall.
-const POND_RECT := Rect2i(21, 9, 5, 3)
+## The pond, in the bottom-left corner, tucked in under the woods' leaves.
+const POND_CELLS: Array[Vector2i] = [
+	Vector2i(2, 20), Vector2i(3, 20), Vector2i(4, 20), Vector2i(5, 20),
+	Vector2i(1, 21), Vector2i(2, 21), Vector2i(3, 21), Vector2i(4, 21), Vector2i(5, 21), Vector2i(6, 21),
+	Vector2i(1, 22), Vector2i(2, 22), Vector2i(3, 22), Vector2i(4, 22), Vector2i(5, 22), Vector2i(6, 22), Vector2i(7, 22),
+	Vector2i(1, 23), Vector2i(2, 23), Vector2i(3, 23), Vector2i(4, 23), Vector2i(5, 23), Vector2i(6, 23), Vector2i(7, 23),
+	Vector2i(2, 24), Vector2i(3, 24), Vector2i(4, 24), Vector2i(5, 24), Vector2i(6, 24),
+	Vector2i(2, 25), Vector2i(3, 25), Vector2i(4, 25), Vector2i(5, 25),
+]
+const POND_RECT := Rect2i(1, 20, 7, 6)  # the pond's bounds
 const BIN_CELL := Vector2i(16, 2)
 const COST_FISH := 2
 const XP_FISH := 3
@@ -392,6 +462,8 @@ var plants: Dictionary = {}  # Vector2i -> plant Dictionary (see _new_plant)
 ## `produce`, `items`, `coins` and `bin` below are the bag of the player the
 ## rules are working for (`_owner`), or this player's own everywhere else.
 var bags: Dictionary = {}  # str(player id) -> bag, see _new_bag()
+var felled: Dictionary = {}  # SCENERY tile -> day it was cut down
+var _chops: Dictionary = {}  # SCENERY tile -> axe swings so far (host only, not saved)
 var _owner: int = 0  # whose bag the rules are using; 0 means this player's own
 var _pending: Dictionary = {}  # signals held back while working on someone else's bag
 var seeds: Dictionary:  # species id -> count
@@ -451,6 +523,7 @@ func _ready() -> void:
 	plant_removed.connect(_mirror_cell)
 	plant_petted.connect(_mirror_pet)
 	inventory_changed.connect(_mirror_inventory)
+	scenery_hit.connect(_mirror_scenery_hit)
 	energy_changed.connect(_mirror_energy)
 	sleepers_changed.connect(_mirror_sleepers)
 	new_game()  # an empty garden behind the title menu until one is chosen
@@ -458,6 +531,8 @@ func _ready() -> void:
 
 func new_game() -> void:
 	bags = {}
+	felled = {}
+	_chops = {}
 	soil.clear()
 	plants.clear()
 	produce.clear()
@@ -634,7 +709,7 @@ func is_stall(cell: Vector2i) -> bool:
 
 
 func is_pond(cell: Vector2i) -> bool:
-	return POND_RECT.has_point(cell)
+	return POND_CELLS.has(cell)
 
 
 func is_bin(cell: Vector2i) -> bool:
@@ -647,7 +722,7 @@ func is_tower(cell: Vector2i) -> bool:
 
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	if SCENERY.has(cell):
+	if scenery_at(cell) != "":
 		return true
 	if is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell) or MINE_RECT.has_point(cell) or cell == MAILBOX_CELL or cell == BOARD_CELL:
 		return true
@@ -788,7 +863,10 @@ func is_exit_mat(cell: Vector2i) -> bool:
 ## Whether a player may stand on `cell`, in the garden or indoors.
 func can_walk(cell: Vector2i) -> bool:
 	if not is_indoors(cell):
-		return in_bounds(cell) and not is_blocked(cell) and not is_solid(cell)
+		# The Heart Tree's leaves hang over the tiles above its trunk: you can
+		# walk behind it there, but not dig or build.
+		var behind_tree: bool = is_tree(cell) and cell.y < TREE_RECT.end.y - 1
+		return in_bounds(cell) and (not is_blocked(cell) or behind_tree) and not is_solid(cell)
 	if is_in_mine(cell):
 		return mine_floor().has_point(cell) and not is_solid(cell)
 	return _room_free(cell) and not is_solid(cell)
@@ -1074,8 +1152,8 @@ func describe_cell(cell: Vector2i) -> String:
 		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
-	if SCENERY.has(cell):
-		return str(SCENERY_NAMES[SCENERY[cell]])
+	if scenery_at(cell) != "":
+		return "%s%s" % [SCENERY_NAMES[scenery_at(cell)], " (axe, 7)" if can_chop(cell) else ""]
 	if is_mine_entrance(cell):
 		return "Mine: rocks and ore inside"
 	if cell == MAILBOX_CELL:
@@ -1269,6 +1347,11 @@ func request_drop(player_id: int, key: String, cell: Vector2i) -> bool:
 	return _request("drop", player_id, [key, cell])
 
 
+## One swing of the axe at a tree, stump or log.
+func request_chop(player_id: int, cell: Vector2i) -> bool:
+	return _request("chop", player_id, [cell])
+
+
 func request_sleep(player_id: int) -> bool:
 	return _request("sleep", player_id, [])
 
@@ -1314,6 +1397,7 @@ func _apply_now(action: String, player_id: int, args: Array) -> bool:
 		"sleep": return _do_sleep(player_id)
 		"move_slot": return _do_move_slot(args[0], args[1])
 		"drop": return _do_drop(player_id, args[0], args[1])
+		"chop": return _do_chop(player_id, args[0])
 	return false
 
 
@@ -1912,6 +1996,41 @@ func _do_gather(player_id: int, cell: Vector2i) -> bool:
 	return true
 
 
+## Each swing counts; on the last one the tree comes down and leaves a stack
+## of wood on its tile for anyone to pick up.
+func _do_chop(player_id: int, cell: Vector2i) -> bool:
+	var kind: String = scenery_at(cell)
+	if not CHOP.has(kind):
+		return false
+	if not _spend(player_id, COST_CHOP):
+		return false
+	var base: Vector2i = scenery_base(cell)
+	var info: Array = CHOP[kind]
+	_chops[base] = int(_chops.get(base, 0)) + 1
+	if int(_chops[base]) < int(info[0]):
+		scenery_hit.emit(base, false)
+		return true
+	_chops.erase(base)
+	felled[base] = TimeManager.day_index
+	scenery_hit.emit(base, true)
+	var wood: int = rng.randi_range(int(info[1]), int(info[2]))
+	objects[base] = {"kind": "dropped", "key": "item:wood", "count": wood}
+	object_changed.emit(base)
+	_gain_xp(2)
+	_notify(player_id, "Timber! %d wood" % wood if kind != "stump" and kind != "log" else "%d wood" % wood)
+	return true
+
+
+## Cut-down trees grow back after a season, if their tiles are still clear.
+func _regrow_trees() -> void:
+	for at: Vector2i in felled.keys():
+		if TimeManager.day_index - int(felled[at]) < REGROW_DAYS:
+			continue
+		var tiles: Array = scenery_tiles(at)
+		if tiles.all(func(tile: Vector2i) -> bool: return not soil.has(tile) and not objects.has(tile)):
+			felled.erase(at)
+
+
 func _do_move_slot(from: int, to: int) -> bool:
 	var slots: Array = bag_slots()
 	if from < 0 or to < 0 or from >= slots.size() or to >= slots.size() or from == to or slots[from] == "":
@@ -2277,6 +2396,7 @@ func end_day(passed_out: bool) -> void:
 	var night_news: Array = _end_festival()
 	night_news.append_array(_tend_animals_overnight())
 	night_news.append_array(_grow_fruit_trees())
+	_regrow_trees()
 	night_news.append_array(_run_machines())
 	if wild_growth:
 		night_news.append_array(_crows())
@@ -2513,6 +2633,7 @@ func to_snapshot() -> Dictionary:
 		"hats_owned": hats_owned,
 		"outfits": outfits,
 		"objects": _keyed(objects),
+		"felled": _keyed(felled),
 		"xp": xp,
 		"wanted": wanted,
 		"animals": animals,
@@ -2544,6 +2665,18 @@ func apply_snapshot(data: Dictionary) -> void:
 		for k: String in src.get("caretakers", {}).keys():
 			p["caretakers"][k] = int(src["caretakers"][k])
 		plants[_cell(key)] = p
+	felled = {}
+	for key: String in data.get("felled", {}).keys():
+		if SCENERY.has(_cell(key)):
+			felled[_cell(key)] = int(data["felled"][key])
+	# Trees added since a garden was saved don't push out what grows or stands
+	# there: they start out cut down instead.
+	var saved_things: Dictionary = data.get("objects", {})
+	for at: Vector2i in SCENERY.keys():
+		var tiles: Array = scenery_tiles(at)
+		for tile: Vector2i in tiles:
+			if soil.has(tile) or saved_things.has(_key(tile)):
+				felled[at] = int(data.get("day_index", 0))
 	# Gardens saved before the tent or tree stood somewhere may have soil there.
 	for cell: Vector2i in soil.keys():
 		if is_blocked(cell):
@@ -2904,6 +3037,8 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 2 and args[0] is int and args[1] is int
 		"drop":
 			valid = args.size() == 2 and args[0] is String and _known(args[0]) and args[1] is Vector2i
+		"chop":
+			valid = args.size() == 1 and args[0] is Vector2i
 	if valid:
 		_apply(action, slot, args)
 
@@ -3006,6 +3141,18 @@ func _mirror_pet(cell: Vector2i) -> void:
 func _mirror_inventory() -> void:
 	if _mirroring():
 		_net_inventory.rpc(bags)
+
+
+func _mirror_scenery_hit(cell: Vector2i, did_fell: bool) -> void:
+	if _mirroring():
+		_net_scenery_hit.rpc(cell, did_fell, int(felled.get(cell, 0)))
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_scenery_hit(cell: Vector2i, did_fell: bool, day: int) -> void:
+	if did_fell:
+		felled[cell] = day
+	scenery_hit.emit(cell, did_fell)
 
 
 func _mirror_energy(player_id: int) -> void:

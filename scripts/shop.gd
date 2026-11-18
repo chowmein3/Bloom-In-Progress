@@ -235,7 +235,10 @@ func _fill_upgrades(kinds: Array) -> void:
 			house.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon = house
 		else:
-			icon = Ui.picture(_icons, Rect2(int({"hoe": 0, "can": 1, "pickaxe": 12}.get(kind, 0)) * 12, 0, 12, 12)) if kind != "greenhouse" else null
+			# The tool as it will look once bought.
+			var column: int = int({"hoe": 0, "can": 1, "pickaxe": 4}.get(kind, 0))
+			var tier: int = mini(level + 1, 2) if kind != "pickaxe" else 0
+			icon = Ui.picture(Assets.texture("res://assets/sprites/tools.png"), Rect2(column * 16, tier * 16, 16, 16)) if kind != "greenhouse" else null
 		if next.is_empty():
 			_row(icon, have, "The best there is. Nothing more to buy.", "", [])
 			continue

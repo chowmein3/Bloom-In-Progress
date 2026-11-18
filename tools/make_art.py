@@ -1041,34 +1041,6 @@ def make_farmyard():
             frames.append(c.finish())
         save(sheet(frames), "fruit_tree_%s.png" % fruit)
 
-    # scenery_<kind>.png: the land's own trees, bushes and boulders.
-    c = Canvas(32, 44)
-    c.rect(13, 26, 6, 16, rgb("#7a5234"))
-    c.ell(15.5, 15, 14, 12, rgb("#3f8f52"))
-    c.ell(8, 22, 7, 6, rgb("#3f8f52"))
-    c.ell(23, 22, 7, 6, rgb("#3f8f52"))
-    c.ell(11, 11, 5, 4, rgb("#57a868"))
-    save(c.finish(), "scenery_oak.png")
-    c = Canvas(32, 44)
-    c.rect(14, 34, 4, 8, rgb("#6b4630"))
-    c.tri(15.5, 2, 6, 12, rgb("#2f6f5a"))
-    c.tri(15.5, 10, 9, 13, rgb("#2f6f5a"))
-    c.tri(15.5, 20, 12, 15, rgb("#2f6f5a"))
-    save(c.finish(), "scenery_pine.png")
-    c = Canvas(16, 16)
-    c.ell(7.5, 10, 7, 5, rgb("#4f9e5a"))
-    c.ell(5, 7, 3.5, 3, rgb("#4f9e5a"))
-    c.ell(10.5, 6.5, 3.5, 3, rgb("#62b56a"))
-    for x, y in ((4, 10), (9, 9), (11, 12)):
-        c.dot(x, y, rgb("#e0605a"))
-    save(c.finish(), "scenery_bush.png")
-    c = Canvas(16, 16)
-    c.ell(7.5, 10, 7, 5.4, rgb("#8f8a9a"))
-    c.ell(5.5, 8, 3, 2, rgb("#aaa6b8"))
-    c.rect(8, 6, 5, 2, rgb("#5aa85a"))
-    c.rect(3, 12, 4, 1, rgb("#5aa85a"))
-    save(c.finish(), "scenery_boulder.png")
-
     def building(wall, roof, door, name):
         c = Canvas(48, 40)
         c.rect(5, 18, 38, 20, rgb(wall))
@@ -1561,8 +1533,16 @@ def make_icons():
         c.rect(3, 3, 2, 2, metal)
         c.rect(10, 3, 2, 3, metal)
 
+    def axe(c):
+        for i in range(9):  # the handle, bottom left to top right
+            c.rect(2 + i, 11 - i, 1, 1, wood)
+            c.rect(3 + i, 11 - i, 1, 1, shade(wood, 0.2))
+        c.rect(3, 1, 5, 4, metal)  # the head, its blade facing left
+        c.rect(2, 0, 2, 6, light(metal, 0.25))
+        c.rect(7, 2, 2, 2, shade(metal, 0.2))
+
     draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
-             lambda c: heart(c, rgb("#ff5d7a")), coin, rod, pickaxe]
+             lambda c: heart(c, rgb("#ff5d7a")), coin, rod, pickaxe, axe]
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 
@@ -1579,6 +1559,608 @@ def make_app_icon():
     tile.alpha_composite(flower, (8, 5))
     save(tile.resize((128, 128), Image.NEAREST), "icon.png")
 
+
+# ------------------------------------------------------------- scenery
+# assets/sprites/scenery/<kind>.png: the land's own trees, bushes, boulders,
+# stumps, logs and fences. Four frames left to right, one per season
+# (spring, summer, fall, winter); each stands on the bottom row, centred.
+#   oak, cherry 32x44   maple, pine 32x48   birch 24x46   apple 32x44
+#   bush, boulder, stump 16x16   log 32x16 (two tiles)   fence 16x16
+# assets/sprites/scenery/cliff.png: 16x40 pieces (8 rows of grassy lip, then
+#   a 32 row rock face), columns: face, face, left end, right end; one row per
+#   season.
+# assets/sprites/scenery/trail.png: 16x16 dirt trail pieces, column = which
+#   sides join another trail piece (1 up, 2 right, 4 down, 8 left), row =
+#   season.
+
+BARK = rgb("#7a5234")
+SNOW = rgb("#f4f8ff")
+
+
+def line(c, x0, y0, x1, y1, col, width=1):
+    steps = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
+    for i in range(steps + 1):
+        t = i / max(steps, 1)
+        x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+        c.rect(round(x - (width - 1) / 2), round(y), width, 1, col)
+
+
+def bare_branches(c, cx, base, top, spread, bark, snow):
+    """Winter: a trunk's branches with a little snow along their tops."""
+    line(c, cx, base, cx, top + 6, bark, 2)
+    for (dx, dy, ex, ey) in ((0, 0.55, -spread, 0.3), (0, 0.45, spread, 0.2), (0, 0.75, -spread * 0.7, 0.62),
+                             (0, 0.7, spread * 0.75, 0.55), (0, 0.3, -spread * 0.4, 0.05), (0, 0.3, spread * 0.45, 0.02)):
+        y0 = top + (base - top) * dy
+        y1 = top + (base - top) * ey
+        line(c, cx + dx, y0, cx + ex, y1, bark, 1)
+        if snow:
+            c.dot(round(cx + ex * 0.7), round(y0 + (y1 - y0) * 0.7) - 1, SNOW)
+            c.dot(round(cx + ex), round(y1) - 1, SNOW)
+
+
+def leafy(c, blobs, col, rng, spots=None, spot_n=0):
+    """A canopy built up from leaf clumps: a darker mass, then clumps that get
+    lighter towards the top, then spots (blossom, fruit or turning leaves)."""
+    for (x, y, rx, ry) in blobs:
+        c.ell(x, y, rx, ry, shade(col, 0.12))
+    top = min(y - ry for (x, y, rx, ry) in blobs)
+    bottom = max(y + ry for (x, y, rx, ry) in blobs)
+    clumps = []
+    for (x, y, rx, ry) in blobs:
+        for _ in range(int(rx * ry / 9) + 2):
+            a = rng.uniform(0, 6.283)
+            d = rng.uniform(0, 0.75)
+            clumps.append((x + math.cos(a) * rx * d, y + math.sin(a) * ry * d - 1, rng.uniform(2.6, 4.2)))
+    clumps.sort(key=lambda k: k[1])
+    for (x, y, r) in clumps:
+        if c.p[min(max(int(y), 0), c.h - 1)][min(max(int(x), 0), c.w - 1)] is None:
+            continue
+        height = (y - top) / max(bottom - top, 1)
+        tone = light(col, 0.16) if height < 0.35 else (col if height < 0.7 else shade(col, 0.06))
+        c.ell(x, y, r, r * 0.85, tone)
+    for _ in range(int(len(clumps) * 1.5)):  # leaf texture, stamped after shading
+        x, y = rng.randrange(c.w), rng.randrange(c.h)
+        if c.p[y][x] is not None and c.p[y][x] != BARK:
+            c.dot(x, y, light(c.p[y][x], 0.25) if rng.random() < 0.5 else shade(c.p[y][x], 0.2))
+    if spots:
+        placed, tries = 0, 0
+        while placed < spot_n and tries < 500:
+            tries += 1
+            x, y, rx, ry = blobs[rng.randrange(len(blobs))]
+            px, py = x + rng.uniform(-rx, rx) * 0.8, y + rng.uniform(-ry, ry) * 0.8
+            if 0 <= int(py) < c.h and 0 <= int(px) < c.w and c.p[int(py)][int(px)] is not None:
+                c.dot(px, py, rgb(spots[rng.randrange(len(spots))]))
+                placed += 1
+
+
+def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birch=False):
+    """Four frames of a leafy tree. `seasons` gives (leaf colour, spots,
+    count) for spring, summer and fall; winter is bare."""
+    frames = []
+    cx = (w - 1) / 2
+    for season in range(4):
+        rng = random.Random(name + str(season))
+        c = Canvas(w, h)
+        if season == 3:
+            bare_branches(c, cx, h - 2, blobs[0][1] - blobs[0][3], max(r[2] for r in blobs) * 0.9, bark, True)
+            c.rect(cx - trunk_w / 2 + 0.5, trunk, trunk_w, h - trunk - 1, bark)
+            if birch:
+                for y in range(trunk + 2, h - 2, 4):
+                    c.dot(cx - 1 + (y % 3), y, DARK)
+            # snow drifted at the foot
+            c.rect(cx - trunk_w / 2 - 1.5, h - 2, trunk_w + 4, 1, SNOW)
+        else:
+            # The trunk starts inside the canopy so the leaves sit on it.
+            canopy_bottom = max(y + ry for (x, y, rx, ry) in blobs)
+            top_of_trunk = min(trunk, canopy_bottom - 5)
+            c.rect(cx - trunk_w / 2 + 0.5, top_of_trunk, trunk_w, h - top_of_trunk - 1, bark)
+            c.rect(cx - trunk_w / 2 - 0.5, h - 2, trunk_w + 2, 1, bark)  # roots
+            leaf, spots, n = seasons[season]
+            leafy(c, blobs, rgb(leaf), rng, spots, n)
+            if birch:
+                for y in range(trunk + 2, h - 2, 4):
+                    c.dot(cx - 1 + (y % 3), y, DARK)
+        frames.append(c.finish())
+    return sheet(frames)
+
+
+def pine_frames(w, h):
+    frames = []
+    cx = (w - 1) / 2
+    for season in range(4):
+        c = Canvas(w, h)
+        c.rect(cx - 1.5, h - 12, 4, 11, rgb("#6b4630"))
+        green = rgb(["#3a7f62", "#2f6f5a", "#2f6a52", "#2c6250"][season])
+        tiers = ((3, 6, 13), (11, 9, 14), (21, 12, 15), (30, 15, 13))
+        for top, half, height in tiers:
+            c.tri(cx, top, half, height, green)
+        if season == 0:  # fresh light tips
+            for top, half, height in tiers:
+                c.dot(cx - half + 1, top + height - 1, light(green, 0.35))
+                c.dot(cx + half - 1, top + height - 1, light(green, 0.35))
+        if season == 3:  # snow on each tier
+            for top, half, height in tiers:
+                for x in range(int(cx - half * 0.7), int(cx + half * 0.7) + 1):
+                    y = top + int(height * 0.55 * (abs(x - cx) / max(half, 1)) + 1)
+                    c.dot(x, y, SNOW)
+                c.dot(cx, top, SNOW)
+        frames.append(c.finish())
+    return sheet(frames)
+
+
+def small_frames(w, h, draw):
+    return sheet([(lambda c: (draw(c, s), c)[1])(Canvas(w, h)).finish() for s in range(4)])
+
+
+def bush(c, season):
+    leaf = rgb(["#5fae5a", "#4f9e5a", "#b8763a", "#6a8a6a"][season])
+    c.ell(7.5, 10, 7, 5, leaf)
+    c.ell(5, 7, 3.5, 3, leaf)
+    c.ell(10.5, 6.5, 3.5, 3, light(leaf, 0.12))
+    spots = {0: ("#ffffff", "#ffd6e6"), 1: ("#e0443a", "#e0443a"), 2: ("#e8a33a", "#8a3a2a")}.get(season)
+    if spots:
+        for i, (x, y) in enumerate(((4, 10), (9, 9), (11, 12), (6, 6))):
+            c.dot(x, y, rgb(spots[i % 2]))
+    if season == 3:
+        c.ell(7.5, 5.5, 5, 1.8, SNOW, top_only=True)
+        c.rect(3, 6, 10, 1, SNOW)
+
+
+def boulder(c, season):
+    c.ell(7.5, 10, 7, 5.4, rgb("#8f8a9a"))
+    c.ell(5.5, 8, 3, 2, rgb("#aaa6b8"))
+    moss = rgb(["#6cbf5a", "#5aa85a", "#9a9a4a", "#f4f8ff"][season])
+    c.rect(8, 6, 5, 2, moss)
+    c.rect(3, 12, 4, 1, moss if season != 3 else rgb("#8f8a9a"))
+    if season == 3:
+        c.rect(4, 5, 8, 2, SNOW)
+
+
+def stump(c, season):
+    wood = rgb("#8a6044")
+    c.rect(3, 6, 10, 9, wood)
+    c.ell(7.5, 6, 5, 2.2, rgb("#d9b07a"))
+    c.dot(7, 6, rgb("#a07a50"))
+    c.dot(9, 5, rgb("#a07a50"))
+    c.rect(1, 14, 3, 1, wood)
+    c.rect(12, 14, 3, 1, wood)
+    if season == 3:
+        c.ell(7.5, 5.5, 5, 2, SNOW)
+    elif season == 2:
+        c.dot(4, 9, rgb("#e0603a"))  # a little mushroom
+        c.dot(4, 8, rgb("#e0603a"))
+
+
+def log(c, season):
+    wood = rgb("#7f5638")
+    c.rect(2, 7, 27, 7, wood)
+    c.ell(28, 10.5, 2.4, 3.6, rgb("#d9b07a"))
+    c.dot(28, 10, rgb("#a07a50"))
+    for x in (6, 13, 20):
+        c.rect(x, 9, 3, 1, shade(wood, 0.25))
+    c.rect(9, 5, 2, 2, wood)  # a broken branch
+    moss = {0: "#6cbf5a", 1: "#5aa85a", 2: "#a0903a"}.get(season)
+    if moss:
+        c.rect(4, 7, 6, 1, rgb(moss))
+        c.rect(16, 7, 4, 1, rgb(moss))
+    if season == 3:
+        c.rect(2, 6, 26, 2, SNOW)
+
+
+def fence(c, season):
+    wood = rgb("#9a6b45")
+    c.rect(0, 6, 16, 2, wood)
+    c.rect(0, 10, 16, 2, wood)
+    c.rect(1, 3, 3, 12, light(wood, 0.1))
+    c.rect(12, 3, 3, 12, light(wood, 0.1))
+    if season == 3:
+        c.rect(1, 2, 3, 1, SNOW)
+        c.rect(12, 2, 3, 1, SNOW)
+        c.rect(4, 5, 8, 1, SNOW)
+
+
+def cliff_piece(season, part):
+    """16x40: grassy lip (8 rows) over a 32 row face of rounded rocks."""
+    rng = random.Random("cliff%d%d" % (season, part))
+    rock = rgb("#9b8462")
+    crack = rgb("#5e4a3a")
+    face = [[crack] * 16 for _ in range(40)]
+    # rounded stones packed in rows, wrapping sideways so pieces join up
+    for row, y0 in enumerate(range(6, 40, 8)):
+        x0 = -rng.randrange(0, 8)
+        while x0 < 16:
+            w = rng.randrange(7, 11)
+            tone = mix(rock, rgb("#7d6a50"), rng.uniform(0, 0.6))
+            for y in range(y0, min(y0 + 8, 40)):
+                for x in range(x0, x0 + w):
+                    dx, dy = (x - x0 - (w - 1) / 2) / (w / 2), (y - y0 - 3.5) / 4
+                    if dx * dx + dy * dy <= 1.0:
+                        col = tone
+                        if dy < -0.45 or dx < -0.6:
+                            col = light(tone, 0.18)
+                        elif dy > 0.5 or dx > 0.65:
+                            col = shade(tone, 0.2)
+                        face[y][x % 16] = col
+            x0 += w
+    img = Image.new("RGBA", (16, 40), (0, 0, 0, 0))
+    for y in range(8, 40):
+        for x in range(16):
+            col = face[y][x]
+            if y >= 36:
+                col = shade(col, 0.18)  # the foot, in the cliff's shadow
+            img.putpixel((x, y), col + (255,))
+    lip = rgb(SEASON_GRASS[season]) if season != 3 else SNOW
+    for x in range(16):  # the grass lip hangs over the edge a little, unevenly
+        drop = 8 + (1 if math.sin(x * 1.3 + part) > 0.2 else 0) + (1 if x % 6 == 2 else 0)
+        for y in range(0, drop):
+            img.putpixel((x, y), lip + (255,))
+        img.putpixel((x, drop), shade(lip, 0.25) + (255,))
+    if season != 3:  # tufts and the odd hanging vine
+        for _ in range(3):
+            x = rng.randrange(1, 15)
+            img.putpixel((x, rng.randrange(1, 6)), shade(lip, 0.15) + (255,))
+        x = rng.randrange(2, 14)
+        for y in range(9, 9 + rng.randrange(2, 6)):
+            img.putpixel((x, y), shade(rgb(SEASON_GRASS[season]), 0.25) + (255,))
+    if part in (2, 3):  # an end: the cliff's side curves away
+        for y in range(40):
+            for k in range(0, max(0, 7 - y // 6)):
+                x = k if part == 2 else 15 - k
+                img.putpixel((x, y), (0, 0, 0, 0))
+    return img
+
+
+def trail_piece(season, mask):
+    """Dirt with soft, slightly wavy edges on the sides that don't join
+    another trail piece."""
+    rng = random.Random("trail%d%d" % (season, mask))
+    dirt = rgb(["#c9a26a", "#c49a62", "#b48a58", "#d8cfc8"][season])
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    up, right, down, left = mask & 1, mask & 2, mask & 4, mask & 8
+    wobble = [2 + (1 if math.sin(i * 1.7 + mask) > 0.4 else 0) for i in range(16)]
+    for y in range(16):
+        for x in range(16):
+            if (not up and y < wobble[x]) or (not down and 15 - y < wobble[x]):
+                continue
+            if (not left and x < wobble[y]) or (not right and 15 - x < wobble[y]):
+                continue
+            # round the outside corners
+            corner = None
+            if not up and not left:
+                corner = (4.5, 4.5) if x < 5 and y < 5 else None
+            if not up and not right and x > 10 and y < 5:
+                corner = (10.5, 4.5)
+            if not down and not left and x < 5 and y > 10:
+                corner = (4.5, 10.5)
+            if not down and not right and x > 10 and y > 10:
+                corner = (10.5, 10.5)
+            if corner and ((x - corner[0]) ** 2 + (y - corner[1]) ** 2) ** 0.5 > 3.2:
+                continue
+            col = dirt
+            if rng.random() < 0.08:
+                col = shade(dirt, 0.1)
+            elif rng.random() < 0.05:
+                col = light(dirt, 0.12)
+            img.putpixel((x, y), col + (255,))
+    # a darker rim where the dirt meets the grass
+    for y in range(16):
+        for x in range(16):
+            if img.getpixel((x, y))[3] == 0:
+                continue
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < 16 and 0 <= ny < 16 and img.getpixel((nx, ny))[3] == 0:
+                    img.putpixel((x, y), shade(dirt, 0.18) + (255,))
+                    break
+    if rng.random() < 0.6:
+        x, y = rng.randrange(5, 11), rng.randrange(5, 11)
+        img.putpixel((x, y), rgb("#a09888") + (255,))
+    return img
+
+
+def make_scenery():
+    trees = {
+        "oak": broadleaf(32, 44, 28, [(15.5, 15, 14, 12), (8, 22, 7, 6), (23, 22, 7, 6)],
+                         [("#5fb86a", ("#ffffff", "#ffe0ec"), 9), ("#3f8f52", None, 0), ("#d98a2b", ("#c4572f", "#f0b040"), 16)], name="oak"),
+        "maple": broadleaf(32, 48, 32, [(15.5, 14, 11, 10), (7, 21, 7, 7), (24, 21, 7, 7), (15.5, 25, 10, 7)],
+                           [("#78c45a", None, 0), ("#4c9a3e", None, 0), ("#d8402e", ("#f06a2a", "#a82a2a"), 18)], name="maple"),
+        "birch": broadleaf(24, 46, 22, [(11.5, 14, 8, 11), (6.5, 21, 5, 6), (16.5, 21, 5, 6)],
+                           [("#9ad46a", None, 0), ("#6cb04a", None, 0), ("#f0c040", ("#e8a030",), 10)],
+                           bark=rgb("#ece6dc"), name="birch", trunk_w=3, birch=True),
+        "cherry": broadleaf(32, 44, 29, [(15.5, 15, 14, 10), (7, 20, 7, 6), (24, 20, 7, 6)],
+                            [("#f4a6c8", ("#ffffff", "#e87aa8"), 14), ("#4f9e5a", None, 0), ("#e08a3a", ("#c4572f",), 10)],
+                            bark=rgb("#6e4a3a"), name="cherry"),
+        "apple": broadleaf(32, 44, 28, [(15.5, 16, 13, 11), (8, 22, 6, 5), (23, 22, 6, 5)],
+                           [("#6cbf5a", ("#ffffff",), 10), ("#4a9a48", ("#e0443a",), 8), ("#b0a03a", ("#e0443a", "#d9822b"), 10)], name="apple"),
+        "pine": pine_frames(32, 48),
+    }
+    for kind, img in trees.items():
+        save(img, "scenery", kind + ".png")
+    for kind, (w, draw) in {"bush": (16, bush), "boulder": (16, boulder), "stump": (16, stump), "log": (32, log), "fence": (16, fence)}.items():
+        save(small_frames(w, 16, draw), "scenery", kind + ".png")
+    cliff = Image.new("RGBA", (64, 160), (0, 0, 0, 0))
+    for season in range(4):
+        for part in range(4):
+            cliff.paste(cliff_piece(season, part), (part * 16, season * 40))
+    save(cliff, "scenery", "cliff.png")
+    trail = Image.new("RGBA", (256, 64), (0, 0, 0, 0))
+    for season in range(4):
+        for mask in range(16):
+            trail.paste(trail_piece(season, mask), (mask * 16, season * 16))
+    save(trail, "scenery", "trail.png")
+
+# ---------------------------------------------------------------- tools
+# assets/sprites/tools.png: 16x16 tools for the tool bar. Columns: hoe,
+# watering can, seed bag, fishing rod, pickaxe, axe. Rows: upgrade tier
+# (0 plain, 1 copper, 2 gold): the hoe and can change colour as they are
+# upgraded; the others only use row 0. The handle's grip is at (3, 13).
+# assets/sprites/tools_held.png: the same tools at 12x12, as held in the
+# player's hands (in proportion to the characters); grip at (3, 9).
+
+TOOL_TIERS = [  # metal (light, mid, dark), can body (light, mid, dark)
+    (("#e8ecf4", "#b4bccb", "#7c8598"), ("#9cd0f5", "#5aa0e0", "#3a70b0")),
+    (("#f6c49a", "#d9874e", "#9a5530"), ("#f6c49a", "#d9874e", "#9a5530")),
+    (("#fff2a8", "#f2c24a", "#b8862a"), ("#fff2a8", "#f2c24a", "#b8862a")),
+]
+
+
+def tool_picture(fill, size=16):
+    """`fill` is {(x, y): colour}; adds the dark outline round it."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    for (x, y), col in fill.items():
+        if 0 <= x < size and 0 <= y < size:
+            img.putpixel((x, y), col + (255,))
+    for y in range(size):
+        for x in range(size):
+            if (x, y) in fill:
+                continue
+            if any((x + dx, y + dy) in fill for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                img.putpixel((x, y), OUTLINE)
+    return img
+
+
+# The tools are placed pixel by pixel, at both sizes, so they stay crisp and
+# the big and small versions match. Fills only; the outline is added round
+# every shape. Letters:
+#   W w  handle light / dark (the same handle on the hoe, pickaxe and axe)
+#   M m n  metal light / mid / dark (recoloured for copper and gold)
+#   B b c  can body light / mid / dark (recoloured for copper and gold)
+#   S s t  sack light / mid / dark, r tie, g sprout
+#   y cork, R rod, l fishing line, p float red, x float white
+# The handle, identical on the hoe, pickaxe and axe: two pixels wide, from
+# the grip at the bottom left up to its tip, where each head is fixed.
+HANDLE16 = [(9, 6), (8, 7), (7, 8), (6, 9), (5, 10), (4, 11), (3, 12), (2, 13)]
+HANDLE12 = [(6, 5), (5, 6), (4, 7), (3, 8), (2, 9)]
+
+TOOLS16 = {
+    "hoe": [  # a collar round the handle's tip and a broad blade hanging from it
+        "................",
+        "................",
+        "................",
+        "..........nnn...",
+        "..........nnMmn.",
+        "..........nnMmn.",
+        "...........nMmn.",
+        "............Mmn.",
+        "............Mmn.",
+        "............MMM.",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+    ],
+    "pickaxe": [  # a crescent across the handle's tip, two points curving down
+        "................",
+        "................",
+        ".......MMM......",
+        "......MmmmM.....",
+        ".....m....mM....",
+        "..........nmM...",
+        "............mM..",
+        "............mM..",
+        "............mM..",
+        "............M...",
+        "...........m....",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+    ],
+    "axe": [  # an eye round the handle and a blade flaring out to its edge
+        "................",
+        "................",
+        "................",
+        ".............MM.",
+        "..........nnMmM.",
+        "..........nnmmM.",
+        "...........nmmM.",
+        "............mmM.",
+        ".............mM.",
+        ".............MM.",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+    ],
+    "can": [
+        "................",
+        "................",
+        "................",
+        ".....cccc.......",
+        "....c....c......",
+        "....c....c......",
+        "...cccccccc..BB.",
+        "...Bbbbbbbb..bB.",
+        "...Bbbbbbbb.bb..",
+        "...Bccccccccb...",
+        "...Bbbbbbbb.....",
+        "...Bbbbbbbb.....",
+        "....cccccc......",
+        "................",
+        "................",
+        "................",
+    ],
+    "seeds": [
+        "................",
+        "................",
+        "......SSSS......",
+        "......SSSS......",
+        ".....rrrrrr.....",
+        ".....Sssssss....",
+        "....Sssssssss...",
+        "...Ssssssssss...",
+        "...Sssssgsgsss..",
+        "...Sssssssgsst..",
+        "...ssssssgssst..",
+        "....sssssssst...",
+        ".....tttttttt...",
+        "................",
+        "................",
+        "................",
+    ],
+    "rod": [
+        "................",
+        "................",
+        ".............R..",
+        "............R.l.",
+        "...........R..l.",
+        "..........R...l.",
+        ".........R....l.",
+        "........R.....l.",
+        ".......R......p.",
+        "......R.......x.",
+        ".....R..........",
+        "....R...........",
+        "...ynn..........",
+        "..yy............",
+        "................",
+        "................",
+    ],
+}
+
+TOOLS12 = {
+    "hoe": [
+        "............",
+        "............",
+        ".......nn...",
+        ".......nnMm.",
+        ".......nnMm.",
+        "........nMm.",
+        ".........Mm.",
+        ".........MM.",
+        "............",
+        "............",
+        "............",
+        "............",
+    ],
+    "pickaxe": [
+        "............",
+        "............",
+        ".....MMM....",
+        "....m.mmM...",
+        ".......nmM..",
+        "........mM..",
+        ".........M..",
+        "........m...",
+        "............",
+        "............",
+        "............",
+        "............",
+    ],
+    "axe": [
+        "............",
+        "............",
+        ".........MM.",
+        ".......nnmM.",
+        ".......nnmM.",
+        "........nmM.",
+        ".........mM.",
+        ".........MM.",
+        "............",
+        "............",
+        "............",
+        "............",
+    ],
+    "can": [
+        "............",
+        "............",
+        "...ccc......",
+        "..c...c.....",
+        ".ccccccc.BB.",
+        ".Bbbbbbb.bB.",
+        ".Bccccccb...",
+        ".Bbbbbbb....",
+        "..cccccc....",
+        "............",
+        "............",
+        "............",
+    ],
+    "seeds": [
+        "............",
+        "....SSS.....",
+        "....SSS.....",
+        "...rrrrr....",
+        "...Sssssss..",
+        "..Sssssssss.",
+        "..Sssgsgsst.",
+        "..ssssgssst.",
+        "...ssssssst.",
+        "....tttttt..",
+        "............",
+        "............",
+    ],
+    "rod": [
+        "............",
+        ".........R..",
+        "........R.l.",
+        ".......R..l.",
+        "......R...l.",
+        ".....R....p.",
+        "....R.....x.",
+        "...R........",
+        "..ynn.......",
+        ".yy.........",
+        "............",
+        "............",
+    ],
+}
+
+TOOL_ORDER = ["hoe", "can", "seeds", "rod", "pickaxe", "axe"]
+LONG_TOOLS = {"hoe", "pickaxe", "axe"}  # these three share the handle
+TOOL_COLOURS = {"W": "#c9955e", "w": "#8a5e38", "S": "#f0d29c", "s": "#d9b47a", "t": "#a8824e", "r": "#c9644a",
+                "g": "#4da355", "y": "#e0b878", "R": "#9a6a42", "l": "#dfe6f0", "p": "#e0605a", "x": "#ffffff"}
+
+
+def tool_from_pixels(rows, handle, metal, body):
+    colours = dict(TOOL_COLOURS)
+    colours.update(dict(zip("Mmn", metal)))
+    colours.update(dict(zip("Bbc", body)))
+    fill = {}
+    for x, y in handle or []:
+        fill[(x, y)] = rgb(colours["W"])
+        fill[(x + 1, y)] = rgb(colours["w"])
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                fill[(x, y)] = rgb(colours[ch])
+    return tool_picture(fill, len(rows))
+
+
+def make_tools():
+    sheet_img = Image.new("RGBA", (16 * 6, 16 * 3), (0, 0, 0, 0))
+    held_img = Image.new("RGBA", (12 * 6, 12 * 3), (0, 0, 0, 0))
+    for tier, (metal, body) in enumerate(TOOL_TIERS):
+        for col, name in enumerate(TOOL_ORDER):
+            long_tool = name in LONG_TOOLS
+            sheet_img.paste(tool_from_pixels(TOOLS16[name], HANDLE16 if long_tool else None, metal, body), (col * 16, tier * 16))
+            held_img.paste(tool_from_pixels(TOOLS12[name], HANDLE12 if long_tool else None, metal, body), (col * 12, tier * 12))
+    save(sheet_img, "tools.png")
+    save(held_img, "tools_held.png")
 
 if __name__ == "__main__":
     make_app_icon()
@@ -1597,4 +2179,6 @@ if __name__ == "__main__":
     make_farmyard()
     make_items()
     make_tree()
+    make_scenery()
+    make_tools()
     print("sprites written to", os.path.normpath(OUT))

@@ -100,7 +100,7 @@ func _ready() -> void:
 	TimeManager.minutes = 17 * 60 + 30
 	TimeManager.time_changed.emit()
 	GameState.state_reloaded.emit()
-	for spot: Vector2 in [Vector2(14, 5), Vector2(3, 3), Vector2(34, 21)]:
+	for spot: Vector2 in [Vector2(14, 5), Vector2(3, 3), Vector2(34, 21), Vector2(9, 21)]:
 		player.position = spot * 16.0 + Vector2(8, 8)
 		await _wait(1.5)
 		await _shot("7_festival_%d_%d" % [int(spot.x), int(spot.y)])

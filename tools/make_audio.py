@@ -119,6 +119,18 @@ def make_effects():
     save("grow", sequence(["G5", "C6", "E6", "G6", "C7"], 0.09, 1.0, 4, BELL), 0.55)
     save("page", noise(0.16, 16, 3), 0.3)
     save("step", noise(0.05, 60, 10) * 1.5, 0.22)
+    # An axe biting wood: a sharp knock with a hollow, woody body.
+    chop = noise(0.16, 38, 3) * 1.4
+    knock = tone(hz("D3"), 0.16, 26, ((1, 1.0), (2.7, 0.35)))
+    chop[:len(knock)] += knock
+    save("chop", chop, 0.7)
+    # A tree coming down: a creak sliding down, then a heavy thud and rustle.
+    fall = np.zeros(int(1.3 * RATE))
+    creak = sweep(420, 160, 0.55, 2) * (0.6 + 0.4 * np.sin(np.arange(int(0.55 * RATE)) / RATE * 2 * np.pi * 24))
+    fall[:len(creak)] += creak * 0.5
+    thud = tone(hz("C2"), 0.6, 9, SOFT) + noise(0.6, 8, 6) * 0.9
+    fall[int(0.6 * RATE):int(0.6 * RATE) + len(thud)] += thud
+    save("timber", fall, 0.8)
     # The clock tower bending time: a bell, clockwork ticking faster and
     # faster under a rising whoosh, a crash, then a small "ta-da".
     warp = np.zeros(int(3.9 * RATE))

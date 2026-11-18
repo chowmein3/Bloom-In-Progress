@@ -86,6 +86,9 @@ func _run_host() -> void:
 	GameState.request_sell(HOST, "sunpuff", 2)
 	_expect(GameState.coins == 160 and int(GameState.bag_of(GUEST)["coins"]) == GameState.START_COINS, "the host's sale pays only the host")
 	_expect(GameState.request_drop(HOST, "item:stone", DROP_CELL) and GameState.item_count("stone") == 0, "the host drops their stone for the guest")
+	for swing in 3:
+		GameState.request_chop(HOST, Vector2i(30, 2))
+	_expect(GameState.felled.has(Vector2i(30, 2)) and GameState.object_kind(Vector2i(30, 2)) == "dropped", "the host cuts down an oak")
 
 	_expect(await _until(func() -> bool: return GameState.plants.has(GUEST_CELL), 10.0), "guest's planting reaches the host")
 	_expect(await _until(func() -> bool: return Net.names.get(GUEST, "") == "Guest Tester", 10.0), "host learns the guest's name")
@@ -174,6 +177,7 @@ func _after_join() -> void:
 	_expect(await _until(func() -> bool: return GameState.item_count("path") == 1, 10.0), "guest crafts a stepping stone")
 	GameState.request_place(GUEST, Vector2i(3, 14), "path")
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "and places it in the garden")
+	_expect(await _until(func() -> bool: return GameState.scenery_at(Vector2i(30, 2)) == "" and GameState.object_kind(Vector2i(30, 2)) == "dropped", 10.0), "guest sees the host's oak come down, leaving wood")
 	_expect(await _until(func() -> bool: return Net.names.get(HOST, "") == "Host Tester", 10.0), "guest learns the host's name")
 	Net.send_emote(1)
 	Net.send_chat("hello from the guest")
