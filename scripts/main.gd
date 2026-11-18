@@ -54,6 +54,8 @@ var _weather: CanvasLayer
 var _entities: Node2D
 var _views: Dictionary = {}  # Vector2i -> PlantView
 var _things: Dictionary = {}  # Vector2i -> ObjectView
+var _scenery: Dictionary = {}  # SCENERY tile -> SceneryView, for standing ones
+var _wood_ready: Dictionary = {}  # tile -> time (ms) a falling tree lands there
 var _flats: Node2D
 var _mine: Node2D
 var _coop: Sprite2D
@@ -116,12 +118,10 @@ func _ready() -> void:
 	add_child(FestivalView.new())
 	# The land's own trees, bushes and boulders, then the woods, cliff and
 	# fence all round the edge.
-	for at: Vector2i in GameState.SCENERY.keys():
-		var standing := SceneryView.new()
-		standing.kind = GameState.SCENERY[at]
-		standing.position = Vector2(at * TILE) + Vector2(8, 16)
-		standing.flip_h = hash(at) % 2 == 0 and standing.kind != "log"
-		_entities.add_child(standing)
+	_sync_scenery()
+	GameState.state_reloaded.connect(_sync_scenery)
+	GameState.day_advanced.connect(func(_summary: Dictionary) -> void: _sync_scenery())
+	GameState.scenery_hit.connect(_on_scenery_hit)
 	BorderView.decorate(_entities)
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
@@ -470,6 +470,57 @@ func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool, t
 		remote_players[slot].call("remote_update", pos, facing, moving, tool, swings)
 
 
+## Shows the garden's own trees, stumps and logs that are standing (cut-down
+## ones grow back overnight after a season).
+func _sync_scenery() -> void:
+	for at: Vector2i in GameState.SCENERY.keys():
+		var standing: bool = not GameState.felled.has(at)
+		if standing and not _scenery.has(at):
+			var view := SceneryView.new()
+			view.kind = GameState.SCENERY[at]
+			view.position = Vector2(at * TILE) + Vector2(8, 16)
+			view.flip_h = hash(at) % 2 == 0 and view.kind != "log"
+			_entities.add_child(view)
+			_scenery[at] = view
+		elif not standing and _scenery.has(at):
+			_scenery[at].queue_free()
+			_scenery.erase(at)
+
+
+## An axe swing: the tree shakes, or on the last swing falls away from
+## whoever is nearest and the wood it leaves pops up once it has landed.
+func _on_scenery_hit(cell: Vector2i, felled: bool) -> void:
+	if not _scenery.has(cell):
+		return
+	var view: Node2D = _scenery[cell]
+	if not felled:
+		view.call("shake")
+		Sound.play("chop")
+		return
+	_scenery.erase(cell)
+	var nearest: Node2D = player
+	for other: Node2D in remote_players.values():
+		if other.position.distance_to(view.position) < nearest.position.distance_to(view.position):
+			nearest = other
+	var landing: float = view.call("fall", nearest.position.x <= view.position.x)
+	_wood_ready[cell] = Time.get_ticks_msec() + int(landing * 1000.0)
+	Sound.play("chop")
+	Sound.play("timber")
+	if _things.has(cell):  # the wood got here before the tree finished falling
+		_hold_back(_things[cell], landing)
+
+
+## Keeps something hidden until `delay` seconds have passed, then pops it in.
+func _hold_back(thing: Node2D, delay: float) -> void:
+	thing.modulate.a = 0.0
+	thing.scale = Vector2(0.5, 0.5)
+	var tween: Tween = thing.create_tween()
+	tween.tween_interval(delay)
+	tween.tween_property(thing, "modulate:a", 1.0, 0.12)
+	tween.parallel().tween_property(thing, "scale", Vector2(1.15, 1.15), 0.12)
+	tween.tween_property(thing, "scale", Vector2.ONE, 0.1)
+
+
 ## A building sprite standing on `rect`, sorted with the players.
 func _standing(path: String, rect: Rect2i, offset: Vector2) -> Sprite2D:
 	var sprite := Sprite2D.new()
@@ -564,6 +615,9 @@ func _refresh_thing(cell: Vector2i) -> void:
 	var thing := ObjectView.new()
 	thing.kind = kind
 	thing.position = Vector2(cell * TILE) + Vector2(8, 16)
+	var waiting: int = int(_wood_ready.get(cell, 0)) - Time.get_ticks_msec()
+	if waiting > 0:  # wood from a tree still falling: show it once it lands
+		_hold_back(thing, waiting / 1000.0)
 	if bool(GameState.ITEMS.get(kind, {}).get("flat", false)):
 		_flats.add_child(thing)
 	else:
@@ -639,10 +693,10 @@ func _setup_input() -> void:
 	_bind("toggle_music", [KEY_N])
 	_bind("toggle_map", [KEY_M])
 	_bind("close", [KEY_ESCAPE])
-	for i in 6:
+	for i in 7:
 		_bind("tool_%d" % (i + 1), [KEY_1 + i])
 	for i in 4:
-		_bind("quick_%d" % (i + 1), [[KEY_7, KEY_8, KEY_9, KEY_0][i]])
+		_bind("quick_%d" % (i + 1), [[KEY_8, KEY_9, KEY_0, KEY_MINUS][i]])
 
 
 func _bind_mouse(action: String, button: MouseButton) -> void:

@@ -774,11 +774,48 @@ func _ready() -> void:
 	print("the bigger garden")
 	check(GameState.WORLD_SIZE == Vector2i(40, 26) and GameState.in_bounds(Vector2i(39, 25)), "the garden is 40 by 26 tiles")
 	check(not GameState.can_walk(Vector2i(30, 2)) and not GameState.request_till(P, Vector2i(30, 2)), "trees stand in the new land and can't be dug up")
-	var crowded: bool = false
+	var clear: bool = true
 	for at: Vector2i in GameState.SCENERY.keys():
-		if at.x < 28 and at.y < 18:
-			crowded = true
-	check(not crowded, "none of them are in the old garden, so existing plots are untouched")
+		for tile: Vector2i in GameState.scenery_tiles(at):
+			if GameState.TRAILS.has(tile) or GameState.is_pond(tile) or GameState.YARD.has_point(tile) or GameState.ANIMAL_YARD.has_point(tile) \
+					or GameState.GREENHOUSE_RECT.has_point(tile) or GameState.is_tree(tile) or tile == GameState.VISITOR_CELL or not GameState.in_bounds(tile):
+				clear = false
+	check(clear, "trees and rocks stay clear of the trails, the pond, the yards and the greenhouse")
+
+	print("cutting trees down")
+	var oak := Vector2i(19, 9)
+	GameState.energy[P] = 100
+	check(GameState.scenery_at(oak) == "oak" and GameState.can_chop(oak) and not GameState.can_walk(oak), "an oak stands in the garden")
+	var hits: Array = []
+	GameState.scenery_hit.connect(func(cell: Vector2i, down: bool) -> void: hits.append([cell, down]))
+	check(GameState.request_chop(P, oak) and GameState.request_chop(P, oak) and GameState.scenery_at(oak) == "oak", "two swings aren't enough")
+	check(GameState.get_energy(P) == 100 - 2 * GameState.COST_CHOP, "each swing costs energy")
+	check(GameState.request_chop(P, oak) and GameState.scenery_at(oak) == "" and GameState.felled.has(oak), "the third brings it down")
+	check(hits == [[oak, false], [oak, false], [oak, true]], "every swing is announced, the last as the fall")
+	var stack: Dictionary = GameState.objects.get(oak, {})
+	check(str(stack.get("kind", "")) == "dropped" and str(stack.get("key", "")) == "item:wood" and int(stack.get("count", 0)) >= 6, "it leaves a stack of wood where it stood")
+	check(GameState.can_walk(oak), "and the tile can be walked on")
+	var wood_before: int = GameState.item_count("wood")
+	check(GameState.request_harvest(P, oak) and GameState.item_count("wood") > wood_before and not GameState.objects.has(oak), "the wood is picked up")
+	check(not GameState.can_chop(Vector2i(36, 6)) and not GameState.request_chop(P, Vector2i(36, 6)), "boulders can't be chopped")
+	check(not GameState.request_chop(P, Vector2i(5, 9)), "nor can open ground")
+	var log_tail := Vector2i(30, 16)
+	check(GameState.request_chop(P, log_tail) and GameState.request_chop(P, log_tail) and GameState.scenery_at(Vector2i(29, 16)) == "" and GameState.object_kind(Vector2i(29, 16)) == "dropped", "a log breaks up from either end, its wood on its first tile")
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(GameState.felled.has(oak) and GameState.scenery_at(oak) == "", "cut-down trees stay down after save and load")
+	TimeManager.day_index += GameState.REGROW_DAYS
+	GameState.request_till(P, Vector2i(29, 16))
+	GameState.end_day(false)
+	check(GameState.scenery_at(oak) == "oak", "a season later the oak has grown back")
+	check(GameState.felled.has(Vector2i(29, 16)), "but not where the ground has been dug")
+	var old_save: Dictionary = GameState.to_snapshot()
+	old_save.erase("felled")
+	old_save["soil"]["%d,%d" % [oak.x, oak.y]] = {"watered": false}
+	GameState.apply_snapshot(old_save)
+	check(GameState.soil.has(oak) and GameState.felled.has(oak), "in a garden saved before a tree was added, the soil there stays and the tree starts cut down")
+	GameState.new_game()
 	check(GameState.scenery_at(Vector2i(30, 16)) == "log" and not GameState.can_walk(Vector2i(30, 16)) and GameState.can_walk(Vector2i(31, 16)), "a fallen log blocks both its tiles and no more")
 	var crown := Vector2i(GameState.TREE_RECT.position.x, GameState.TREE_RECT.position.y)
 	var trunk := Vector2i(GameState.TREE_RECT.position.x, GameState.TREE_RECT.end.y - 1)

@@ -115,12 +115,18 @@ static func _edge(layer: Node2D, rng: RandomNumberGenerator, from: Vector2, to: 
 		across = Vector2(0, 1)  # rows across the screen: "toward" is up or down
 	var length: float = from.distance_to(to)
 	var d: float = rng.randf_range(0.0, 10.0)
+	var phase: float = rng.randf_range(0.0, TAU)
 	while d < length:
-		var at: Vector2 = (from + along * d + across * rng.randf_range(-3.0, 3.0)).round()
+		# The row wanders in and out (a slow wave plus a random step), and every
+		# so often a tree stands a little further back, so it never reads as a line.
+		var wander: float = 6.0 * sin(d * 0.045 + phase) + rng.randf_range(-5.0, 5.0)
+		if rng.randf() < 0.3:
+			wander -= absf(toward) * 2.5 * signf(toward) if toward != 0.0 else 8.0
+		var at: Vector2 = (from + along * d + across * wander).round()
 		if not _on_trail(at):
 			_add(layer, _pick(rng, weights), at, rng.randf() < 0.5, _tint(rng))
-		var gap: float = rng.randf_range(15.0, 21.0)
-		var between: Vector2 = (from + along * (d + gap / 2.0) + across * toward).round()
+		var gap: float = rng.randf_range(12.0, 24.0)
+		var between: Vector2 = (from + along * (d + gap / 2.0) + across * (toward + wander * 0.5 + rng.randf_range(-3.0, 3.0))).round()
 		if rng.randf() < 0.8 and not _on_trail(between):
 			_add(layer, ["bush", "bush", "bush", "boulder", "stump"][rng.randi_range(0, 4)], between, rng.randf() < 0.5, Color.WHITE)
 		d += gap

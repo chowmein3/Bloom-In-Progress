@@ -4,7 +4,7 @@ extends Node
 
 const Assets := preload("res://scripts/assets.gd")
 
-const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page", "warp", "step"]
+const EFFECTS: Array[String] = ["soil", "water", "plant", "pet", "pick", "morning", "grow", "page", "warp", "step", "chop", "timber"]
 const MUSIC_DB := -16.0
 const EFFECT_DB := -8.0
 

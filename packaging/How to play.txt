@@ -39,7 +39,8 @@ KEYS
   Shift (hold)   run             J    journal (plants, goals, fish)
   Space / click  use held tool   M    map on/off
   F / right click  use hand      N    music on/off
-  1-6            choose tool     H    help card
+  1-7            choose tool     H    help card
+  8 9 0 -        hot bar
   Q              change seed     Esc  pause menu
 
   Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod,
@@ -62,12 +63,15 @@ GOOD TO KNOW
            one to hold it, press 4, then Space to set it down.
   Cooking: with the Cabin's stove, the Kitchen tab turns harvest into
            meals. Hold one (4) and press Space to eat it for energy.
+  Axe:     press 7 and Space at a tree, stump or log in the garden. A
+           tree takes three swings, falls over and leaves wood to pick up.
+           It grows back after a season.
   Baking:  buy an oven from Bristle, set it down at home and press F
            at it. Grow wheat (mill it into flour in the Kitchen tab)
            and apple or banana trees; buy sugar, butter and cinnamon
            from the stall's Pantry tab.
   Backpack: each player has their own coins and things. Drag a stack
-           to move it, or onto the hot bar row (keys 7, 8, 9, 0). Drag
+           to move it, or onto the hot bar row (keys 8, 9, 0, -). Drag
            it out of the backpack to drop it; walk over it to pick it up.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or

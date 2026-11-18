@@ -47,7 +47,11 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   (`busy`, `ready`).
 - `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
-  (each blocks its base tile, a log two; use `scenery_at(cell)`), drawn by
+  (each blocks its base tile, a log two; use `scenery_at(cell)`, which is ""
+  once cut down). Trees, stumps and logs are cut with `request_chop`
+  (`CHOP` table, `felled` saved, regrow after `REGROW_DAYS`); each swing
+  emits `scenery_hit(cell, felled)`, mirrored to guests, which main.gd turns
+  into the shake and fall animations (`scenery_view.gd`), drawn by
   `scenery_view.gd` from `assets/sprites/scenery/<kind>.png` (one frame per
   season). `border_view.gd` draws the land past the edge (the same grass,
   the cliff along the top, trails from `GameState.TRAILS`) and `decorate()`
@@ -90,7 +94,8 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   test digs. Keep that line in any new test.
 - The date and time jump only through `request_set_time` (never by editing
   `TimeManager` from a screen), so guests stay in step.
-- Tools are hoe, can, seeds, item, rod, pickaxe (`Player.TOOLS`). Anything that needs
+- Tools are hoe, can, seeds, item, rod, pickaxe, axe (`Player.TOOLS`, keys
+  1-7; the hot bar is 8, 9, 0, -). Anything that needs
   no tool goes through `Player.hand_action()` / `use_hand()`; `use_tool()`
   falls back to the hand when the tool has nothing to do. Don't add tools for
   hand jobs.

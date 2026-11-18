@@ -1533,8 +1533,16 @@ def make_icons():
         c.rect(3, 3, 2, 2, metal)
         c.rect(10, 3, 2, 3, metal)
 
+    def axe(c):
+        for i in range(9):  # the handle, bottom left to top right
+            c.rect(2 + i, 11 - i, 1, 1, wood)
+            c.rect(3 + i, 11 - i, 1, 1, shade(wood, 0.2))
+        c.rect(3, 1, 5, 4, metal)  # the head, its blade facing left
+        c.rect(2, 0, 2, 6, light(metal, 0.25))
+        c.rect(7, 2, 2, 2, shade(metal, 0.2))
+
     draws = [hoe, can, seeds, heart, basket, sunny, lambda c: cloudy(c, blue), lambda c: cloudy(c, WHITE), moon,
-             lambda c: heart(c, rgb("#ff5d7a")), coin, rod, pickaxe]
+             lambda c: heart(c, rgb("#ff5d7a")), coin, rod, pickaxe, axe]
     save(sheet([icon(d) for d in draws]), "ui_icons.png")
 
 

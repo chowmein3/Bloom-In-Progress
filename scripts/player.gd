@@ -26,8 +26,9 @@ const TILE := 16
 const SPEED := 64.0
 const SPRINT := 1.75  # times faster while Shift is held
 const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
-const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod", "Pickaxe"]
+const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod", "Pickaxe", "Axe"]
 const PICK_TOOL := 5
+const AXE_TOOL := 6
 const ITEM_TOOL := 3  # the slot that holds something from the backpack
 const ROD_TOOL := 4
 ## Points around the feet that must all be on walkable tiles.
@@ -246,8 +247,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			cycle_seed()
 	elif event.is_action_pressed("cycle_tool"):
-		var count: int = TOOLS.size() if GameState.upgrade_level("pickaxe") > 0 else TOOLS.size() - 1
-		select_tool((tool_index + 1) % count)
+		var next: int = (tool_index + 1) % TOOLS.size()
+		if next == PICK_TOOL and GameState.upgrade_level("pickaxe") < 1:
+			next = (next + 1) % TOOLS.size()  # skip the pickaxe until one is bought
+		select_tool(next)
 	else:
 		for i in TOOLS.size():
 			if event.is_action_pressed("tool_%d" % (i + 1)):
@@ -477,12 +480,18 @@ func use_tool() -> void:
 			done = GameState.ORES.has(GameState.object_kind(target))
 			if done:
 				GameState.request_mine(player_id, target)
+		AXE_TOOL:
+			done = GameState.can_chop(target)
+			if done:
+				GameState.request_chop(player_id, target)
 	if done:
 		acted.emit()
 	elif hand != "":
 		use_hand()
 	elif tool_index == ROD_TOOL:
 		GameState.notice.emit("Face the pond to cast")
+	elif tool_index == AXE_TOOL:
+		GameState.notice.emit("Nothing to chop here. The axe cuts trees, stumps and logs")
 	elif tool_index == PICK_TOOL:
 		GameState.notice.emit("Nothing to break here. Rocks and ore are in the mine")
 

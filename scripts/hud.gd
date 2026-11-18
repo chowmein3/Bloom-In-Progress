@@ -12,9 +12,9 @@ const HELP_ROWS: Array = [
 	["Shift", "Run"],
 	["Space", "Use tool"],
 	["F", "Use hand"],
-	["1-6", "Choose tool"],
+	["1-7", "Choose tool (7: axe)"],
 	["Q", "Change seed/item"],
-	["7-0", "Quick slots"],
+	["8 9 0 -", "Hot bar"],
 	["E", "Backpack"],
 	["J", "Journal"],
 	["M", "Map"],
@@ -33,6 +33,7 @@ const ICON_LOVE := 9
 const ICON_COIN := 10
 const ICON_ROD := 11
 const ICON_PICK := 12
+const ICON_AXE := 13
 const PAPER := Color(0.98, 0.91, 0.74)
 const SLOT := Color(0.93, 0.8, 0.58)
 const WOOD := Color(0.42, 0.26, 0.15)
@@ -139,7 +140,7 @@ func _ready() -> void:
 	_centered(bottom, _seed_line)
 	var bar_row := HBoxContainer.new()
 	bar_row.add_theme_constant_override("separation", 1)
-	for i in 6:
+	for i in 7:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(16, 16)
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP  # clicking a slot chooses that tool
@@ -147,7 +148,7 @@ func _ready() -> void:
 			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and player != null:
 				player.call("select_tool", i))
 		if i != 3:
-			var picture: TextureRect = _icon(i if i < 3 else (ICON_ROD if i == 4 else ICON_PICK))
+			var picture: TextureRect = _icon(i if i < 3 else [ICON_ROD, ICON_PICK, ICON_AXE][i - 4])
 			picture.position = Vector2(2, 3)
 			slot.add_child(picture)
 		else:  # the item slot shows whatever is being held
@@ -181,7 +182,7 @@ func _ready() -> void:
 		quick_picture.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 		quick_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		quick_slot.add_child(quick_picture)
-		var quick_number: Label = _text(["7", "8", "9", "0"][i])
+		var quick_number: Label = _text(["8", "9", "0", "-"][i])
 		quick_number.add_theme_font_size_override("font_size", 5)
 		quick_number.add_theme_color_override("font_color", ACCENT)
 		quick_number.position = Vector2(2, -1)
