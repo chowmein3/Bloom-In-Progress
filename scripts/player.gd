@@ -26,7 +26,7 @@ signal acted  # swung a tool or used a hand (for the little animation)
 const TILE := 16
 const SPEED := 64.0
 const SPRINT := 1.75  # times faster while Shift is held
-const WALK_CYCLE: Array[int] = [1, 0, 2, 0]  # sheet columns: left foot, together, right foot, together
+const WALK_CYCLE: Array[int] = [0, 1, 2, 3]  # neutral, stride A, neutral, stride B
 const TOOLS: Array[String] = ["Hoe", "Watering Can", "Seeds", "Item", "Fishing Rod", "Pickaxe", "Axe"]
 const PICK_TOOL := 5
 const AXE_TOOL := 6
@@ -158,6 +158,9 @@ func _process(delta: float) -> void:
 		# The count of actions carries the last tool used too (8 per action).
 		Net.send_player_state(position, facing, dir != Vector2.ZERO, tool_index, _swings * 8 + _acted_with + 1)
 	if busy:
+		if _walk != 0.0:
+			_walk = 0.0
+			queue_redraw()
 		if cursor != null:
 			cursor.visible = false
 		return
@@ -534,34 +537,30 @@ func _use_item(target: Vector2i, hand: String) -> bool:
 	return true
 
 
-## Sprite sheet: assets/sprites/player_<slot>.png, 16x24 frames, 3 columns
-## (standing, left foot, right foot) by rows facing down, up, left, right
-## (then asleep).
+## Girl / boy poses are fitted to the world with feet at the origin.
+## Assets supplies the shared character mapping and direction layout.
 ## The hat being worn is drawn on top from assets/sprites/hats.png.
 func _draw() -> void:
 	if _texture == null or _texture_slot != player_id:
 		_texture_slot = player_id
-		_texture = Assets.texture("res://assets/sprites/player_%d.png" % clampi(player_id, 1, 2))
-	var row: int = 0
-	if facing == Vector2i(0, -1):
-		row = 1
-	elif facing.x < 0:
-		row = 2
-	elif facing.x > 0:
-		row = 3
+		_texture = Assets.player_texture(player_id)
 	var column: int = WALK_CYCLE[int(_walk * 9.0) % WALK_CYCLE.size()] if _walk > 0.0 else 0
+	var body_rect: Rect2 = Assets.player_draw_rect(player_id, facing, column)
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0, 0, 0, 0.18))  # shadow
 	# A quick lean towards the tile ahead when a tool or hand is used.
 	var lean: Vector2 = Vector2(facing) * sin(_lunge * PI) * 3.0
+	body_rect.position += lean
 	var swinging: bool = _swing > 0.0 and _swing_tool >= 0 and _tools != null
 	# Raised behind the head (or facing away), the tool goes behind the body.
 	var behind: bool = swinging and (facing == Vector2i.UP or (_swing_tool != 1 and _tool_angle() < (-70.0 if facing == Vector2i.DOWN else -100.0)))
 	if behind:
 		_draw_tool(lean)
-	draw_texture_rect_region(_texture, Rect2(lean + Vector2(-8, -23), Vector2(16, 24)), Rect2(column * 16, row * 24, 16, 24))
+	draw_texture_rect_region(_texture, body_rect, Assets.player_frame(player_id, facing, column))
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(player_id))
 	if hat >= 0 and _hats != null:
-		draw_texture_rect_region(_hats, Rect2(lean + Vector2(-8, -23), Vector2(16, 12)), Rect2(hat * 16, 0, 16, 12))
+		var hat_rect: Rect2 = Assets.player_hat_rect(player_id, facing, column)
+		hat_rect.position += lean
+		draw_texture_rect_region(_hats, hat_rect, Rect2(hat * 16, 0, 16, 12))
 	if swinging and not behind:
 		_draw_tool(lean)
 	if is_remote:
@@ -569,12 +568,13 @@ func _draw() -> void:
 		var font: Font = ThemeDB.fallback_font
 		var label: String = Net.name_of_slot(player_id)
 		var width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x
-		draw_string_outline(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, 2, Color(0.2, 0.14, 0.23))
-		draw_string(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color(1, 0.97, 0.88))
+		var label_y: float = minf(-27.0, body_rect.position.y - 4.0)
+		draw_string_outline(font, Vector2(-width / 2.0, label_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, 2, Color(0.2, 0.14, 0.23))
+		draw_string(font, Vector2(-width / 2.0, label_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color(1, 0.97, 0.88))
 		if tool_index != ITEM_TOOL and _tools != null:
-			draw_texture_rect_region(_tools, Rect2(width / 2.0 + 1, -35, 9, 9), ToolArt.frame(tool_index))
+			draw_texture_rect_region(_tools, Rect2(width / 2.0 + 1, label_y - 8.0, 9, 9), ToolArt.frame(tool_index))
 	if _emote_time > 0.0 and _emote >= 0:
-		var up: float = -40.0 if is_remote else -32.0
+		var up: float = minf(-40.0, body_rect.position.y - 19.0) if is_remote else minf(-32.0, body_rect.position.y - 9.0)
 		var fade: float = clampf(_emote_time * 2.0, 0.0, 1.0)
 		draw_rect(Rect2(-7, up - 2, 14, 12), Color(1, 0.97, 0.88, fade))
 		draw_rect(Rect2(-7, up - 2, 14, 12), Color(0.42, 0.26, 0.15, fade), false, 1.0)

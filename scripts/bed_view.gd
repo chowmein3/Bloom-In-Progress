@@ -18,7 +18,7 @@ func _ready() -> void:
 	for level in GameState.ROOMS.size():
 		_blankets.append(Assets.texture("res://assets/sprites/blanket_%d.png" % level))
 	for slot in [1, 2]:
-		_heads[slot] = Assets.texture("res://assets/sprites/player_%d.png" % slot)
+		_heads[slot] = Assets.player_texture(slot)
 	GameState.sleepers_changed.connect(_refresh)
 	GameState.economy_changed.connect(_refresh)
 	GameState.state_reloaded.connect(_refresh)
@@ -42,8 +42,11 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	for slot: int in _sleepers:
 		var side: int = clampi(slot, 1, 2) - 1
-		# The sleeping head is the fifth row of the player sheet.
-		draw_texture_rect_region(_heads[clampi(slot, 1, 2)], Rect2(-16 + side * 16, -31, 16, 11), Rect2(0, 96 + 3, 16, 11))
+		# These sheets have no sleeping row; tuck the front-facing head under the covers.
+		var head: Rect2 = Assets.player_head_frame(slot)
+		var head_size: Vector2 = head.size * minf(18.0 / head.size.x, 13.0 / head.size.y)
+		var head_position := Vector2(-8 + side * 16 - head_size.x / 2.0, -19 - head_size.y)
+		draw_texture_rect_region(_heads[clampi(slot, 1, 2)], Rect2(head_position, head_size), head)
 	draw_texture(_blankets[GameState.home_level()], Vector2(-16, -19))
 	for slot: int in _sleepers:
 		Effects.zzz(self, -8 + (clampi(slot, 1, 2) - 1) * 16 + 4, -40 - _blink, 0.9)
