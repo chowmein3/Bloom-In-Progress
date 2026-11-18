@@ -107,13 +107,11 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   winter). Each blocks only the tile it stands on, so you can walk behind
   canopies. Dirt trails link the buildings and lead off the map. Around the
   garden: a rocky cliff along the top with a trail climbing through a gap,
-  raised land down the left (a rocky edge) with a row or two of trees and
-  tree tops behind them, the same on the cliff top, a fence down the right
-  side with an open meadow and a few trees beyond, and along the bottom the
-  near woods: shadowy leaves drawn in front of everything with a puffy,
-  uneven edge that hangs over the pond. The pond is in the bottom-left
-  corner, an organic shape with shallows, reeds and lily pads. All
-  decoration only. On festival days
+  woods on every other side (and on the cliff top), with a fence along the
+  bottom: a close row of trees with undergrowth between the trunks along
+  each edge, then lighter woods behind, all on the garden's own level. The
+  pond is in the bottom-left corner, an organic shape with shallows, reeds
+  and lily pads. All decoration only. On festival days
   bunting hangs between the tower, home and stall, and the party (confetti,
   a message) starts at 5pm.
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each

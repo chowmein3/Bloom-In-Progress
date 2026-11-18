@@ -1,11 +1,10 @@
 extends Node2D
-## The land around the garden, seen where the camera goes past its edge, all
-## on the same ground as the garden and changing with the seasons: a rocky
-## cliff along the top (with a trail up through a gap) and down the left
-## side, woods on the raised land and on the cliff top, and a fenced meadow
-## on the right. The woods along the bottom are forest_front.gd.
-## This node draws the ground-level parts (grass, trails, cliff, the shade
-## under the tree tops); `decorate()` adds the trees, tree tops and fences.
+## The land around the garden, seen where the camera goes past its edge: a
+## rocky cliff along the top (with a trail up through a gap) and woods on
+## every side, all on the same ground as the garden and changing with the
+## seasons. This node draws the ground-level parts (grass, trails, cliff);
+## `decorate()` adds the trees, bushes and fence to the y-sorted layer the
+## players walk in, so every tree is drawn the same way as the garden's own.
 ## Nothing out here can be walked on: the garden ends at its edge.
 
 const Assets := preload("res://scripts/assets.gd")
@@ -14,15 +13,12 @@ const SceneryView := preload("res://scripts/scenery_view.gd")
 const TILE := 16
 const REACH := 8  # tiles of land drawn past each edge (more than the camera shows)
 const CLIFF_TOP := -40.0  # the cliff piece's top, in pixels (it is 40 tall)
-## Tree tops: one in roughly every SPACING x SPACING patch, nudged at random.
-const SPACING := 13.0
-## The shade between tree tops, by season: a little darker than the leaves.
-const SHADE: Array[Color] = [Color("#4a8f50"), Color("#3a7a45"), Color("#a8602e"), Color("#c9d2d9")]
+## The woods behind each edge row: a tree in roughly every patch this big.
+const WOODS_SPACING := 27.0
 
 var _tiles: Texture2D = Assets.texture("res://assets/tiles/ground.png")
 var _cliff: Texture2D = Assets.texture("res://assets/sprites/scenery/cliff.png")
 var _trail: Texture2D = Assets.texture("res://assets/sprites/scenery/trail.png")
-var _side: Texture2D = Assets.texture("res://assets/sprites/scenery/cliff_side.png")
 var _season: int = -1
 
 
@@ -62,20 +58,12 @@ func _draw() -> void:
 				continue
 			var column: int = [0, 1, 0, 2][hash(Vector2i(x, y)) % 4]
 			draw_texture_rect_region(_tiles, Rect2(x * TILE, y * TILE, TILE, TILE), Rect2(column * TILE, _season * TILE, TILE, TILE))
-	# A leafy shade where the tree tops are, so gaps between them never show
-	# bare grass (it sits under the tops' inner edge, which hides its border).
-	var leaves: Color = SHADE[_season]
-	var far: float = REACH * TILE
-	var w: float = size.x * TILE
-	var h: float = size.y * TILE
-	draw_rect(Rect2(-far, -60, far - 66, h + 80), leaves)
-	draw_rect(Rect2(-far, -far - 40, w + far * 2, far - 30), leaves)
-	# Trails leading off the edges, on under the trees.
+	# Trails leading off the edges.
 	for cell: Vector2i in GameState.TRAILS:
 		if not GameState.in_bounds(cell):
 			draw_texture_rect_region(_trail, Rect2(Vector2(cell * TILE), Vector2(TILE, TILE)), Rect2(trail_mask(cell) * TILE, _season * TILE, TILE, TILE))
 	# The cliff right along the top, with a gap where the trail climbs out.
-	for tx in range(0, size.x + REACH):
+	for tx in range(-REACH, size.x + REACH):
 		if GameState.TRAILS.has(Vector2i(tx, -1)):
 			continue
 		var part: int = absi(hash(tx)) % 2  # two plain faces, mixed
@@ -84,22 +72,14 @@ func _draw() -> void:
 		elif GameState.TRAILS.has(Vector2i(tx - 1, -1)):
 			part = 2  # and starts again to the left
 		draw_texture_rect_region(_cliff, Rect2(tx * TILE, CLIFF_TOP, TILE, 40), Rect2(part * TILE, _season * 40, TILE, 40))
-	# The left side is raised land too: its rocky edge runs down beside the
-	# garden, from the top cliff to the woods along the bottom.
-	var y: float = CLIFF_TOP
-	while y < h + TILE * 2:
-		draw_texture_rect_region(_side, Rect2(-TILE, y, TILE, 32), Rect2(0, _season * 32, TILE, 32))
-		y += 32
-	draw_rect(Rect2(0, 0, 3, h), Color(0, 0, 0, 0.14))  # its shadow on the garden
 
 
-## Adds the standing things round the garden. Full trees go in `layer` (the
-## y-sorted layer the players walk in): a row or two on the raised land to
-## the left and on the cliff top, and a scattering in the fenced meadow on
-## the right. Behind those rows, the woods are just tree tops (the same trees'
-## crowns, at full colour) packed together in a layer of their own drawn
-## right under `layer`, so the first trees always stand in front of them.
-## Placement is random but the same every time.
+## Adds the standing things round the garden to `layer` (the y-sorted layer
+## the players walk in): woods down the sides and along the bottom, more on
+## the cliff top, and a fence along the bottom edge. Along each edge a close
+## row of trees with bushes and rocks between their trunks makes a solid
+## border; the woods behind it are lighter. Trees are scattered with kinds
+## picked at random (the same every time), so nothing repeats.
 static func decorate(layer: Node2D) -> void:
 	var size: Vector2i = GameState.WORLD_SIZE
 	var w: float = size.x * TILE
@@ -107,65 +87,61 @@ static func decorate(layer: Node2D) -> void:
 	var far: float = REACH * TILE
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2024
-	var tops := Node2D.new()
-	tops.name = "TreeTops"
-	tops.y_sort_enabled = true
-	layer.add_sibling(tops)
-	layer.get_parent().move_child(tops, layer.get_index())
-	var trees: Dictionary = {"pine": 5, "oak": 5, "maple": 4, "birch": 2, "cherry": 2, "apple": 1}
-	var crowns: Dictionary = {"pine": 4, "oak": 4, "maple": 3, "birch": 2, "cherry": 2}
-	# Left side, up on the raised land: two uneven rows of trees, then tree
-	# tops packed behind them (at the height a whole tree's leaves would be).
-	_row(layer, rng, Vector2(-27, -20), Vector2(-27, h + 20), 3.0, 17.0, 26.0, trees)
-	_row(layer, rng, Vector2(-44, -30), Vector2(-44, h + 20), 4.0, 18.0, 28.0, trees)
-	_tops(tops, rng, Rect2(-far, -20, far - 58, h + 60), crowns)
-	# The bottom is the near woods' leaves (forest_front.gd), drawn over all.
-	# On top of the cliff: a row on the ledge, then tree tops.
-	_row(layer, rng, Vector2(-far, -47), Vector2(w + far, -47), 3.0, 16.0, 26.0, trees)
-	_tops(tops, rng, Rect2(-far, -far - 40, w + far * 2, far - 18), crowns)
-	# Right side: a fence down the edge and an open meadow with a few trees.
-	for fy in size.y:
-		_add(layer, "fence_upright", Vector2(w + 8, fy * TILE + 16), false, Color.WHITE)
-	var placed: Array[Vector2] = []
-	for i in 70:
-		var at := Vector2(rng.randf_range(w + 22, w + far), rng.randf_range(16, h + 4)).round()
-		if placed.any(func(other: Vector2) -> bool: return other.distance_to(at) < 34.0):
-			continue
-		placed.append(at)
-		var kind: String = _pick(rng, {"oak": 3, "maple": 2, "pine": 2, "birch": 2, "cherry": 1, "apple": 1, "bush": 3, "boulder": 1})
-		_add(layer, kind, at, rng.randf() < 0.5, Color.WHITE)
+	var woods: Dictionary = {"pine": 6, "oak": 5, "maple": 4, "birch": 2, "cherry": 2, "apple": 1}
+	# Down both sides: the edge row, then lighter woods behind it.
+	_edge(layer, rng, Vector2(-8, 4), Vector2(-8, h + 26), 4.0, woods)
+	_woods(layer, rng, Rect2(-far, -4, far - 22, h + 40), woods, WOODS_SPACING)
+	_edge(layer, rng, Vector2(w + 8, 4), Vector2(w + 8, h + 26), -4.0, woods)
+	_woods(layer, rng, Rect2(w + 22, -4, far - 22, h + 40), woods, WOODS_SPACING)
+	# Along the bottom: a fence, bushes and rocks by it, then the edge row
+	# and lighter woods behind.
+	for fx in range(-1, size.x + 1):
+		if not GameState.TRAILS.has(Vector2i(fx, size.y)):
+			_add(layer, "fence", Vector2(fx * TILE + 8, h + 9), false, Color.WHITE)
+	_edge(layer, rng, Vector2(-30, h + 30), Vector2(w + 30, h + 30), -5.0, woods)
+	_woods(layer, rng, Rect2(-far, h + 46, w + far * 2, far - 40), woods, WOODS_SPACING)
+	# On top of the cliff (their roots on the grass above it, not on the rock).
+	_edge(layer, rng, Vector2(-far, -47), Vector2(w + far, -47), 3.0, woods)
+	_woods(layer, rng, Rect2(-far, -far, w + far * 2, far + CLIFF_TOP - 22), woods, WOODS_SPACING)
 
 
-## A line of trees from `from` to `to`, `gap_min` to `gap_max` apart and
-## nudged up to `wobble` either way, leaving the trails clear.
-static func _row(layer: Node2D, rng: RandomNumberGenerator, from: Vector2, to: Vector2, wobble: float, gap_min: float, gap_max: float, weights: Dictionary) -> void:
+## A close row of trees from `from` to `to`, with a bush, rock or stump
+## between most pairs of trunks (set `toward` pixels nearer the garden), so
+## the edge reads as solid.
+static func _edge(layer: Node2D, rng: RandomNumberGenerator, from: Vector2, to: Vector2, toward: float, weights: Dictionary) -> void:
 	var along: Vector2 = (to - from).normalized()
 	var across := Vector2(along.y, -along.x)
-	var d: float = rng.randf_range(0.0, gap_max)
+	if absf(along.x) > 0.5:
+		across = Vector2(0, 1)  # rows across the screen: "toward" is up or down
 	var length: float = from.distance_to(to)
+	var d: float = rng.randf_range(0.0, 10.0)
 	while d < length:
-		var at: Vector2 = (from + along * d + across * rng.randf_range(-wobble, wobble)).round()
+		var at: Vector2 = (from + along * d + across * rng.randf_range(-3.0, 3.0)).round()
 		if not _on_trail(at):
-			var kind: String = _pick(rng, weights) if rng.randf() > 0.12 else "bush"
-			_add(layer, kind, at, rng.randf() < 0.5, Color.WHITE)
-		d += rng.randf_range(gap_min, gap_max)
+			_add(layer, _pick(rng, weights), at, rng.randf() < 0.5, _tint(rng))
+		var gap: float = rng.randf_range(15.0, 21.0)
+		var between: Vector2 = (from + along * (d + gap / 2.0) + across * toward).round()
+		if rng.randf() < 0.8 and not _on_trail(between):
+			_add(layer, ["bush", "bush", "bush", "boulder", "stump"][rng.randi_range(0, 4)], between, rng.randf() < 0.5, Color.WHITE)
+		d += gap
 
 
-## Packs `area` with tree tops (one per SPACING square, nudged at random),
-## over a leafy shade drawn on the ground so no gap shows bare grass.
-static func _tops(layer: Node2D, rng: RandomNumberGenerator, area: Rect2, weights: Dictionary) -> void:
+## Fills `area` with lighter woods: one tree per `spacing` square, nudged at
+## random, leaving the trails clear where they run through.
+static func _woods(layer: Node2D, rng: RandomNumberGenerator, area: Rect2, weights: Dictionary, spacing: float) -> void:
 	var row: int = 0
-	var y: float = area.position.y + SPACING / 2.0
+	var y: float = area.position.y + spacing / 2.0
 	while y < area.end.y:
-		var x: float = area.position.x + (SPACING / 2.0 if row % 2 == 0 else SPACING)
+		var x: float = area.position.x + (spacing / 2.0 if row % 2 == 0 else spacing)
 		while x < area.end.x:
-			var at := Vector2(x + rng.randf_range(-0.4, 0.4) * SPACING, y + rng.randf_range(-0.4, 0.4) * SPACING).round()
+			var at := Vector2(x + rng.randf_range(-0.4, 0.4) * spacing, y + rng.randf_range(-0.4, 0.4) * spacing).round()
 			var kind: String = _pick(rng, weights)
 			var flip: bool = rng.randf() < 0.5
-			if not _on_trail(at):
-				_add(layer, kind + "_crown", at, flip, Color.WHITE)
-			x += SPACING
-		y += SPACING
+			var tint: Color = _tint(rng)
+			if rng.randf() > 0.05 and not _on_trail(at):
+				_add(layer, kind, at, flip, tint)
+			x += spacing
+		y += spacing
 		row += 1
 
 
@@ -179,6 +155,11 @@ static func _pick(rng: RandomNumberGenerator, weights: Dictionary) -> String:
 		if pick <= 0:
 			return option
 	return weights.keys()[0]
+
+
+static func _tint(rng: RandomNumberGenerator) -> Color:
+	var shade: float = rng.randf_range(0.94, 1.0)
+	return Color(shade, shade, shade)
 
 
 ## Whether a tree standing at `at` would hide a trail leading off the map:
@@ -197,6 +178,6 @@ static func _add(layer: Node2D, kind: String, at: Vector2, flip: bool, tint: Col
 	var view := SceneryView.new()
 	view.kind = kind
 	view.position = at
-	view.flip_h = flip and not kind.begins_with("fence")
+	view.flip_h = flip and kind != "fence"
 	view.modulate = tint
 	layer.add_child(view)

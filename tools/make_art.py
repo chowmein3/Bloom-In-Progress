@@ -1557,9 +1557,7 @@ def make_app_icon():
 # stumps, logs and fences. Four frames left to right, one per season
 # (spring, summer, fall, winter); each stands on the bottom row, centred.
 #   oak, cherry 32x44   maple, pine 32x48   birch 24x46   apple 32x44
-#   bush, boulder, stump 16x16   log 32x16 (two tiles)   fence, fence_upright 16x16
-#   <tree>_crown.png: the same trees without trunks (just the tops), cropped
-#   below the leaves, for the woods seen past the first rows of trees.
+#   bush, boulder, stump 16x16   log 32x16 (two tiles)   fence 16x16
 # assets/sprites/scenery/cliff.png: 16x40 pieces (8 rows of grassy lip, then
 #   a 32 row rock face), columns: face, face, left end, right end; one row per
 #   season.
@@ -1627,36 +1625,14 @@ def leafy(c, blobs, col, rng, spots=None, spot_n=0):
                 placed += 1
 
 
-def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birch=False, crown=False):
+def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birch=False):
     """Four frames of a leafy tree. `seasons` gives (leaf colour, spots,
-    count) for spring, summer and fall; winter is bare. With `crown`, only
-    the top of the tree (no trunk; in winter a mass of snowy bare twigs),
-    cropped just below the leaves: for woods seen over the first trees."""
+    count) for spring, summer and fall; winter is bare."""
     frames = []
     cx = (w - 1) / 2
     for season in range(4):
         rng = random.Random(name + str(season))
         c = Canvas(w, h)
-        if crown:
-            if season == 3:  # bare twigs fanning up from below, snow along them
-                bottom = max(y + ry for (x, y, rx, ry) in blobs)
-                top = min(y - ry for (x, y, rx, ry) in blobs)
-                half = max(rx for (x, y, rx, ry) in blobs)
-                for i in range(7):
-                    t = (i + 0.5) / 7
-                    ex = cx + (t - 0.5) * 2 * half * 0.95 + rng.uniform(-1.5, 1.5)
-                    ey = top + abs(t - 0.5) * (bottom - top) * 0.7 + rng.uniform(0, 3)
-                    line(c, cx + (t - 0.5) * 4, bottom, ex, ey, bark, 1)
-                    mx, my = cx + (ex - cx) * 0.6, bottom + (ey - bottom) * 0.6
-                    for side in (-1, 1):
-                        line(c, mx, my, mx + side * rng.uniform(2, 4), my - rng.uniform(2, 5), bark, 1)
-                    c.dot(round(ex), round(ey) - 1, SNOW)
-                    c.dot(round(mx), round(my) - 1, SNOW)
-            else:
-                leaf, spots, n = seasons[season]
-                leafy(c, blobs, rgb(leaf), rng, spots, n)
-            frames.append(c.finish())
-            continue
         if season == 3:
             bare_branches(c, cx, h - 2, blobs[0][1] - blobs[0][3], max(r[2] for r in blobs) * 0.9, bark, True)
             c.rect(cx - trunk_w / 2 + 0.5, trunk, trunk_w, h - trunk - 1, bark)
@@ -1680,13 +1656,12 @@ def broadleaf(w, h, trunk, blobs, seasons, bark=BARK, name=None, trunk_w=4, birc
     return sheet(frames)
 
 
-def pine_frames(w, h, crown=False):
+def pine_frames(w, h):
     frames = []
     cx = (w - 1) / 2
     for season in range(4):
         c = Canvas(w, h)
-        if not crown:
-            c.rect(cx - 1.5, h - 12, 4, 11, rgb("#6b4630"))
+        c.rect(cx - 1.5, h - 12, 4, 11, rgb("#6b4630"))
         green = rgb(["#3a7f62", "#2f6f5a", "#2f6a52", "#2c6250"][season])
         tiers = ((3, 6, 13), (11, 9, 14), (21, 12, 15), (30, 15, 13))
         for top, half, height in tiers:
@@ -1703,23 +1678,6 @@ def pine_frames(w, h, crown=False):
                 c.dot(cx, top, SNOW)
         frames.append(c.finish())
     return sheet(frames)
-
-
-def crop_crowns(img):
-    """Trims a sheet of crown frames to just below its lowest leaves."""
-    bottom = max(y for y in range(img.height) for x in range(img.width) if img.getpixel((x, y))[3] > 0)
-    return img.crop((0, 0, img.width, bottom + 1))
-
-
-def fence_upright(c, season):
-    """A fence running up and down the screen: a rail with a post."""
-    wood = rgb("#9a6b45")
-    c.rect(6, 0, 2, 16, wood)
-    c.rect(9, 0, 2, 16, shade(wood, 0.1))
-    c.rect(5, 5, 7, 10, light(wood, 0.1))
-    if season == 3:
-        c.rect(5, 4, 7, 1, SNOW)
-        c.rect(6, 0, 5, 1, SNOW)
 
 
 def small_frames(w, h, draw):
@@ -1910,21 +1868,7 @@ def make_scenery():
     }
     for kind, img in trees.items():
         save(img, "scenery", kind + ".png")
-    # <kind>_crown.png: just the tree tops, for the woods past the first trees.
-    crowns = {
-        "oak": broadleaf(32, 44, 28, [(15.5, 15, 14, 12), (8, 22, 7, 6), (23, 22, 7, 6)],
-                         [("#5fb86a", ("#ffffff", "#ffe0ec"), 9), ("#3f8f52", None, 0), ("#d98a2b", ("#c4572f", "#f0b040"), 16)], name="oak", crown=True),
-        "maple": broadleaf(32, 48, 32, [(15.5, 14, 11, 10), (7, 21, 7, 7), (24, 21, 7, 7), (15.5, 25, 10, 7)],
-                           [("#78c45a", None, 0), ("#4c9a3e", None, 0), ("#d8402e", ("#f06a2a", "#a82a2a"), 18)], name="maple", crown=True),
-        "birch": broadleaf(24, 46, 22, [(11.5, 14, 8, 11), (6.5, 21, 5, 6), (16.5, 21, 5, 6)],
-                           [("#9ad46a", None, 0), ("#6cb04a", None, 0), ("#f0c040", ("#e8a030",), 10)], name="birch", crown=True),
-        "cherry": broadleaf(32, 44, 29, [(15.5, 15, 14, 10), (7, 20, 7, 6), (24, 20, 7, 6)],
-                            [("#f4a6c8", ("#ffffff", "#e87aa8"), 14), ("#4f9e5a", None, 0), ("#e08a3a", ("#c4572f",), 10)], name="cherry", crown=True),
-        "pine": pine_frames(32, 48, crown=True),
-    }
-    for kind, img in crowns.items():
-        save(crop_crowns(img), "scenery", kind + "_crown.png")
-    for kind, (w, draw) in {"bush": (16, bush), "boulder": (16, boulder), "stump": (16, stump), "log": (32, log), "fence": (16, fence), "fence_upright": (16, fence_upright)}.items():
+    for kind, (w, draw) in {"bush": (16, bush), "boulder": (16, boulder), "stump": (16, stump), "log": (32, log), "fence": (16, fence)}.items():
         save(small_frames(w, 16, draw), "scenery", kind + ".png")
     cliff = Image.new("RGBA", (64, 160), (0, 0, 0, 0))
     for season in range(4):
@@ -1936,112 +1880,6 @@ def make_scenery():
         for mask in range(16):
             trail.paste(trail_piece(season, mask), (mask * 16, season * 16))
     save(trail, "scenery", "trail.png")
-
-# assets/sprites/scenery/front_leaves_<season>.png: 64x64 tileable shadowy
-#   leaves for the woods in front of the garden (along the bottom), drawn over
-#   everything like the near trees in farm games.
-# assets/sprites/scenery/leaf_rim.png: 64x40 bright leafy mounds (small to big) that make the
-#   puffy top edge of those woods: six shapes across, a row per season. Their
-#   lower part fades into the shadowy leaves.
-# assets/sprites/scenery/cliff_side.png: 16x32, a row per season: the edge of
-#   the raised land to the left of the garden (a grassy lip, then its rocks).
-
-FRONT = [("#24502f", "#7cc94f", "#f4a6c8"), ("#1d4529", "#5aad45", None),
-         ("#4a2a1c", "#d9822b", "#c4572f"), ("#22362e", "#3f6f55", "#f4f8ff")]
-
-
-def front_leaves(season):
-    rng = random.Random("front%d" % season)
-    dark = rgb(FRONT[season][0])
-    n = 64
-    img = Image.new("RGBA", (n, n), dark + (255,))
-    for _ in range(70):  # soft leaf clumps, a touch lighter and darker
-        cx, cy, r = rng.randrange(n), rng.randrange(n), rng.uniform(3, 6)
-        tone = light(dark, rng.uniform(0.04, 0.1)) if rng.random() < 0.6 else shade(dark, 0.12)
-        for y in range(-7, 8):
-            for x in range(-7, 8):
-                if (x * x + y * y) ** 0.5 <= r:
-                    col = tone if y < r * 0.5 else shade(tone, 0.1)
-                    img.putpixel(((cx + x) % n, (cy + y) % n), col + (255,))
-    for _ in range(n * 2):
-        x, y = rng.randrange(n), rng.randrange(n)
-        r, g, b, a = img.getpixel((x, y))
-        img.putpixel((x, y), light((r, g, b), 0.12) + (255,))
-    return img
-
-
-def leaf_rim(season, variant):
-    """64x40 leafy mounds; variants 0-1 small, 2-3 middling, 4-5 big."""
-    rng = random.Random("rim%d-%d" % (season, variant))
-    dark, bright, spot = (rgb(x) if x else None for x in FRONT[season])
-    c = Canvas(64, 40)
-    size = [0.65, 0.75, 0.95, 1.0, 1.25, 1.35][variant]
-    blobs = []
-    for _ in range(rng.randrange(3, 6)):
-        rx = rng.uniform(7, 11) * size
-        blobs.append((32 + rng.uniform(-1, 1) * (30 - rx) * 0.6, 40 - rx * 1.3 + rng.uniform(-2, 2), rx, rx * 0.8))
-    leafy(c, blobs, mix(bright, rgb("#3f8f52"), rng.uniform(0, 0.35)) if season != 3 else bright, rng,
-          (FRONT[season][2],) if spot and season != 3 else None, int(7 * size))
-    if season == 3:
-        for (x, y, rx, ry) in blobs:
-            c.ell(x - rx * 0.15, y - ry * 0.6, rx * 0.6, 1.8, SNOW)
-    img = c.finish()
-    # Fade the lower part into the shadowy leaves (outline included), so the
-    # mounds grow out of them.
-    for y in range(img.height):
-        fade = min(1.0, max(0.0, (y - 26) / 10.0))
-        if fade <= 0:
-            continue
-        for x in range(img.width):
-            r, g, b, a = img.getpixel((x, y))
-            if a:
-                img.putpixel((x, y), mix((r, g, b), dark, fade) + (255,))
-    return img
-
-
-def cliff_side(season):
-    """The rocky edge of the raised land left of the garden: a grassy lip,
-    then stacked rounded stones, then a shadowed foot."""
-    rng = random.Random("side%d" % season)
-    img = Image.new("RGBA", (16, 32), (0, 0, 0, 0))
-    grass = rgb(SEASON_GRASS[season]) if season != 3 else SNOW
-    rock = rgb("#9b8462")
-    face = [[rgb("#5e4a3a")] * 16 for _ in range(32)]
-    for y0 in range(-4, 32, 7):  # stones stacked down the edge, wrapping
-        x0 = 5 + rng.randrange(0, 2)
-        w, tone = rng.randrange(8, 11), mix(rock, rgb("#7d6a50"), rng.uniform(0, 0.6))
-        for y in range(y0, y0 + 7):
-            for x in range(x0, min(x0 + w, 16)):
-                dx, dy = (x - x0 - (w - 1) / 2) / (w / 2), (y - y0 - 3) / 3.6
-                if dx * dx + dy * dy <= 1.0:
-                    col = light(tone, 0.16) if dx < -0.5 or dy < -0.5 else (shade(tone, 0.22) if dx > 0.55 or dy > 0.5 else tone)
-                    face[y % 32][x] = col
-    for y in range(32):
-        lip = 5 + (1 if math.sin(y * 0.9 + season) > 0.35 else 0)
-        for x in range(16):
-            if x < lip:
-                col = grass if x < lip - 1 else shade(grass, 0.25)
-            else:
-                col = face[y][x]
-                if x >= 14:
-                    col = shade(col, 0.2)
-            img.putpixel((x, y), col + (255,))
-    return img
-
-
-def make_front():
-    for season in range(4):
-        save(front_leaves(season), "scenery", "front_leaves_%d.png" % season)
-    rims = Image.new("RGBA", (64 * 6, 40 * 4), (0, 0, 0, 0))
-    for season in range(4):
-        for variant in range(6):
-            rims.paste(leaf_rim(season, variant), (variant * 64, season * 40))
-    save(rims, "scenery", "leaf_rim.png")
-    sides = Image.new("RGBA", (16, 128), (0, 0, 0, 0))
-    for season in range(4):
-        sides.paste(cliff_side(season), (0, season * 32))
-    save(sides, "scenery", "cliff_side.png")
-
 
 if __name__ == "__main__":
     make_app_icon()
@@ -2061,5 +1899,4 @@ if __name__ == "__main__":
     make_items()
     make_tree()
     make_scenery()
-    make_front()
     print("sprites written to", os.path.normpath(OUT))
