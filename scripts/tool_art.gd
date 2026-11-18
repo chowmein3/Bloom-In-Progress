@@ -2,13 +2,13 @@ extends RefCounted
 ## Where each tool (Player.TOOLS) is drawn in assets/sprites/tools.png:
 ## 16x16, columns hoe, can, seed bag, rod, pickaxe, axe (the item slot has no
 ## picture), rows by upgrade tier for the hoe and can. Every tool's grip is at
-## pixel (3, 13), so the player's hands can hold it there.
+## pixel (4, 12), so the player's hands can hold it there.
 
 const COLUMNS: Array[int] = [0, 1, 2, -1, 3, 4, 5]
-const GRIP := Vector2(3, 13)
+const GRIP := Vector2(4, 12)
 ## assets/sprites/tools_held.png: the same tools at 12x12 for the hands.
 const HELD := 12
-const HELD_GRIP := Vector2(2, 10)
+const HELD_GRIP := Vector2(3, 9)
 
 
 static func frame(index: int) -> Rect2:
