@@ -1889,6 +1889,141 @@ def make_scenery():
             trail.paste(trail_piece(season, mask), (mask * 16, season * 16))
     save(trail, "scenery", "trail.png")
 
+# ---------------------------------------------------------------- tools
+# assets/sprites/tools.png: 16x16 tools for the tool bar and the player's
+# hands. Columns: hoe, watering can, seed bag, fishing rod, pickaxe, axe.
+# Rows: upgrade tier (0 plain, 1 copper, 2 gold): the hoe and can change
+# colour as they are upgraded; the others only use row 0. In every picture
+# the grip (where the hands hold it) is at pixel (3, 13).
+
+TOOL_TIERS = [  # metal (light, mid, dark), can body (light, mid, dark)
+    (("#e8ecf4", "#b4bccb", "#7c8598"), ("#9cd0f5", "#5aa0e0", "#3a70b0")),
+    (("#f6c49a", "#d9874e", "#9a5530"), ("#f6c49a", "#d9874e", "#9a5530")),
+    (("#fff2a8", "#f2c24a", "#b8862a"), ("#fff2a8", "#f2c24a", "#b8862a")),
+]
+
+
+def tool_picture(fill):
+    """`fill` is {(x, y): colour}; adds the dark outline round it."""
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    for (x, y), col in fill.items():
+        if 0 <= x < 16 and 0 <= y < 16:
+            img.putpixel((x, y), col + (255,))
+    for y in range(16):
+        for x in range(16):
+            if (x, y) in fill:
+                continue
+            if any((x + dx, y + dy) in fill for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                img.putpixel((x, y), OUTLINE)
+    return img
+
+
+def tool_handle(fill, top_y, wood=rgb("#a8774a")):
+    """A round wooden handle running from the grip up to the right."""
+    for y in range(top_y, 15):
+        x = 16 - y
+        fill[(x - 1, y)] = light(wood, 0.22)
+        fill[(x, y)] = shade(wood, 0.18)
+
+
+def make_tools():
+    sheet_img = Image.new("RGBA", (16 * 6, 16 * 3), (0, 0, 0, 0))
+    for tier, (metal, body) in enumerate(TOOL_TIERS):
+        M, m, n = (rgb(c) for c in metal)
+        B, b, c_ = (rgb(c) for c in body)
+        pictures = []
+
+        # Hoe: a flat blade hanging from the top of the handle.
+        f = {}
+        tool_handle(f, 6)
+        for y in range(3, 9):
+            for x in range(9, 15):
+                d = x - y
+                if 6 <= d <= 8:
+                    f[(x, y)] = M if d == 6 else (m if d == 7 else n)
+        f[(9, 5)] = n
+        f[(10, 5)] = n
+        f[(14, 8)] = M  # the sharpened edge catches the light
+        pictures.append(tool_picture(f))
+
+        # Watering can: a round body, an arched handle, a spout with a rose.
+        f = {}
+        for y in range(7, 14):
+            for x in range(3, 11):
+                if (x in (3, 10)) and y in (7, 13):
+                    continue
+                f[(x, y)] = B if x == 4 and 8 <= y <= 11 else (c_ if y == 9 or x == 10 or y == 13 else b)
+        for x in range(4, 10):
+            f[(x, 6)] = c_
+        for x, y in ((4, 5), (4, 4), (5, 3), (6, 3), (7, 3), (8, 4), (8, 5)):
+            f[(x, y)] = c_
+        for x, y in ((11, 10), (11, 9), (12, 9), (12, 8), (13, 8), (13, 7)):
+            f[(x, y)] = b
+        for x, y in ((14, 5), (14, 6), (14, 7), (13, 6)):
+            f[(x, y)] = B
+        pictures.append(tool_picture(f))
+
+        # Seed bag: a tied burlap sack with a sprout on it.
+        f = {}
+        sack, sack_l, sack_d = rgb("#d9b47a"), rgb("#f0d29c"), rgb("#a8824e")
+        for y in range(6, 15):
+            for x in range(2, 14):
+                if ((x - 7.5) / 5.6) ** 2 + ((y - 10.3) / 4.4) ** 2 <= 1.0:
+                    f[(x, y)] = sack_l if x <= 4 and y <= 10 else (sack_d if y >= 13 or x >= 12 else sack)
+        for x in range(6, 10):
+            f[(x, 5)] = sack_d
+        for x, y in ((5, 2), (6, 3), (7, 3), (8, 3), (9, 3), (10, 2), (4, 3), (11, 3), (5, 4), (6, 4), (7, 4), (8, 4), (9, 4), (10, 4)):
+            f[(x, y)] = sack_l if x < 7 else sack
+        for x in range(5, 11):
+            f[(x, 5)] = rgb("#c9644a")  # the tie
+        for x, y in ((7, 11), (7, 10), (6, 9), (8, 9), (8, 8)):
+            f[(x, y)] = rgb("#4da355") if (x, y) != (8, 8) else rgb("#8fd46a")
+        pictures.append(tool_picture(f))
+
+        # Fishing rod: cork grip, reel, a long whippy rod, line and float.
+        f = {}
+        for i in range(12):
+            x, y = 2 + i, 14 - i
+            f[(x, y)] = rgb("#c99a5a") if i < 3 else (rgb("#8a5a34") if i % 3 else rgb("#b07a46"))
+        for x, y in ((3, 14), (4, 13)):
+            f[(x, y)] = rgb("#e0b878")
+        for x, y in ((5, 12), (6, 12), (5, 11)):
+            f[(x, y)] = M if (x, y) == (5, 11) else n
+        for y in range(4, 10):
+            f[(14, y)] = rgb("#dfe6f0")
+        f[(14, 10)] = rgb("#e0605a")
+        f[(14, 11)] = WHITE
+        pictures.append(tool_picture(f))
+
+        # Pickaxe: a curved head with two points across the handle's top.
+        f = {}
+        tool_handle(f, 6)
+        for t in range(-5, 6):
+            bow = round(2.2 * (1 - (t / 5.5) ** 2))
+            x, y = 9 + t + bow, 6 + t - bow
+            f[(x, y)] = M if abs(t) < 5 else m  # the outer curve catches the light
+            if abs(t) <= 3:  # thicker in the middle, tapering to points
+                f[(x, y + 1)] = m
+            if abs(t) <= 1:
+                f[(x - 1, y + 1)] = n
+        pictures.append(tool_picture(f))
+
+        # Axe: a wedge-shaped head, its wide edge out to the left.
+        f = {}
+        tool_handle(f, 6)
+        rows = {3: (1, 7), 4: (1, 7), 5: (2, 6), 6: (2, 6), 7: (3, 6), 8: (3, 5), 9: (3, 5), 10: (3, 5)}
+        for x, (top, bottom) in rows.items():
+            for y in range(top, bottom + 1):
+                f[(x, y)] = M if x == 3 else (n if x >= 9 else (M if y == top and x < 7 else m))
+        f[(11, 4)] = n
+        f[(11, 5)] = n
+        pictures.append(tool_picture(f))
+
+        for col, pic in enumerate(pictures):
+            sheet_img.paste(pic, (col * 16, tier * 16))
+    save(sheet_img, "tools.png")
+
+
 if __name__ == "__main__":
     make_app_icon()
     make_icons()
@@ -1907,4 +2042,5 @@ if __name__ == "__main__":
     make_items()
     make_tree()
     make_scenery()
+    make_tools()
     print("sprites written to", os.path.normpath(OUT))

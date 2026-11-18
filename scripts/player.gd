@@ -9,6 +9,7 @@ extends Node2D
 const Assets := preload("res://scripts/assets.gd")
 const Effects := preload("res://scripts/effects.gd")
 const Settings := preload("res://scripts/settings.gd")
+const ToolArt := preload("res://scripts/tool_art.gd")
 
 signal loadout_changed
 signal area_changed  # stepped indoors or back out
@@ -61,6 +62,10 @@ var _texture_slot: int = -1
 var _hats: Texture2D
 var _lunge: float = 0.0  # 1 -> 0 after using a tool or hand
 var _swings: int = 0  # how many times we have acted; sent so partners see it
+var _acted_with: int = -1  # the tool just used, or -1 for a bare hand
+var _swing: float = 0.0  # 1 -> 0 while a tool is being swung (or the can poured)
+var _swing_tool: int = -1
+var _tools: Texture2D
 var _emote: int = -1
 var _emote_time: float = 0.0
 var _icons: Texture2D
@@ -77,9 +82,11 @@ func _ready() -> void:
 		if slot == player_id:
 			_emote = index
 			_emote_time = 2.5)
+	_tools = Assets.texture("res://assets/sprites/tools.png")
 	acted.connect(func() -> void:
 		_lunge = 1.0
-		_swings += 1)
+		_swings += 1
+		_start_swing(_acted_with))
 	if not is_remote:
 		GameState.register_player(player_id)
 
@@ -89,6 +96,7 @@ func remote_update(pos: Vector2, new_facing: Vector2i, moving: bool, tool: int =
 	if swings != _swings:
 		_swings = swings
 		_lunge = 1.0  # they just used a tool or their hand
+		_start_swing(swings % 8 - 1)  # which tool rides along in the count
 	if tool != tool_index:
 		tool_index = tool
 		queue_redraw()
@@ -120,6 +128,9 @@ func _process(delta: float) -> void:
 	if _lunge > 0.0:
 		_lunge = maxf(0.0, _lunge - delta * 6.0)
 		queue_redraw()
+	if _swing > 0.0:
+		_swing = maxf(0.0, _swing - delta * (2.4 if _swing_tool == 1 else 3.6))
+		queue_redraw()
 	if _emote_time > 0.0:
 		_emote_time -= delta
 		queue_redraw()
@@ -144,7 +155,8 @@ func _process(delta: float) -> void:
 	_send_in -= delta
 	if _send_in <= 0.0:
 		_send_in = 0.05
-		Net.send_player_state(position, facing, dir != Vector2.ZERO, tool_index, _swings)
+		# The count of actions carries the last tool used too (8 per action).
+		Net.send_player_state(position, facing, dir != Vector2.ZERO, tool_index, _swings * 8 + _acted_with + 1)
 	if busy:
 		if cursor != null:
 			cursor.visible = false
@@ -443,6 +455,7 @@ func use_hand() -> void:
 		"hug", "pet": GameState.request_pet(player_id, target)
 		"pick", "lift": GameState.request_harvest(player_id, target)
 		_: return
+	_acted_with = -1
 	acted.emit()
 
 
@@ -485,6 +498,7 @@ func use_tool() -> void:
 			if done:
 				GameState.request_chop(player_id, target)
 	if done:
+		_acted_with = tool_index
 		acted.emit()
 	elif hand != "":
 		use_hand()
@@ -539,10 +553,17 @@ func _draw() -> void:
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0, 0, 0, 0.18))  # shadow
 	# A quick lean towards the tile ahead when a tool or hand is used.
 	var lean: Vector2 = Vector2(facing) * sin(_lunge * PI) * 3.0
+	var swinging: bool = _swing > 0.0 and _swing_tool >= 0 and _tools != null
+	# Raised behind the head (or facing away), the tool goes behind the body.
+	var behind: bool = swinging and (facing == Vector2i.UP or (_swing_tool != 1 and _tool_angle() < (-70.0 if facing == Vector2i.DOWN else -100.0)))
+	if behind:
+		_draw_tool(lean)
 	draw_texture_rect_region(_texture, Rect2(lean + Vector2(-8, -23), Vector2(16, 24)), Rect2(column * 16, row * 24, 16, 24))
 	var hat: int = GameState.HAT_ORDER.find(GameState.hat_of(player_id))
 	if hat >= 0 and _hats != null:
 		draw_texture_rect_region(_hats, Rect2(lean + Vector2(-8, -23), Vector2(16, 12)), Rect2(hat * 16, 0, 16, 12))
+	if swinging and not behind:
+		_draw_tool(lean)
 	if is_remote:
 		# Your partner's name, and a small picture of what they're holding.
 		var font: Font = ThemeDB.fallback_font
@@ -550,9 +571,8 @@ func _draw() -> void:
 		var width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x
 		draw_string_outline(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, 2, Color(0.2, 0.14, 0.23))
 		draw_string(font, Vector2(-width / 2.0, -27), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color(1, 0.97, 0.88))
-		var icon: int = [0, 1, 2, -1, 11, 12][clampi(tool_index, 0, 5)]
-		if icon >= 0:
-			draw_texture_rect_region(_icons, Rect2(width / 2.0 + 1, -34, 8, 8), Rect2(icon * 12, 0, 12, 12))
+		if tool_index != ITEM_TOOL and _tools != null:
+			draw_texture_rect_region(_tools, Rect2(width / 2.0 + 1, -35, 9, 9), ToolArt.frame(tool_index))
 	if _emote_time > 0.0 and _emote >= 0:
 		var up: float = -40.0 if is_remote else -32.0
 		var fade: float = clampf(_emote_time * 2.0, 0.0, 1.0)
@@ -565,3 +585,63 @@ func _draw() -> void:
 			3: draw_string(ThemeDB.fallback_font, Vector2(-2, up + 8), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.85, 0.3, 0.25, fade))
 			4: draw_string(ThemeDB.fallback_font, Vector2(-3, up + 8), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.3, 0.45, 0.8, fade))
 			5: Effects.droplet(self, 0, up + 3, fade)
+
+
+## Tools that show in the hands when used (not seeds or held items).
+const SWUNG: Array[int] = [0, 1, 4, 5, 6]
+
+
+func _start_swing(tool: int) -> void:
+	if SWUNG.has(tool):
+		_swing = 1.0
+		_swing_tool = tool
+
+
+## The tool in the player's hands: swung over and down towards the tile
+## ahead (a cast, for the rod), or for the watering can, tipped to pour.
+## The tool pictures are drawn with the grip at the hands, then turned.
+func _draw_tool(lean: Vector2) -> void:
+	var progress: float = 1.0 - _swing
+	var eased: float = progress * progress * (3.0 - 2.0 * progress)
+	var mirror: bool = facing.x < 0
+	var frame: Rect2 = ToolArt.frame(_swing_tool)
+	var hand := Vector2(3, -8)
+	if facing.x != 0:
+		hand = Vector2(3 * facing.x, -9)
+	elif facing == Vector2i.UP:
+		hand = Vector2(-3, -11)
+	var side: float = -1.0 if mirror else 1.0
+	if _swing_tool == 1:
+		# Hold the can out in front and tip it; water drips from the spout.
+		var tip: float = clampf(eased * 2.0, 0.0, 1.0) * 0.7
+		draw_set_transform(hand + lean + Vector2(2 * side, 2), tip * side, Vector2(side, 1))
+		draw_texture_rect_region(_tools, Rect2(-7, -13, 16, 16), frame)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if progress > 0.35:
+			for drop in 3:
+				var fall: float = fposmod(progress * 30.0 + drop * 4.0, 10.0)
+				draw_rect(Rect2(hand + lean + Vector2((11 + drop) * side, -5 + fall), Vector2(1, 2)), Color(0.55, 0.8, 1.0, 0.9))
+		return
+	# The picture points up-right (-45 degrees); turn it to the swing's angle.
+	# Facing left, the same turn is mirrored (Godot mirrors after turning).
+	var angle: float = deg_to_rad(_tool_angle() + 45.0)
+	draw_set_transform(hand + lean, angle, Vector2(-1, 1) if mirror else Vector2.ONE)
+	draw_texture_rect_region(_tools, Rect2(-ToolArt.GRIP, Vector2(16, 16)), frame)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Where the swung tool points from the hands, in degrees (0 = ahead for a
+## sideways swing, -90 = up): from raised behind the head, over and down
+## towards the tile ahead.
+func _tool_angle() -> float:
+	var progress: float = 1.0 - _swing
+	var eased: float = progress * progress * (3.0 - 2.0 * progress)
+	var start: float = -125.0
+	var finish: float = 20.0
+	if facing == Vector2i.DOWN:
+		start = -140.0
+		finish = 75.0
+	elif facing == Vector2i.UP:
+		start = -150.0
+		finish = -95.0
+	return lerpf(start, finish, eased)
