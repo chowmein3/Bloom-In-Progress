@@ -2058,10 +2058,10 @@ def make_tools():
             curve = bezier((10, 10), (50, 2), (58, 50))
             for i, (x, y) in enumerate(curve):
                 t = i / (len(curve) - 1)
-                r = 1.5 + 4.5 * (1 - abs(t - 0.5) * 2) ** 0.7
+                r = 1.4 + 3.7 * (1 - abs(t - 0.5) * 2) ** 0.7
                 d.ellipse([x - r, y - r, x + r, y + r], fill=m)
             for i, (x, y) in enumerate(curve[3:-3]):  # light along the outer curve
-                d.ellipse([x - 1.6, y - 3.2, x + 1.6, y - 0.2], fill=M)
+                d.ellipse([x - 1.4, y - 2.8, x + 1.4, y - 0.2], fill=M)
             d.polygon([(36, 18), (44, 14), (48, 22), (40, 28)], fill=n)  # where the handle goes in
         pictures.append(big_tool(pickaxe))
 
@@ -2072,12 +2072,19 @@ def make_tools():
             top = (36, 30)
             big_handle(d, top)
 
+            tilt = math.radians(-30)  # turned up from square to the handle: out to the side, a little down
+
             def flip(pts, old=(44, 22)):
-                return [(top[0] - (y - old[1]), top[1] - (x - old[0])) for x, y in pts]
-            d.polygon(flip([(40, 10), (50, 14), (48, 26), (38, 24)]), fill=n)  # the eye round the handle
-            d.polygon(flip([(40, 12), (19, 6), (14, 21), (19, 35), (38, 24)]), fill=m)  # the head
-            d.line(flip(bezier((19, 6), (9, 20), (19, 35))), fill=M, width=6)  # the bright cutting edge
-            d.polygon(flip([(40, 12), (24, 9), (25, 14), (38, 16)]), fill=M)  # light along one face
+                out = []
+                for x, y in pts:
+                    fx, fy = -(y - old[1]), -(x - old[0])
+                    out.append((top[0] + fx * math.cos(tilt) - fy * math.sin(tilt),
+                                top[1] + fx * math.sin(tilt) + fy * math.cos(tilt)))
+                return out
+            d.polygon(flip([(40, 12), (49, 15), (47, 24), (39, 22)]), fill=n)  # the eye round the handle
+            d.polygon(flip([(40, 14), (21, 10), (17, 20), (21, 30), (38, 22)]), fill=m)  # the head
+            d.line(flip(bezier((21, 10), (13, 20), (21, 30))), fill=M, width=5)  # the bright cutting edge
+            d.polygon(flip([(40, 14), (26, 12), (27, 15), (38, 17)]), fill=M)  # light along one face
         pictures.append(big_tool(axe))
 
         for col, pic in enumerate(pictures):
@@ -2092,6 +2099,16 @@ def make_tools():
             d.polygon([(44, 40), (56, 26), (60, 30), (46, 46)], fill=b)
             d.polygon([(54, 20), (62, 22), (60, 32), (52, 28)], fill=B)
 
+        def seeds_shape(d):
+            # A small bag, about two thirds the size of the tool bar one.
+            sack, sack_l, sack_d = rgb("#d9b47a"), rgb("#f0d29c"), rgb("#a8824e")
+            d.ellipse([18, 32, 48, 58], fill=sack)
+            d.ellipse([21, 35, 32, 46], fill=sack_l)
+            d.polygon([(25, 32), (41, 32), (45, 22), (21, 22)], fill=sack_l)
+            d.line([(24, 32), (42, 32)], fill=rgb("#c9644a"), width=4)
+            d.line([(33, 52), (33, 44), (37, 41)], fill=rgb("#4da355"), width=3)
+            d.ellipse([26, 53, 46, 58], fill=sack_d)
+
         def rod_shape(d):
             thick_line(d, (8, 56), (56, 6), 3, rgb("#8a5a34"))
             thick_line(d, (8, 56), (18, 46), 5, rgb("#e0b878"))
@@ -2099,7 +2116,7 @@ def make_tools():
             d.line([(57, 6), (60, 40)], fill=rgb("#dfe6f0"), width=2)
             d.ellipse([56, 40, 63, 47], fill=rgb("#e0605a"))
 
-        held = [big_tool(hoe, 12), big_tool(can_shape, 12), None, big_tool(rod_shape, 12),
+        held = [big_tool(hoe, 12), big_tool(can_shape, 12), big_tool(seeds_shape, 12), big_tool(rod_shape, 12),
                 big_tool(pickaxe, 12), big_tool(axe, 12)]
         for col, pic in enumerate(held):
             if pic is not None:

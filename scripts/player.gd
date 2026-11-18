@@ -131,7 +131,7 @@ func _process(delta: float) -> void:
 		_lunge = maxf(0.0, _lunge - delta * 6.0)
 		queue_redraw()
 	if _swing > 0.0:
-		_swing = maxf(0.0, _swing - delta * (2.4 if _swing_tool == 1 else 3.6))
+		_swing = maxf(0.0, _swing - delta * (2.4 if POURED.has(_swing_tool) else 3.6))
 		queue_redraw()
 	if _emote_time > 0.0:
 		_emote_time -= delta
@@ -554,7 +554,7 @@ func _draw() -> void:
 	body_rect.position += lean
 	var swinging: bool = _swing > 0.0 and _swing_tool >= 0 and _held != null
 	# Raised behind the head (or facing away), the tool goes behind the body.
-	var behind: bool = swinging and (facing == Vector2i.UP or (_swing_tool != 1 and _tool_angle() < (-70.0 if facing == Vector2i.DOWN else -100.0)))
+	var behind: bool = swinging and (facing == Vector2i.UP or (not POURED.has(_swing_tool) and _tool_angle() < (-70.0 if facing == Vector2i.DOWN else -100.0)))
 	if behind:
 		_draw_tool(lean)
 	draw_texture_rect_region(_texture, body_rect, Assets.player_frame(player_id, facing, column))
@@ -590,7 +590,8 @@ func _draw() -> void:
 
 
 ## Tools that show in the hands when used (not seeds or held items).
-const SWUNG: Array[int] = [0, 1, 4, 5, 6]
+const SWUNG: Array[int] = [0, 1, 2, 4, 5, 6]
+const POURED: Array[int] = [1, 2]  # the can and the seed bag tip instead of swinging
 
 
 func _start_swing(tool: int) -> void:
@@ -613,16 +614,19 @@ func _draw_tool(lean: Vector2) -> void:
 	elif facing == Vector2i.UP:
 		hand = Vector2(-1, -21)  # facing away: held up so it shows above the head
 	var side: float = -1.0 if mirror else 1.0
-	if _swing_tool == 1:
-		# Hold the can out in front and tip it; water drips from the spout.
+	if POURED.has(_swing_tool):
+		# Hold the can (or seed bag) out in front and tip it; water drips from
+		# the spout, or a few seeds fall.
 		var tip: float = clampf(eased * 2.0, 0.0, 1.0) * 0.7
-		draw_set_transform(hand + lean + Vector2(2 * side, 2), tip * side, Vector2(side, 1))
+		var held_at := Vector2(2 * side, 2) if _swing_tool == 1 else Vector2(3 * side, 5)  # the bag is held lower
+		draw_set_transform(hand + lean + held_at, tip * side, Vector2(side, 1))
 		draw_texture_rect_region(_held, Rect2(-5, -10, ToolArt.HELD, ToolArt.HELD), frame)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if progress > 0.35:
 			for drop in 3:
 				var fall: float = fposmod(progress * 30.0 + drop * 4.0, 10.0)
-				draw_rect(Rect2(hand + lean + Vector2((8 + drop) * side, -4 + fall), Vector2(1, 2)), Color(0.55, 0.8, 1.0, 0.9))
+				var bit: Color = Color(0.55, 0.8, 1.0, 0.9) if _swing_tool == 1 else Color(0.62, 0.45, 0.25)
+				draw_rect(Rect2(hand + lean + Vector2((8 + drop) * side, -4 + fall), Vector2(1, 2 if _swing_tool == 1 else 1)), bit)
 		return
 	var pose: float = _tool_angle()
 	if pose <= -100.0:  # raised over the shoulder: hands up and back, so it shows above the head
