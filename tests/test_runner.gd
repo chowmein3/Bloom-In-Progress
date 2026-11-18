@@ -391,7 +391,9 @@ func _ready() -> void:
 
 	print("fishing")
 	GameState.new_game()
-	check(GameState.is_pond(Vector2i(22, 10)) and not GameState.can_walk(Vector2i(22, 10)) and not GameState.request_till(P, Vector2i(22, 10)), "the pond is water: no walking, no digging")
+	check(GameState.is_pond(Vector2i(4, 22)) and not GameState.can_walk(Vector2i(4, 22)) and not GameState.request_till(P, Vector2i(4, 22)), "the pond is water: no walking, no digging")
+	check(not GameState.is_pond(Vector2i(1, 20)) and GameState.can_walk(Vector2i(1, 20)), "its rounded corners are dry land")
+	check(not GameState.SCENERY.keys().any(func(at: Vector2i) -> bool: return GameState.is_pond(at)), "no scenery stands in the pond")
 	check(GameState.request_fish(P, false) and GameState.get_energy(P) == 98 and GameState.items.is_empty(), "a cast that gets away costs energy and catches nothing")
 	check(GameState.request_fish(P, true) and GameState.items.size() == 1 and GameState.FISH.has(GameState.items.keys()[0]), "a landed cast puts a fish in the backpack")
 	check(GameState.stats["fish"].size() == 1 and GameState.xp == 3, "and is tallied, with a little experience")

@@ -59,10 +59,10 @@ const WORLD_SIZE := Vector2i(40, 26)  # in 16px tiles
 const SCENERY: Dictionary = {
 	Vector2i(30, 2): "oak", Vector2i(34, 1): "cherry", Vector2i(37, 4): "maple", Vector2i(31, 7): "birch",
 	Vector2i(36, 9): "oak", Vector2i(38, 13): "maple", Vector2i(33, 14): "apple", Vector2i(29, 19): "cherry",
-	Vector2i(35, 20): "birch", Vector2i(38, 22): "oak", Vector2i(3, 20): "maple", Vector2i(8, 22): "cherry",
+	Vector2i(35, 20): "birch", Vector2i(38, 22): "oak", Vector2i(10, 18): "maple", Vector2i(8, 22): "cherry",
 	Vector2i(14, 20): "oak", Vector2i(16, 24): "birch", Vector2i(25, 20): "apple", Vector2i(11, 24): "maple",
 	Vector2i(32, 4): "pine", Vector2i(38, 7): "pine", Vector2i(29, 11): "pine", Vector2i(35, 16): "pine",
-	Vector2i(31, 23): "pine", Vector2i(5, 23): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
+	Vector2i(31, 23): "pine", Vector2i(9, 24): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
 	Vector2i(33, 9): "bush", Vector2i(30, 15): "bush", Vector2i(37, 18): "bush", Vector2i(27, 22): "bush",
 	Vector2i(1, 19): "bush", Vector2i(12, 19): "bush", Vector2i(19, 19): "bush",
 	Vector2i(36, 6): "boulder", Vector2i(34, 23): "boulder", Vector2i(9, 20): "boulder", Vector2i(22, 21): "boulder",
@@ -81,7 +81,6 @@ const TRAILS: Array[Vector2i] = [
 	Vector2i(5, 3), Vector2i(6, 3), Vector2i(7, 3), Vector2i(8, 3), Vector2i(9, 3), Vector2i(10, 3), Vector2i(11, 3),
 	Vector2i(12, 3), Vector2i(13, 3), Vector2i(14, 3), Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3), Vector2i(18, 3),
 	Vector2i(19, 3), Vector2i(20, 3), Vector2i(21, 3), Vector2i(22, 3), Vector2i(23, 3), Vector2i(24, 3), Vector2i(25, 3), Vector2i(26, 3),
-	Vector2i(22, 4), Vector2i(22, 5), Vector2i(22, 6), Vector2i(22, 7), Vector2i(22, 8),
 	Vector2i(20, 18), Vector2i(20, 19), Vector2i(20, 20), Vector2i(20, 21), Vector2i(20, 22), Vector2i(20, 23),
 	Vector2i(20, 24), Vector2i(20, 25), Vector2i(20, 26), Vector2i(20, 27), Vector2i(20, 28), Vector2i(20, 29),
 ]
@@ -160,7 +159,16 @@ const HATS: Dictionary = {
 }
 
 ## The fishing pond, and the shipping bin between the home and the stall.
-const POND_RECT := Rect2i(21, 9, 5, 3)
+## The pond, in the bottom-left corner, tucked in under the woods' leaves.
+const POND_CELLS: Array[Vector2i] = [
+	Vector2i(2, 20), Vector2i(3, 20), Vector2i(4, 20), Vector2i(5, 20),
+	Vector2i(1, 21), Vector2i(2, 21), Vector2i(3, 21), Vector2i(4, 21), Vector2i(5, 21), Vector2i(6, 21),
+	Vector2i(1, 22), Vector2i(2, 22), Vector2i(3, 22), Vector2i(4, 22), Vector2i(5, 22), Vector2i(6, 22), Vector2i(7, 22),
+	Vector2i(1, 23), Vector2i(2, 23), Vector2i(3, 23), Vector2i(4, 23), Vector2i(5, 23), Vector2i(6, 23), Vector2i(7, 23),
+	Vector2i(2, 24), Vector2i(3, 24), Vector2i(4, 24), Vector2i(5, 24), Vector2i(6, 24),
+	Vector2i(2, 25), Vector2i(3, 25), Vector2i(4, 25), Vector2i(5, 25),
+]
+const POND_RECT := Rect2i(1, 20, 7, 6)  # the pond's bounds
 const BIN_CELL := Vector2i(16, 2)
 const COST_FISH := 2
 const XP_FISH := 3
@@ -661,7 +669,7 @@ func is_stall(cell: Vector2i) -> bool:
 
 
 func is_pond(cell: Vector2i) -> bool:
-	return POND_RECT.has_point(cell)
+	return POND_CELLS.has(cell)
 
 
 func is_bin(cell: Vector2i) -> bool:

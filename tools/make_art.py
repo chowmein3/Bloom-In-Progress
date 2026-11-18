@@ -1937,6 +1937,112 @@ def make_scenery():
             trail.paste(trail_piece(season, mask), (mask * 16, season * 16))
     save(trail, "scenery", "trail.png")
 
+# assets/sprites/scenery/front_leaves_<season>.png: 64x64 tileable shadowy
+#   leaves for the woods in front of the garden (along the bottom), drawn over
+#   everything like the near trees in farm games.
+# assets/sprites/scenery/leaf_rim.png: 64x40 bright leafy mounds (small to big) that make the
+#   puffy top edge of those woods: six shapes across, a row per season. Their
+#   lower part fades into the shadowy leaves.
+# assets/sprites/scenery/cliff_side.png: 16x32, a row per season: the edge of
+#   the raised land to the left of the garden (a grassy lip, then its rocks).
+
+FRONT = [("#24502f", "#7cc94f", "#f4a6c8"), ("#1d4529", "#5aad45", None),
+         ("#4a2a1c", "#d9822b", "#c4572f"), ("#22362e", "#3f6f55", "#f4f8ff")]
+
+
+def front_leaves(season):
+    rng = random.Random("front%d" % season)
+    dark = rgb(FRONT[season][0])
+    n = 64
+    img = Image.new("RGBA", (n, n), dark + (255,))
+    for _ in range(70):  # soft leaf clumps, a touch lighter and darker
+        cx, cy, r = rng.randrange(n), rng.randrange(n), rng.uniform(3, 6)
+        tone = light(dark, rng.uniform(0.04, 0.1)) if rng.random() < 0.6 else shade(dark, 0.12)
+        for y in range(-7, 8):
+            for x in range(-7, 8):
+                if (x * x + y * y) ** 0.5 <= r:
+                    col = tone if y < r * 0.5 else shade(tone, 0.1)
+                    img.putpixel(((cx + x) % n, (cy + y) % n), col + (255,))
+    for _ in range(n * 2):
+        x, y = rng.randrange(n), rng.randrange(n)
+        r, g, b, a = img.getpixel((x, y))
+        img.putpixel((x, y), light((r, g, b), 0.12) + (255,))
+    return img
+
+
+def leaf_rim(season, variant):
+    """64x40 leafy mounds; variants 0-1 small, 2-3 middling, 4-5 big."""
+    rng = random.Random("rim%d-%d" % (season, variant))
+    dark, bright, spot = (rgb(x) if x else None for x in FRONT[season])
+    c = Canvas(64, 40)
+    size = [0.65, 0.75, 0.95, 1.0, 1.25, 1.35][variant]
+    blobs = []
+    for _ in range(rng.randrange(3, 6)):
+        rx = rng.uniform(7, 11) * size
+        blobs.append((32 + rng.uniform(-1, 1) * (30 - rx) * 0.6, 40 - rx * 1.3 + rng.uniform(-2, 2), rx, rx * 0.8))
+    leafy(c, blobs, mix(bright, rgb("#3f8f52"), rng.uniform(0, 0.35)) if season != 3 else bright, rng,
+          (FRONT[season][2],) if spot and season != 3 else None, int(7 * size))
+    if season == 3:
+        for (x, y, rx, ry) in blobs:
+            c.ell(x - rx * 0.15, y - ry * 0.6, rx * 0.6, 1.8, SNOW)
+    img = c.finish()
+    # Fade the lower part into the shadowy leaves (outline included), so the
+    # mounds grow out of them.
+    for y in range(img.height):
+        fade = min(1.0, max(0.0, (y - 26) / 10.0))
+        if fade <= 0:
+            continue
+        for x in range(img.width):
+            r, g, b, a = img.getpixel((x, y))
+            if a:
+                img.putpixel((x, y), mix((r, g, b), dark, fade) + (255,))
+    return img
+
+
+def cliff_side(season):
+    """The rocky edge of the raised land left of the garden: a grassy lip,
+    then stacked rounded stones, then a shadowed foot."""
+    rng = random.Random("side%d" % season)
+    img = Image.new("RGBA", (16, 32), (0, 0, 0, 0))
+    grass = rgb(SEASON_GRASS[season]) if season != 3 else SNOW
+    rock = rgb("#9b8462")
+    face = [[rgb("#5e4a3a")] * 16 for _ in range(32)]
+    for y0 in range(-4, 32, 7):  # stones stacked down the edge, wrapping
+        x0 = 5 + rng.randrange(0, 2)
+        w, tone = rng.randrange(8, 11), mix(rock, rgb("#7d6a50"), rng.uniform(0, 0.6))
+        for y in range(y0, y0 + 7):
+            for x in range(x0, min(x0 + w, 16)):
+                dx, dy = (x - x0 - (w - 1) / 2) / (w / 2), (y - y0 - 3) / 3.6
+                if dx * dx + dy * dy <= 1.0:
+                    col = light(tone, 0.16) if dx < -0.5 or dy < -0.5 else (shade(tone, 0.22) if dx > 0.55 or dy > 0.5 else tone)
+                    face[y % 32][x] = col
+    for y in range(32):
+        lip = 5 + (1 if math.sin(y * 0.9 + season) > 0.35 else 0)
+        for x in range(16):
+            if x < lip:
+                col = grass if x < lip - 1 else shade(grass, 0.25)
+            else:
+                col = face[y][x]
+                if x >= 14:
+                    col = shade(col, 0.2)
+            img.putpixel((x, y), col + (255,))
+    return img
+
+
+def make_front():
+    for season in range(4):
+        save(front_leaves(season), "scenery", "front_leaves_%d.png" % season)
+    rims = Image.new("RGBA", (64 * 6, 40 * 4), (0, 0, 0, 0))
+    for season in range(4):
+        for variant in range(6):
+            rims.paste(leaf_rim(season, variant), (variant * 64, season * 40))
+    save(rims, "scenery", "leaf_rim.png")
+    sides = Image.new("RGBA", (16, 128), (0, 0, 0, 0))
+    for season in range(4):
+        sides.paste(cliff_side(season), (0, season * 32))
+    save(sides, "scenery", "cliff_side.png")
+
+
 if __name__ == "__main__":
     make_app_icon()
     make_icons()
@@ -1955,4 +2061,5 @@ if __name__ == "__main__":
     make_items()
     make_tree()
     make_scenery()
+    make_front()
     print("sprites written to", os.path.normpath(OUT))

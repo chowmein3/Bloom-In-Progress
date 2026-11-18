@@ -37,6 +37,7 @@ const Social := preload("res://scripts/social.gd")
 const FestivalView := preload("res://scripts/festival_view.gd")
 const SceneryView := preload("res://scripts/scenery_view.gd")
 const BorderView := preload("res://scripts/border_view.gd")
+const ForestFront := preload("res://scripts/forest_front.gd")
 const CAMERA_MARGIN := Vector2(64, 64)  # how far the view may go past the garden's edge
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
@@ -123,6 +124,7 @@ func _ready() -> void:
 		standing.flip_h = hash(at) % 2 == 0 and standing.kind != "log"
 		_entities.add_child(standing)
 	BorderView.decorate(_entities)
+	add_child(ForestFront.new())  # the near woods along the bottom, over everything
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
 	_visitor.offset = Vector2(-8, -23)
