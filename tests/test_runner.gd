@@ -779,6 +779,66 @@ func _ready() -> void:
 	check(not crowded, "none of them are in the old garden, so existing plots are untouched")
 	GameState.new_game()
 
+	print("each player has their own bag")
+	GameState.new_game()
+	GameState.register_player(2)
+	check(GameState.bag_of(2)["coins"] == GameState.START_COINS and int(GameState.bag_of(2)["seeds"]["sunpuff"]) == 6, "a partner starts with their own seeds and purse")
+	check(GameState.request_buy_seeds(2, "sunpuff", 2), "the partner buys seeds")
+	check(GameState.coins == GameState.START_COINS and GameState.seed_count("sunpuff") == 6, "the host's purse and seeds are untouched")
+	check(int(GameState.bag_of(2)["seeds"]["sunpuff"]) == 8 and int(GameState.bag_of(2)["coins"]) < GameState.START_COINS, "the partner paid from their own purse")
+	GameState.bag_of(2)["produce"]["sunpuff"] = 2
+	check(GameState.request_ship(2, "sunpuff", 2) and GameState.bin.is_empty(), "shipping goes in the partner's own part of the bin")
+	var host_purse: int = GameState.coins
+	var their_purse: int = int(GameState.bag_of(2)["coins"])
+	GameState.end_day(false)
+	check(GameState.coins == host_purse and int(GameState.bag_of(2)["coins"]) == their_purse + 60, "the night's sale pays whoever shipped it")
+	GameState._reward_everyone(50)
+	check(GameState.coins == host_purse + 50 and int(GameState.bag_of(2)["coins"]) == their_purse + 110, "festival and goal prizes go to everyone")
+
+	print("moving stacks in the backpack")
+	GameState.new_game()
+	GameState.items["tea"] = 3
+	GameState.items["stone"] = 5
+	var slots: Array = GameState.bag_slots()
+	check(slots.slice(0, GameState.HOT_SLOTS) == ["", "", "", ""] and slots.has("item:tea") and slots.has("seed:sunpuff"), "new things go in the backpack, not the hot bar")
+	var tea_at: int = slots.find("item:tea")
+	check(GameState.request_move_slot(P, tea_at, 0), "drag tea onto the hot bar")
+	slots = GameState.bag_slots()
+	check(slots[0] == "item:tea" and slots.count("item:tea") == 1 and slots[tea_at] == "", "the whole stack moved: it isn't in the backpack too")
+	check(GameState.item_count("tea") == 3, "and none was copied or lost")
+	check(not GameState.request_move_slot(P, slots.find("item:stone"), 1), "stone can't go on the hot bar")
+	var stone_at: int = slots.find("item:stone")
+	check(GameState.request_move_slot(P, stone_at, GameState.HOT_SLOTS + 20) and GameState.bag_slots()[GameState.HOT_SLOTS + 20] == "item:stone", "things can go in any backpack slot")
+	check(not GameState.request_move_slot(P, 0, GameState.HOT_SLOTS + 20), "tea can't swap with stone, which can't go on the hot bar")
+	for sip in 3:
+		GameState.energy[P] = 10  # tired enough to drink it
+		GameState.request_eat(P, "tea")
+	check(GameState.item_count("tea") == 0 and GameState.bag_slots()[0] == "", "a stack used up leaves its slot empty")
+
+	print("dropping things")
+	GameState.new_game()
+	GameState.register_player(2)
+	var drop_at := Vector2i(9, 9)
+	check(GameState.request_drop(P, "seed:moonbell", drop_at) and GameState.seed_count("moonbell") == 0, "the host drops all their moonbell seeds")
+	check(GameState.object_kind(drop_at) == "dropped" and int(GameState.objects[drop_at]["count"]) == 4 and GameState.can_walk(drop_at), "they lie on the ground and can be walked over")
+	check(not GameState.request_drop(P, "seed:sunpuff", drop_at), "nothing else can be dropped on the same tile")
+	check(not GameState.request_till(P, drop_at), "the tile can't be dug while something lies there")
+	check(GameState.request_harvest(2, drop_at) and int(GameState.bag_of(2)["seeds"]["moonbell"]) == 8, "the partner picks them up: a way to give things")
+	check(not GameState.objects.has(drop_at) and GameState.seed_count("moonbell") == 0, "they're gone from the ground and the host has none")
+	GameState.request_drop(P, "seed:dewcup", drop_at)
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	check(GameState.object_kind(drop_at) == "dropped" and int(GameState.objects[drop_at]["count"]) == 3, "dropped things stay where they are after save and load")
+	check(int(GameState.bag_of(2).get("seeds", {}).get("moonbell", 0)) == 8, "so does the partner's bag")
+	GameState.soil[Vector2i(10, 10)] = {"watered": false}
+	check(not GameState.request_drop(P, "seed:sunpuff", Vector2i(10, 10)) and not GameState.request_drop(P, "seed:sunpuff", GameState.MAILBOX_CELL), "not on soil or where something stands")
+
+	print("gardens from before own bags")
+	GameState.apply_snapshot({"seeds": {"sunpuff": 9}, "coins": 777, "items": {"tea": 2}, "bin": {"tea": 1}})
+	check(GameState.coins == 777 and GameState.seed_count("sunpuff") == 9 and GameState.item_count("tea") == 2 and int(GameState.bin["tea"]) == 1, "the old shared bag becomes the host's")
+	GameState.new_game()
+
 	print("curfew and energy")
 	GameState.energy[P] = 1
 	check(not GameState.request_till(P, Vector2i(8, 8)), "too tired to till")

@@ -108,12 +108,16 @@ func _ready() -> void:
 	GameState.items["oven"] = 1
 	GameState.items["flour"] = 3
 	GameState.inventory_changed.emit()
-	player.call("set_quick", 0, "item:flour")
+	player.call("set_quick", 0, "item:oven")
+	player.call("set_quick", 1, "seed:moonbell")
+	player.set("facing", Vector2i.DOWN)
+	player.call("drop", "item:flour")
+	await _wait(0.5)
+	await _shot("8_dropped")
 	await _tap(KEY_E)
 	await _frames(6)
-	await _shot("8_backpack")
+	await _shot("9_backpack")
 	await _tap(KEY_E)
-	player.call("set_quick", 0, "")
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://screenshot_save.json"))
 	print("SCREENSHOTS DONE" if failures == 0 else "%d CHECKS FAILED" % failures)

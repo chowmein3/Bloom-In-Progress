@@ -179,13 +179,16 @@ in the pause menu.
 - **Clock tower** (left of your home): face it and press Space to set any
   season, day, year, time of day and weather, to see how the garden looks
   then. Nothing grows or wilts for the time skipped. Expect a scene.
-- **Backpack** (E): the garden's shared seeds and harvest, your coins, and the
-  hats you own. Click a seed packet to hold it; click a hat to wear it. Drag
-  things to rearrange them, or drag one onto the hot bar row: slots 3 and 4
-  are the seed and item slots, and 7, 8, 9 and 0 are quick slots that show on
-  the tool bar (click a filled quick slot in the backpack to clear it).
-- Coins, seeds, harvest, tools, the home and the hat wardrobe are shared by
-  both players. Each player picks their own hat to wear.
+- **Backpack** (E): your own seeds, harvest and things, your coins, and the
+  hats. Click a seed packet to hold it; click a hat to wear it. Drag a stack
+  to move it to another slot, or onto the hot bar row: those four slots show
+  on the tool bar and keys 7, 8, 9 and 0 take them in hand. Drag a stack out
+  of the backpack to drop it on the ground in front of you; walk over it (or
+  press F at it) to pick it up. That's also how to give things to your partner.
+- Each player has their own coins, seeds, harvest, things and part of the
+  shipping bin, which pays them overnight. Prizes from festivals, goals and
+  the Heart Tree go to everyone. Tool and home upgrades, animals, the hat
+  wardrobe and the garden itself are shared.
 
 ## Playing together
 One of you hosts; the garden and its save file live on the host's computer.

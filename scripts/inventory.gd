@@ -1,18 +1,17 @@
 extends CanvasLayer
 ## The backpack (E). Three tabs:
-##   Items    - the garden's shared seeds, harvest, materials and made things
-##              in a grid, plus the player's own corner (portrait, hats).
+##   Items    - this player's own seeds, harvest, materials and made things
+##              in a grid, plus their corner (portrait, hats).
 ##              Click seeds, placeable things or meals to hold them.
 ##   Crafting - recipes made from gathered materials.
 ##   Kitchen  - meals cooked from the harvest (needs the Cabin's stove).
 ##   Oven     - baking (needs an oven set down in the home).
-## On the Items tab, drag things to rearrange them, or onto the hot bar row to
-## put them in a tool bar slot.
+## On the Items tab, drag a stack to move it (onto the hot bar row puts it on
+## the tool bar), or out of the backpack to drop it on the ground.
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
 const TABS: Array[String] = ["Items", "Crafting", "Kitchen", "Oven"]
-const Settings := preload("res://scripts/settings.gd")
 const COLUMNS := 10
 const MIN_SLOTS := 30
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
@@ -27,7 +26,7 @@ var _recipes_page: ScrollContainer
 var _recipes: VBoxContainer
 var _grid: GridContainer
 var _bar: HBoxContainer
-var _order: Array = []  # what each grid slot holds right now
+var _order: Array = []  # what each bag slot holds right now (0-3: hot bar)
 var _info: Label
 var _coins: Label
 var _facts: Label
@@ -50,6 +49,10 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	Ui.popup(_root).add_child(box)
+	# Dragging something out of the panel onto the backdrop drops it.
+	var shade: Control = _root.get_child(0)
+	shade.set_drag_forwarding(Callable(), func(_at: Vector2, data: Variant) -> bool: return typeof(data) == TYPE_DICTIONARY and data.has("key"), _drop_outside)
+	(_root.get_child(1) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 3)
@@ -179,7 +182,7 @@ func _rebuild() -> void:
 	_items_page.visible = tab == "Items"
 	_recipes_page.visible = tab != "Items"
 	if tab == "Items":
-		_info.text = "Shared by the whole garden. Drag to rearrange or onto the hot bar."
+		_info.text = "Your own things. Drag to move them, or out of the backpack to drop them."
 		_fill_items()
 	else:
 		_info.text = "Level up by caring for plants and harvesting." if tab == "Crafting" else "Meals restore energy. Hold one (4) and press Space."
@@ -194,20 +197,9 @@ func _fill_items() -> void:
 	for child: Node in _grid.get_children():
 		_grid.remove_child(child)
 		child.queue_free()
-	_order = _bag_order()
-	for i in _order.size():
-		var key: String = _order[i]
-		var slot: Control
-		if key == "":
-			var empty := Panel.new()
-			empty.custom_minimum_size = Vector2(20, 20)
-			empty.add_theme_stylebox_override("panel", Ui.box(Ui.SLOT))
-			slot = empty
-		else:
-			slot = _add_slot(key.get_slice(":", 1), key.get_slice(":", 0))
-		# Drag a thing to another slot to move it; they swap places.
-		slot.set_drag_forwarding(_drag_from_bag.bind(i), _can_drop.bind("bag"), _drop_on_bag.bind(i))
-		_grid.add_child(slot)
+	_order = GameState.bag_slots()
+	for i in range(GameState.HOT_SLOTS, _order.size()):
+		_grid.add_child(_slot_at(i))
 	_fill_hot_bar()
 
 	var me: int = player.get("player_id")
@@ -241,39 +233,24 @@ func _fill_items() -> void:
 	_portrait.queue_redraw()
 
 
-## Everything in the backpack as keys ("seed:sunpuff", "harvest:sunpuff",
-## "item:tea") in the player's own order, with "" for empty slots.
-func _bag_order() -> Array:
-	var present: Array = []
-	for id: String in GameState.species.keys():
-		if GameState.seed_count(id) > 0:
-			present.append("seed:" + id)
-	for id: String in GameState.species.keys():
-		if int(GameState.produce.get(id, 0)) > 0:
-			present.append("harvest:" + id)
-	for id: String in GameState.items.keys():
-		if GameState.item_count(id) > 0:
-			present.append("item:" + id)
-	var order: Array = []
-	var saved: Variant = Settings.read().get("bag_order", [])
-	if typeof(saved) == TYPE_ARRAY:
-		for key: Variant in saved:
-			order.append(str(key) if present.has(str(key)) and not order.has(str(key)) else "")
-	for key: String in present:  # new things take the first free slot
-		if not order.has(key):
-			var free: int = order.find("")
-			if free >= 0:
-				order[free] = key
-			else:
-				order.append(key)
-	while order.size() > MIN_SLOTS and order[-1] == "" and order.size() % COLUMNS != 1 and not order.slice(order.size() - COLUMNS).any(func(k: String) -> bool: return k != ""):
-		order.resize(order.size() - COLUMNS)
-	while order.size() < MIN_SLOTS or order.size() % COLUMNS != 0:
-		order.append("")
-	return order
+## The button for bag slot `index`: drag it anywhere in the backpack to move
+## the whole stack (swapping with what is there), or out of the backpack to
+## drop it on the ground in front of you.
+func _slot_at(index: int) -> Control:
+	var key: String = _order[index]
+	var slot: Control
+	if key == "":
+		var empty := Panel.new()
+		empty.custom_minimum_size = Vector2(20, 20)
+		empty.add_theme_stylebox_override("panel", Ui.box(Ui.SLOT))
+		slot = empty
+	else:
+		slot = _add_slot(key.get_slice(":", 1), key.get_slice(":", 0))
+	slot.set_drag_forwarding(_drag_from_bag.bind(index), _can_drop.bind(index), _drop_on_bag.bind(index))
+	return slot
 
 
-## What is being dragged: {"key": "seed:sunpuff", "from": slot index or -1}.
+## What is being dragged: {"key": "seed:sunpuff", "from": slot index}.
 func _drag_from_bag(_at: Vector2, index: int) -> Variant:
 	var key: String = _order[index]
 	if key == "":
@@ -285,80 +262,49 @@ func _drag_from_bag(_at: Vector2, index: int) -> Variant:
 	return {"key": key, "from": index}
 
 
-func _can_drop(_at: Vector2, data: Variant, where: String) -> bool:
-	if typeof(data) != TYPE_DICTIONARY or not data.has("key"):
+## Slots 0-3 (the hot bar) only take seeds and things you can hold.
+func _can_drop(_at: Vector2, data: Variant, index: int) -> bool:
+	if typeof(data) != TYPE_DICTIONARY or not data.has("from"):
 		return false
-	return where == "bag" or bar_accepts(where, str(data["key"]))
+	var from: int = int(data["from"])
+	if index < GameState.HOT_SLOTS and not GameState.holdable(str(data["key"])):
+		return false
+	return not (from < GameState.HOT_SLOTS and _order[index] != "" and not GameState.holdable(_order[index]))
 
 
-## Swap the dragged thing with whatever is in slot `index`.
+## Move the dragged stack to slot `index`, swapping with what is there.
 func _drop_on_bag(_at: Vector2, data: Variant, index: int) -> void:
-	var from: int = int(data.get("from", -1))
-	if from < 0 or from >= _order.size() or index >= _order.size():
-		return
-	var moved: String = _order[from]
-	_order[from] = _order[index]
-	_order[index] = moved
-	Settings.put("bag_order", _order)
-	_rebuild()
+	if _can_drop(_at, data, index):
+		GameState.request_move_slot(int(player.get("player_id")), int(data["from"]), index)
 
 
-## Whether a hot bar slot ("seeds", "item" or "quick0".."quick3") takes this key.
-func bar_accepts(where: String, key: String) -> bool:
-	var id: String = key.get_slice(":", 1)
-	var holdable: bool = key.begins_with("item:") and GameState.ITEMS.has(id) and ["place", "soil", "meal", "decor"].has(str(GameState.ITEMS[id]["kind"]))
-	if where == "seeds":
-		return key.begins_with("seed:")
-	if where == "item":
-		return holdable
-	return key.begins_with("seed:") or holdable
+## Whether a hot bar slot takes this thing (kept for the tests and the HUD).
+func bar_accepts(slot: int, key: String) -> bool:
+	return slot >= GameState.HOT_SLOTS or GameState.holdable(key)
 
 
-## Put the dragged thing in a hot bar slot.
-func _drop_on_bar(_at: Vector2, data: Variant, where: String) -> void:
-	var key: String = data["key"]
-	if not bar_accepts(where, key):
-		return
-	if where == "seeds":
-		player.call("hold_seed", key.get_slice(":", 1))
-	elif where == "item":
-		player.call("hold_item", key.get_slice(":", 1))
-	else:
-		player.call("set_quick", where.trim_prefix("quick").to_int(), key)
-	_rebuild()
+## Dragged out of the backpack: drop the whole stack on the tile ahead.
+func _drop_outside(_at: Vector2, data: Variant) -> void:
+	if typeof(data) == TYPE_DICTIONARY and data.has("key"):
+		if bool(player.call("drop", str(data["key"]))):
+			Sound.play("plant")
+			_info.text = "Dropped. Walk over it to pick it up again."
 
 
-## The row of tool bar slots things can be dragged onto.
+## The hot bar: bag slots 0-3, on keys 7, 8, 9 and 0 and shown on the tool bar.
 func _fill_hot_bar() -> void:
 	for child: Node in _bar.get_children():
 		_bar.remove_child(child)
 		child.queue_free()
 	_bar.add_child(Ui.label("Hot bar:", Ui.FAINT))
-	var quick: Array = player.get("quick")
-	var slots: Array = [["seeds", "3", "seed:" + str(player.get("seed_id"))], ["item", "4", "item:" + str(player.get("item_id"))]]
-	for i in quick.size():
-		slots.append(["quick%d" % i, ["7", "8", "9", "0"][i], str(quick[i])])
-	for entry: Array in slots:
-		var where: String = entry[0]
-		var key: String = entry[2]
-		var id: String = key.get_slice(":", 1) if key.contains(":") else ""
-		var has: bool = id != "" and (GameState.seed_count(id) > 0 if key.begins_with("seed:") else GameState.item_count(id) > 0)
-		var slot := Button.new()
-		slot.custom_minimum_size = Vector2(20, 20)
-		slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		if has:
-			slot.icon = Assets.texture("res://assets/sprites/items/%s%s.png" % [GameState.base_of(id), "_seeds" if key.begins_with("seed:") else ""])
-		var number: Label = Ui.label(entry[1], Ui.ACCENT, 5)
+	for i in GameState.HOT_SLOTS:
+		var slot: Control = _slot_at(i)
+		var number: Label = Ui.label(["7", "8", "9", "0"][i], Ui.ACCENT, 5)
 		number.position = Vector2(2, -1)
 		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(number)
-		slot.set_drag_forwarding(Callable(), _can_drop.bind(where), _drop_on_bar.bind(where))
-		var what: String = "Seed slot (3)" if where == "seeds" else ("Item slot (4)" if where == "item" else "Quick slot (%s)" % entry[1])
-		slot.mouse_entered.connect(func() -> void: _info.text = "%s. Drag something from below onto it." % what)
-		if where.begins_with("quick") and key != "":
-			slot.pressed.connect(func() -> void:
-				player.call("set_quick", where.trim_prefix("quick").to_int(), "")  # click to clear
-				_rebuild())
+		if _order[i] == "":
+			slot.mouse_entered.connect(func() -> void: _info.text = "Hot bar slot (%s). Drag seeds or something to hold here." % ["7", "8", "9", "0"][i])
 		_bar.add_child(slot)
 
 

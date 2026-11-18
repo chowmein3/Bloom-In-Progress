@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: release
-  cancel-in-progress: true
+  cancel-in-progress: false  # let a build finish; the next one queues behind it
 
 jobs:
   build:
@@ -23,17 +23,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Remember Godot between runs
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-cache
+          key: godot-${{ env.GODOT_VERSION }}-v1
+
       - name: Get Godot and its export templates
+        timeout-minutes: 20
         run: |
+          if [ -f "$HOME/godot-cache/godot" ]; then
+            mkdir -p "$RUNNER_TEMP/godot" "$HOME/.local/share/godot/export_templates"
+            cp "$HOME/godot-cache/godot" "$RUNNER_TEMP/godot/godot"
+            cp -r "$HOME/godot-cache/${GODOT_VERSION}.stable" "$HOME/.local/share/godot/export_templates/"
+            echo "GODOT=$RUNNER_TEMP/godot/godot" >> "$GITHUB_ENV"
+            exit 0
+          fi
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          curl -sSL --fail -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          curl -sSL --fail -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -sSL --fail --retry 5 --retry-delay 5 --retry-all-errors -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sSL --fail --retry 5 --retry-delay 5 --retry-all-errors -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           unzip -q godot.zip -d "$RUNNER_TEMP/godot"
           mv "$RUNNER_TEMP"/godot/Godot_v*_linux.x86_64 "$RUNNER_TEMP/godot/godot"
           templates="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$templates"
           unzip -q -j templates.tpz "templates/windows_release_x86_64.exe" "templates/linux_release.x86_64" "templates/macos.zip" "templates/version.txt" -d "$templates"
           rm godot.zip templates.tpz
+          mkdir -p "$HOME/godot-cache"
+          cp "$RUNNER_TEMP/godot/godot" "$HOME/godot-cache/godot"
+          cp -r "$templates" "$HOME/godot-cache/${GODOT_VERSION}.stable"
           echo "GODOT=$RUNNER_TEMP/godot/godot" >> "$GITHUB_ENV"
 
       - name: Run the tests

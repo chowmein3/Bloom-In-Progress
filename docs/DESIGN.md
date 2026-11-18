@@ -23,7 +23,8 @@ sims; the name, plants, characters and art are our own.
   growth, no mood loss). It does not die.
 - Energy (100/day) limits how much one player can do. Staying up to 2am means
   waking with half energy.
-- Seeds, produce and coins are shared by everyone in the garden.
+- Each player has their own bag: seeds, produce, items, coins and their part
+  of the shipping bin. Festival, goal and Heart Tree prizes go to everyone.
 
 ## Plants
 | Plant | Seasons | Days to bloom | Notes | How you get it |
@@ -64,7 +65,7 @@ blooms and radiant blooms are announced on the morning screen.
   space, far to the side of the garden grid). The bed is the only way to end
   the day; sleepers are drawn tucked in, host on the left pillow, partner on
   the right. Anyone still up at 2am is carried to bed with half energy.
-- **Coins:** shared purse, 100 to start. Each plant has a sell price and a
+- **Coins:** each player's own purse, 100 to start. Each plant has a sell price and a
   seed price (`data/plants/*.tres`).
 - **Bristle's stall** sells:
   - seeds for plants the garden knows (starting three, plus Heart Tree gifts);
@@ -94,9 +95,11 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   are grown; sugar, butter, cinnamon and eggs are bought (Pantry tab) or
   gifted. Recipes, requests and machines take produce of any quality,
   plain first.
-- **Hot bar:** the backpack's order and four quick slots (keys 7, 8, 9, 0)
-  are each player's own preference, set by dragging; they aren't shared or
-  saved with the garden.
+- **Backpack slots:** each bag keeps the order of its slots (saved with the
+  garden). The first four are the hot bar (keys 7, 8, 9, 0) and only take
+  seeds and things you hold. Dragging moves a whole stack; dragging it out of
+  the backpack drops it on the tile ahead as a "dropped" object anyone can
+  walk over or press F at to pick up.
 - **The land** is 40x26 tiles; the old 28x18 yard is the top-left part and
   the rest is meadow with trees, bushes and boulders (`SCENERY`) that block
   walking. Woods outside the edge are decoration only. On festival days
@@ -113,7 +116,7 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   request. Levels unlock recipes and add 2 energy each.
 - **Requests:** each morning without one, Bristle asks for 2-4 of an
   in-season plant the garden knows and pays double.
-- Items, placed things, experience and the request are shared and saved; the
+- Placed things, experience and the request are shared and saved; the
   tool bar's sixth slot holds one placeable thing or meal.
 
 ## Hands and tools
@@ -272,7 +275,8 @@ Heart Tree love sit under the clock.
   not in bed wakes with half energy.
 - **Duet:** if two different players pet the same plant on one day it gets +6
   mood on top of the normal +8.
-- Seeds, produce and the garden are shared; energy is per player.
+- The garden is shared; bags (seeds, produce, items, coins) and energy are
+  per player.
 
 ## Getting it and connecting
 - Players download one zip and double-click the game; nothing to install.

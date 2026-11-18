@@ -115,30 +115,42 @@ func _ready() -> void:
 	var slots: Array[Node] = bag.find_children("*", "GridContainer", true, false)[0].get_children()
 	(slots[1] as Button).emit_signal("pressed")  # the second seed packet
 	_expect(str(player.get("seed_id")) == "moonbell" and int(player.get("tool_index")) == 2, "clicking a seed packet holds those seeds")
-	# Dragging: swap two things, then drop a seed packet on a quick slot.
-	var first: String = bag.get("_order")[0]
-	var second: String = bag.get("_order")[1]
-	var held: Variant = bag.call("_drag_from_bag", Vector2.ZERO, 0)
+	# Dragging moves whole stacks: within the backpack, onto the hot bar, or out to drop it.
+	var hot: int = GameState.HOT_SLOTS
+	var first: String = bag.get("_order")[hot]
+	var second: String = bag.get("_order")[hot + 1]
+	var held: Variant = bag.call("_drag_from_bag", Vector2.ZERO, hot)
 	_expect(typeof(held) == TYPE_DICTIONARY and str(held["key"]) == first, "a backpack slot can be picked up")
-	bag.call("_drop_on_bag", Vector2.ZERO, held, 1)
-	_expect(str(bag.get("_order")[0]) == second and str(bag.get("_order")[1]) == first, "dropping it on another slot swaps the two")
-	bag.call("_drop_on_bag", Vector2.ZERO, {"key": first, "from": 1}, 7)
-	_expect(str(bag.get("_order")[7]) == first and str(bag.get("_order")[1]) == "", "it can be moved to an empty slot")
-	_expect(not bool(bag.call("bar_accepts", "item", first)) and bool(bag.call("bar_accepts", "quick0", first)), "seeds don't fit the item slot but do fit a quick slot")
-	bag.call("_drop_on_bar", Vector2.ZERO, {"key": first, "from": 7}, "quick0")
-	_expect(str(player.get("quick")[0]) == first, "dropping on the hot bar fills that quick slot")
+	bag.call("_drop_on_bag", Vector2.ZERO, held, hot + 1)
+	_expect(str(bag.get("_order")[hot]) == second and str(bag.get("_order")[hot + 1]) == first, "dropping it on another slot swaps the two")
+	bag.call("_drop_on_bag", Vector2.ZERO, {"key": first, "from": hot + 1}, hot + 7)
+	_expect(str(bag.get("_order")[hot + 7]) == first and str(bag.get("_order")[hot + 1]) == "", "it can be moved to an empty slot")
+	var packets: int = GameState.bag_count(first)
+	bag.call("_drop_on_bag", Vector2.ZERO, {"key": first, "from": hot + 7}, 0)
+	_expect(str(bag.get("_order")[0]) == first and str(bag.get("_order")[hot + 7]) == "" and str(player.get("quick")[0]) == first, "dropping on the hot bar moves the stack there")
+	_expect(GameState.bag_count(first) == packets and bag.get("_order").count(first) == 1, "the whole stack moved, nothing was copied")
+	GameState.items["stone"] = 2
+	GameState.inventory_changed.emit()
+	var stone_at: int = bag.get("_order").find("item:stone")
+	_expect(not bool(bag.call("_can_drop", Vector2.ZERO, {"key": "item:stone", "from": stone_at}, 1)), "stone can't go on the hot bar")
 	await _tap(KEY_E)
 	await _tap(KEY_7)
-	_expect(int(player.get("quick_index")) == 0 and int(player.get("tool_index")) == 2 and "seed:" + str(player.get("seed_id")) == first, "7 picks the first quick slot and holds those seeds")
+	_expect(int(player.get("quick_index")) == 0 and int(player.get("tool_index")) == 2 and "seed:" + str(player.get("seed_id")) == first, "7 picks the first hot bar slot and holds those seeds")
 	await _tap(KEY_1)
-	_expect(int(player.get("quick_index")) == -1, "choosing a tool leaves the quick slot")
-	player.call("set_quick", 0, "")
-	Settings.put("bag_order", [])
+	_expect(int(player.get("quick_index")) == -1, "choosing a tool leaves the hot bar slot")
+	_expect(not GameState.can_drop_on(player.call("target_cell")), "nothing can be dropped onto the stall")
+	await _hold(KEY_S, 0.05)  # turn round to open ground
+	var ahead: Vector2i = player.call("target_cell")
+	bag.call("_drop_outside", Vector2.ZERO, {"key": "item:stone", "from": bag.get("_order").find("item:stone")})
+	_expect(GameState.object_kind(ahead) == "dropped" and GameState.item_count("stone") == 0, "dragging stone out of the backpack drops it on the tile ahead")
 	await _tap(KEY_E)
 	await _tap(KEY_J)
 	_expect(not _screen("journal.gd").visible, "another screen can't open on top")
 	await _tap(KEY_E)
 	_expect(not bag.visible and not bool(player.get("reading")), "E closes it again")
+	var stone_cell: Vector2i = player.call("target_cell")
+	await _hold_dir(stone_cell)
+	_expect(not GameState.objects.has(stone_cell) and GameState.item_count("stone") == 2, "walking over the dropped stone picks it back up")
 
 	print("a better hoe")
 	await _hold(KEY_S, 0.9)
@@ -206,7 +218,7 @@ func _ready() -> void:
 	await _shot("home_6e_hand_hint")
 	await _tap(KEY_1)
 	await _tap(KEY_SPACE)
-	_expect(not GameState.plants.has(pet_spot) and int(GameState.produce.get("sunpuff", 0)) >= 1, "Space with the hoe in hand picks it too, since the hoe has nothing to do there")
+	_expect(not GameState.plants.has(pet_spot) and GameState.total_of("sunpuff") >= 1, "Space with the hoe in hand picks it too, since the hoe has nothing to do there")
 
 	print("fishing")
 	player.position = Vector2((GameState.POND_RECT.position.x - 0.5) * 16, (GameState.POND_RECT.position.y + 1) * 16 + 10)
@@ -547,6 +559,23 @@ func _tap(key: Key) -> void:
 	await _wait(0.1)
 	_key(key, false)
 	await _wait(0.1)
+
+
+## Walk towards the tile ahead until standing on `goal`, then step back.
+func _hold_dir(goal: Vector2i) -> void:
+	var player: Node2D = get_tree().root.find_children("*", "Node2D", true, false).filter(func(n: Node) -> bool: return n.get("player_id") != null and not bool(n.get("is_remote")))[0]
+	var keys: Dictionary = {Vector2i.UP: KEY_W, Vector2i.DOWN: KEY_S, Vector2i.LEFT: KEY_A, Vector2i.RIGHT: KEY_D}
+	var back: Dictionary = {Vector2i.UP: KEY_S, Vector2i.DOWN: KEY_W, Vector2i.LEFT: KEY_D, Vector2i.RIGHT: KEY_A}
+	var way: Vector2i = player.get("facing")
+	_key(keys[way], true)
+	for i in 60:
+		if player.call("cell") == goal:
+			break
+		await get_tree().process_frame
+	_key(keys[way], false)
+	await _wait(0.1)
+	await _hold(back[way], 0.3)
+	await _hold(keys[way], 0.05)  # face the way we were facing again
 
 
 func _hold(key: Key, seconds: float) -> void:
