@@ -46,9 +46,13 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `FORAGE` in `GameState`. A machine's state lives on its object
   (`busy`, `ready`).
 - `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
-  Fixed trees, bushes and boulders are `GameState.SCENERY` (they block
-  walking; `main.gd` adds their sprites and the decorative woods past the
-  edge). Fruit trees are `GameState.TREES` (sapling id -> fruit).
+  Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
+  (each blocks its base tile, a log two; use `scenery_at(cell)`), drawn by
+  `scenery_view.gd` from `assets/sprites/scenery/<kind>.png` (one frame per
+  season). `border_view.gd` draws the land past the edge (cliff, woodland
+  band, forest canopy, trails from `GameState.TRAILS`) and `decorate()` adds
+  its trees and fence. The Heart Tree blocks walking only on its trunk row
+  but can't be dug or built on anywhere in `TREE_RECT`. Fruit trees are `GameState.TREES` (sapling id -> fruit).
 - Baking: recipes flagged `"oven": true` need an oven placed in the home
   (`has_oven()`); shop items flagged `"pantry": true` show on the Pantry tab.
 - Each player has their own bag in `GameState.bags` (str(slot) -> seeds,
@@ -130,3 +134,5 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - Download build: `tools/build.sh <godot binary>` (needs export templates).
   Tests, tools, docs and packaging are left out of the exported game.
 - Visual smoke test: `godot --path . res://tests/screenshot.tscn -- <output folder>`.
+- Whole map, one picture per season (add `blocked` to tint tiles that can't be
+  walked on): `godot --path . res://tests/map_shot.tscn -- <output folder>`.

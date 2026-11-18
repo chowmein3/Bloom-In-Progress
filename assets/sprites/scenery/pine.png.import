@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ku1hw32ebhe3"
-path="res://.godot/imported/scenery_oak.png-3f8e3bd677d565f52d94eb2a609e552f.ctex"
+uid="uid://nsi7nltpyg07"
+path="res://.godot/imported/pine.png-8df7eb385addcbf8ce1dcd5a47b0c791.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/scenery_oak.png"
-dest_files=["res://.godot/imported/scenery_oak.png-3f8e3bd677d565f52d94eb2a609e552f.ctex"]
+source_file="res://assets/sprites/scenery/pine.png"
+dest_files=["res://.godot/imported/pine.png-8df7eb385addcbf8ce1dcd5a47b0c791.ctex"]
 
 [params]
 

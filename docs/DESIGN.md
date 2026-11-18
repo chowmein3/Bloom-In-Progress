@@ -101,8 +101,14 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   the backpack drops it on the tile ahead as a "dropped" object anyone can
   walk over or press F at to pick up.
 - **The land** is 40x26 tiles; the old 28x18 yard is the top-left part and
-  the rest is meadow with trees, bushes and boulders (`SCENERY`) that block
-  walking. Woods outside the edge are decoration only. On festival days
+  the rest is meadow with oak, maple, birch, cherry, wild apple and pine
+  trees, bushes, boulders, stumps and logs (`SCENERY`), all changing with
+  the seasons (blossom in spring, red and gold in fall, bare and snowy in
+  winter). Each blocks only the tile it stands on, so you can walk behind
+  canopies. Dirt trails link the buildings and lead off the map. Around the
+  garden: a rocky cliff along the top with a trail climbing through a gap,
+  tree lines down the sides, a fence along the bottom, and deep forest
+  beyond; all decoration only. On festival days
   bunting hangs between the tower, home and stall, and the party (confetti,
   a message) starts at 5pm.
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each

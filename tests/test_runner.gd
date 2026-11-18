@@ -777,6 +777,14 @@ func _ready() -> void:
 		if at.x < 28 and at.y < 18:
 			crowded = true
 	check(not crowded, "none of them are in the old garden, so existing plots are untouched")
+	check(GameState.scenery_at(Vector2i(30, 16)) == "log" and not GameState.can_walk(Vector2i(30, 16)) and GameState.can_walk(Vector2i(31, 16)), "a fallen log blocks both its tiles and no more")
+	var crown := Vector2i(GameState.TREE_RECT.position.x, GameState.TREE_RECT.position.y)
+	var trunk := Vector2i(GameState.TREE_RECT.position.x, GameState.TREE_RECT.end.y - 1)
+	check(GameState.can_walk(crown) and not GameState.can_walk(trunk), "you can walk behind the Heart Tree's leaves, not through its trunk")
+	check(not GameState.request_till(P, crown) and not GameState.can_drop_on(crown), "but you can't dig or drop things under its leaves")
+	check(GameState.can_walk(Vector2i(22, 3)) and GameState.request_till(P, Vector2i(22, 3)), "trails can be walked on and dug")
+	var outside: Array = GameState.TRAILS.filter(func(cell: Vector2i) -> bool: return not GameState.in_bounds(cell))
+	check(not outside.is_empty() and not outside.any(func(cell: Vector2i) -> bool: return GameState.can_walk(cell)), "trails lead off through the cliff and the fence, but only as scenery")
 	GameState.new_game()
 
 	print("each player has their own bag")

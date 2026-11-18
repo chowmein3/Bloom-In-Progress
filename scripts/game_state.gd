@@ -54,18 +54,45 @@ const SEED_LEVELS: Dictionary = {
 const WORLD_SIZE := Vector2i(40, 26)  # in 16px tiles
 ## Trees, bushes and boulders that are part of the land. They stand in the
 ## outer parts of the garden and can't be moved.
+## Each is drawn from assets/sprites/scenery/<kind>.png, which changes with the
+## season, and blocks only the tile its trunk or base stands on (a log, two).
 const SCENERY: Dictionary = {
-	Vector2i(30, 2): "oak", Vector2i(34, 1): "oak", Vector2i(37, 4): "oak", Vector2i(31, 7): "oak",
-	Vector2i(36, 9): "oak", Vector2i(38, 13): "oak", Vector2i(33, 14): "oak", Vector2i(29, 19): "oak",
-	Vector2i(35, 20): "oak", Vector2i(38, 22): "oak", Vector2i(3, 20): "oak", Vector2i(8, 22): "oak",
-	Vector2i(14, 20): "oak", Vector2i(20, 23): "oak", Vector2i(25, 20): "oak", Vector2i(11, 24): "oak",
+	Vector2i(30, 2): "oak", Vector2i(34, 1): "cherry", Vector2i(37, 4): "maple", Vector2i(31, 7): "birch",
+	Vector2i(36, 9): "oak", Vector2i(38, 13): "maple", Vector2i(33, 14): "apple", Vector2i(29, 19): "cherry",
+	Vector2i(35, 20): "birch", Vector2i(38, 22): "oak", Vector2i(3, 20): "maple", Vector2i(8, 22): "cherry",
+	Vector2i(14, 20): "oak", Vector2i(16, 24): "birch", Vector2i(25, 20): "apple", Vector2i(11, 24): "maple",
 	Vector2i(32, 4): "pine", Vector2i(38, 7): "pine", Vector2i(29, 11): "pine", Vector2i(35, 16): "pine",
 	Vector2i(31, 23): "pine", Vector2i(5, 23): "pine", Vector2i(17, 21): "pine", Vector2i(23, 24): "pine",
 	Vector2i(33, 9): "bush", Vector2i(30, 15): "bush", Vector2i(37, 18): "bush", Vector2i(27, 22): "bush",
 	Vector2i(1, 19): "bush", Vector2i(12, 19): "bush", Vector2i(19, 19): "bush",
 	Vector2i(36, 6): "boulder", Vector2i(34, 23): "boulder", Vector2i(9, 20): "boulder", Vector2i(22, 21): "boulder",
+	Vector2i(32, 12): "stump", Vector2i(26, 24): "stump", Vector2i(6, 19): "stump", Vector2i(39, 1): "stump",
+	Vector2i(29, 16): "log", Vector2i(12, 22): "log",
 }
-const SCENERY_NAMES: Dictionary = {"oak": "Oak tree", "pine": "Pine tree", "bush": "Wild bush", "boulder": "Mossy boulder"}
+const SCENERY_NAMES: Dictionary = {
+	"oak": "Oak tree", "maple": "Maple tree", "birch": "Birch tree", "cherry": "Cherry tree", "apple": "Wild apple tree",
+	"pine": "Pine tree", "bush": "Wild bush", "boulder": "Mossy boulder", "stump": "Old stump", "log": "Fallen log",
+}
+## Worn dirt trails, just for looks (they can still be dug). Cells outside the
+## garden carry the trails off through the cliff and the fence.
+const TRAILS: Array[Vector2i] = [
+	Vector2i(22, -5), Vector2i(22, -4), Vector2i(22, -3), Vector2i(22, -2), Vector2i(22, -1),
+	Vector2i(22, 0), Vector2i(22, 1), Vector2i(22, 2),
+	Vector2i(5, 3), Vector2i(6, 3), Vector2i(7, 3), Vector2i(8, 3), Vector2i(9, 3), Vector2i(10, 3), Vector2i(11, 3),
+	Vector2i(12, 3), Vector2i(13, 3), Vector2i(14, 3), Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3), Vector2i(18, 3),
+	Vector2i(19, 3), Vector2i(20, 3), Vector2i(21, 3), Vector2i(22, 3), Vector2i(23, 3), Vector2i(24, 3), Vector2i(25, 3), Vector2i(26, 3),
+	Vector2i(22, 4), Vector2i(22, 5), Vector2i(22, 6), Vector2i(22, 7), Vector2i(22, 8),
+	Vector2i(20, 18), Vector2i(20, 19), Vector2i(20, 20), Vector2i(20, 21), Vector2i(20, 22), Vector2i(20, 23),
+	Vector2i(20, 24), Vector2i(20, 25), Vector2i(20, 26), Vector2i(20, 27), Vector2i(20, 28), Vector2i(20, 29),
+]
+
+## The scenery thing on `cell`, counting the second tile of a log.
+func scenery_at(cell: Vector2i) -> String:
+	if SCENERY.has(cell):
+		return SCENERY[cell]
+	return "log" if SCENERY.get(cell - Vector2i(1, 0), "") == "log" else ""
+
+
 const TENT_RECT := Rect2i(12, 1, 3, 2)  # sleep here to end the day
 ## The Heart Tree: one shared plant that grows on the love the whole garden
 ## gets. Water it and hug it (pet) like any plant.
@@ -647,7 +674,7 @@ func is_tower(cell: Vector2i) -> bool:
 
 ## Garden tiles nobody can walk on or dig up.
 func is_blocked(cell: Vector2i) -> bool:
-	if SCENERY.has(cell):
+	if scenery_at(cell) != "":
 		return true
 	if is_tent(cell) or is_tree(cell) or is_stall(cell) or is_tower(cell) or is_pond(cell) or is_bin(cell) or MINE_RECT.has_point(cell) or cell == MAILBOX_CELL or cell == BOARD_CELL:
 		return true
@@ -788,7 +815,10 @@ func is_exit_mat(cell: Vector2i) -> bool:
 ## Whether a player may stand on `cell`, in the garden or indoors.
 func can_walk(cell: Vector2i) -> bool:
 	if not is_indoors(cell):
-		return in_bounds(cell) and not is_blocked(cell) and not is_solid(cell)
+		# The Heart Tree's leaves hang over the tiles above its trunk: you can
+		# walk behind it there, but not dig or build.
+		var behind_tree: bool = is_tree(cell) and cell.y < TREE_RECT.end.y - 1
+		return in_bounds(cell) and (not is_blocked(cell) or behind_tree) and not is_solid(cell)
 	if is_in_mine(cell):
 		return mine_floor().has_point(cell) and not is_solid(cell)
 	return _room_free(cell) and not is_solid(cell)
@@ -1074,8 +1104,8 @@ func describe_cell(cell: Vector2i) -> String:
 		return "Bristle's stall: sell plants, buy seeds and more"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
-	if SCENERY.has(cell):
-		return str(SCENERY_NAMES[SCENERY[cell]])
+	if scenery_at(cell) != "":
+		return str(SCENERY_NAMES[scenery_at(cell)])
 	if is_mine_entrance(cell):
 		return "Mine: rocks and ore inside"
 	if cell == MAILBOX_CELL:

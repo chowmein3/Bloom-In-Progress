@@ -35,7 +35,9 @@ const Notices := preload("res://scripts/notices.gd")
 const GreenhouseView := preload("res://scripts/greenhouse_view.gd")
 const Social := preload("res://scripts/social.gd")
 const FestivalView := preload("res://scripts/festival_view.gd")
-const CAMERA_MARGIN := Vector2(64, 48)  # how far the view may go past the garden's edge
+const SceneryView := preload("res://scripts/scenery_view.gd")
+const BorderView := preload("res://scripts/border_view.gd")
+const CAMERA_MARGIN := Vector2(64, 64)  # how far the view may go past the garden's edge
 const TowerView := preload("res://scripts/tower_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
@@ -64,6 +66,7 @@ var _light: CanvasModulate
 
 func _ready() -> void:
 	_setup_input()
+	add_child(BorderView.new())  # the land round the garden, under everything
 	add_child(Ground.new())
 	_interior = Interior.new()
 	add_child(_interior)
@@ -111,18 +114,15 @@ func _ready() -> void:
 		_entities.add_child(post)
 	add_child(GreenhouseView.new())
 	add_child(FestivalView.new())
-	# The land's own trees, bushes and boulders, and woods all round the edge.
+	# The land's own trees, bushes and boulders, then the woods, cliff and
+	# fence all round the edge.
 	for at: Vector2i in GameState.SCENERY.keys():
-		_plant_scenery(str(GameState.SCENERY[at]), Vector2(at * TILE) + Vector2(8, 16))
-	var size: Vector2i = GameState.WORLD_SIZE
-	for x in range(-4, size.x + 4, 2):
-		for y in range(-3, size.y + 4, 2):
-			if x >= 0 and x < size.x and y >= 0 and y < size.y:
-				continue
-			var h: int = hash(Vector2i(x, y))
-			if h % 4 == 0:
-				continue  # a gap now and then
-			_plant_scenery("oak" if h % 3 != 0 else "pine", Vector2(x * TILE + 8 + h % 9, y * TILE + 16 + (h >> 4) % 7))
+		var standing := SceneryView.new()
+		standing.kind = GameState.SCENERY[at]
+		standing.position = Vector2(at * TILE) + Vector2(8, 16)
+		standing.flip_h = hash(at) % 2 == 0 and standing.kind != "log"
+		_entities.add_child(standing)
+	BorderView.decorate(_entities)
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
 	_visitor.offset = Vector2(-8, -23)
@@ -468,15 +468,6 @@ func _on_player_left(slot: int) -> void:
 func _on_player_state(slot: int, pos: Vector2, facing: Vector2i, moving: bool, tool: int, swings: int) -> void:
 	if remote_players.has(slot):
 		remote_players[slot].call("remote_update", pos, facing, moving, tool, swings)
-
-
-func _plant_scenery(kind: String, at: Vector2) -> void:
-	var sprite := Sprite2D.new()
-	sprite.texture = Assets.texture("res://assets/sprites/scenery_%s.png" % kind)
-	sprite.centered = false
-	sprite.offset = Vector2(-sprite.texture.get_width() / 2.0, -sprite.texture.get_height())
-	sprite.position = at
-	_entities.add_child(sprite)
 
 
 ## A building sprite standing on `rect`, sorted with the players.
