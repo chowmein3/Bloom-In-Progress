@@ -1561,9 +1561,6 @@ def make_app_icon():
 # assets/sprites/scenery/cliff.png: 16x40 pieces (8 rows of grassy lip, then
 #   a 32 row rock face), columns: face, face, left end, right end; one row per
 #   season.
-# assets/sprites/scenery/canopy_<season>.png: 128x128 tileable deep forest.
-# assets/sprites/scenery/canopy_edge.png: 48x44 leafy crowns that round off
-#   the forest's edge: six shapes across, one row per season.
 # assets/sprites/scenery/trail.png: 16x16 dirt trail pieces, column = which
 #   sides join another trail piece (1 up, 2 right, 4 down, 8 left), row =
 #   season.
@@ -1805,71 +1802,6 @@ def cliff_piece(season, part):
     return img
 
 
-CANOPY = [("#3f8f4f", "#2f7342", "#5aa860", "#f4a6c8"), ("#2f7a45", "#255f38", "#3f8f52", None),
-          ("#b8662f", "#8f4a2a", "#d98a2b", "#e8c040"), ("#3a5a52", "#2f4a44", "#e8eef4", None)]
-
-
-CANOPY_SIZE = 128
-
-
-def canopy_tile(season):
-    """A 128x128 tile of tree tops seen from above, crowns of many sizes and
-    shades so the repeat isn't noticed; wraps on all sides."""
-    rng = random.Random("canopy%d" % season)
-    base, dark, lit, spot = (rgb(x) if x else None for x in CANOPY[season])
-    n = CANOPY_SIZE
-    img = Image.new("RGBA", (n, n), shade(dark, 0.3) + (255,))
-    crowns = []
-    for _ in range(150):
-        r = rng.choice((4.5, 5.5, 6.5, 7.5, 9.0, 11.0))
-        tone = rng.choice((base, base, mix(base, dark, 0.4), mix(base, lit, 0.25), mix(base, rgb("#3a6a40"), 0.3)))
-        crowns.append((rng.randrange(n), rng.randrange(n), r, tone))
-    crowns.sort(key=lambda k: k[1])
-    for cx, cy, r, tone in crowns:
-        ir = int(r) + 1
-        for y in range(-ir, ir + 1):
-            for x in range(-ir, ir + 1):
-                d = (x * x + y * y) ** 0.5
-                wobble = r + math.sin(math.atan2(y, x) * 5 + cx) * 0.8  # lumpy outline
-                if d > wobble:
-                    continue
-                col = tone
-                if d > wobble - 1.4 and y > -1:
-                    col = shade(tone, 0.28)
-                elif ((x + r * 0.35) ** 2 + (y + r * 0.4) ** 2) ** 0.5 < r * 0.3:
-                    col = light(tone, 0.07) if season != 3 else SNOW
-                img.putpixel(((cx + x) % n, (cy + y) % n), col + (255,))
-    for _ in range(n * 3):  # leaf texture
-        x, y = rng.randrange(n), rng.randrange(n)
-        r, g, b, a = img.getpixel((x, y))
-        img.putpixel((x, y), (shade((r, g, b), 0.16) if rng.random() < 0.5 else light((r, g, b), 0.12)) + (255,))
-    if spot:
-        for _ in range(n // 2):
-            img.putpixel((rng.randrange(n), rng.randrange(n)), spot + (255,))
-    return img
-
-
-EDGE_VARIANTS = 6
-
-
-def canopy_edge(season, variant):
-    """48x44 leafy crowns that round off the forest's edge; six shapes."""
-    rng = random.Random("edge%d-%d" % (season, variant))
-    base, dark, lit, spot = (rgb(x) if x else None for x in CANOPY[season])
-    tone = [base, mix(base, dark, 0.3), mix(base, lit, 0.2), base, mix(base, rgb("#3a6a40"), 0.25), mix(base, dark, 0.15)][variant]
-    c = Canvas(48, 44)
-    blobs = []
-    for _ in range(rng.randrange(3, 6)):
-        rx = rng.uniform(7, 13)
-        blobs.append((24 + rng.uniform(-1, 1) * (23 - rx) * 0.6, rng.uniform(16, 28), rx, rx * rng.uniform(0.75, 0.95)))
-    blobs.sort(key=lambda b: b[1])
-    leafy(c, blobs, tone, rng, (CANOPY[season][3],) if spot else None, 6)
-    if season == 3:
-        for (x, y, rx, ry) in blobs:
-            c.ell(x - rx * 0.2, y - ry * 0.55, rx * 0.45, 1.5, SNOW)
-    return c.finish()
-
-
 def trail_piece(season, mask):
     """Dirt with soft, slightly wavy edges on the sides that don't join
     another trail piece."""
@@ -1943,13 +1875,6 @@ def make_scenery():
         for part in range(4):
             cliff.paste(cliff_piece(season, part), (part * 16, season * 40))
     save(cliff, "scenery", "cliff.png")
-    for season in range(4):
-        save(canopy_tile(season), "scenery", "canopy_%d.png" % season)
-    edges = Image.new("RGBA", (48 * EDGE_VARIANTS, 44 * 4), (0, 0, 0, 0))
-    for season in range(4):
-        for variant in range(EDGE_VARIANTS):
-            edges.paste(canopy_edge(season, variant), (variant * 48, season * 44))
-    save(edges, "scenery", "canopy_edge.png")
     trail = Image.new("RGBA", (256, 64), (0, 0, 0, 0))
     for season in range(4):
         for mask in range(16):

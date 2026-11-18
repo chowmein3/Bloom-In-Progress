@@ -107,8 +107,8 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   winter). Each blocks only the tile it stands on, so you can walk behind
   canopies. Dirt trails link the buildings and lead off the map. Around the
   garden: a rocky cliff along the top with a trail climbing through a gap,
-  tree lines down the sides, a fence along the bottom, and deep forest
-  beyond; all decoration only. On festival days
+  thick woods of the same trees on every side (and on the cliff top), and a
+  fence along the bottom; all on the garden's own level, decoration only. On festival days
   bunting hangs between the tower, home and stall, and the party (confetti,
   a message) starts at 5pm.
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each

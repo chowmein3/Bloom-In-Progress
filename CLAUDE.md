@@ -49,9 +49,11 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
   (each blocks its base tile, a log two; use `scenery_at(cell)`), drawn by
   `scenery_view.gd` from `assets/sprites/scenery/<kind>.png` (one frame per
-  season). `border_view.gd` draws the land past the edge (cliff, woodland
-  band, forest canopy, trails from `GameState.TRAILS`) and `decorate()` adds
-  its trees and fence. The Heart Tree blocks walking only on its trunk row
+  season). `border_view.gd` draws the land past the edge (the same grass,
+  the cliff, trails from `GameState.TRAILS`) and `decorate()` adds dense woods
+  of the same scenery trees, all in the y-sorted layer so everything stays on
+  one level. Scenery views are in the "scenery" group and change frame when
+  border_view sees the season turn. The Heart Tree blocks walking only on its trunk row
   but can't be dug or built on anywhere in `TREE_RECT`. Fruit trees are `GameState.TREES` (sapling id -> fruit).
 - Baking: recipes flagged `"oven": true` need an oven placed in the home
   (`has_oven()`); shop items flagged `"pantry": true` show on the Pantry tab.
