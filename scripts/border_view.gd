@@ -18,7 +18,7 @@ const CLIFF_TOP := -40.0  # the cliff piece's top, in pixels (it is 40 tall)
 
 var _tiles: Texture2D = Assets.texture("res://assets/tiles/ground.png")
 var _cliff: Texture2D = Assets.texture("res://assets/sprites/scenery/cliff.png")
-var _edge: Texture2D = Assets.texture("res://assets/sprites/scenery/canopy_edge.png")
+var _edge: Texture2D = Assets.texture("res://assets/sprites/scenery/canopy_edge.png")  # six 48x44 shapes, a row per season
 var _trail: Texture2D = Assets.texture("res://assets/sprites/scenery/trail.png")
 var _canopy: Array[Texture2D] = []
 var _season: int = -1
@@ -80,21 +80,24 @@ func _draw() -> void:
 	for cell: Vector2i in GameState.TRAILS:  # the trail runs on under the trees a little
 		if cell.y < -TOP or cell.y >= size.y + BOTTOM:
 			draw_texture_rect_region(_trail, Rect2(Vector2(cell * TILE), Vector2(TILE, TILE)), Rect2(trail_mask(cell) * TILE, _season * TILE, TILE, TILE), Color(0.75, 0.75, 0.75))
-	# Leafy clumps round off the forest's edge (none over the trails).
-	var clump := Rect2(_season * 40, 0, 40, 36)
-	var x: float = left - 8
-	while x < right:
-		var h: int = hash(int(x))
-		if not _near(gaps, x + 20):
-			draw_texture_rect_region(_edge, Rect2(x, top - 26 + h % 5, 40, 36), clump)
-			draw_texture_rect_region(_edge, Rect2(x, bottom - 12 + h % 6, 40, 36), clump)
-		x += 22 + h % 7
-	var y: float = top - 20
-	while y < bottom:
-		var h: int = hash(int(y) + 7)
-		draw_texture_rect_region(_edge, Rect2(left - 30 + h % 5, y, 40, 36), clump)
-		draw_texture_rect_region(_edge, Rect2(right - 10 - h % 5, y, 40, 36), clump)
-		y += 20 + h % 6
+	# Leafy crowns round off the forest's edge, in two uneven layers: a darker
+	# one further back, then one at the edge (none over the trails).
+	var rng := RandomNumberGenerator.new()
+	for layer in 2:
+		rng.seed = 41 + layer
+		var tint := Color(0.8, 0.82, 0.8) if layer == 0 else Color.WHITE
+		var back: float = 10.0 if layer == 0 else 0.0
+		var x: float = left - 30
+		while x < right + 10:
+			if not _near(gaps, x + 24):
+				_clump(rng, Vector2(x, top - 30 - back + rng.randf_range(-5, 5)), tint)
+				_clump(rng, Vector2(x, bottom - 14 + back + rng.randf_range(-5, 5)), tint)
+			x += rng.randf_range(12, 26)
+		var y: float = top - 30
+		while y < bottom:
+			_clump(rng, Vector2(left - 34 - back + rng.randf_range(-5, 5), y), tint)
+			_clump(rng, Vector2(right - 14 + back + rng.randf_range(-5, 5), y), tint)
+			y += rng.randf_range(11, 22)
 	# The cliff along the top, with a gap where the trail climbs out.
 	var cliff_row: float = _season * 40
 	for tx in range(-SIDE, size.x + SIDE):
@@ -108,6 +111,13 @@ func _draw() -> void:
 		draw_texture_rect_region(_cliff, Rect2(tx * TILE, CLIFF_TOP, TILE, 40), Rect2(part * TILE, cliff_row, TILE, 40))
 
 
+## One leafy crown from canopy_edge.png (six shapes), with its top-left at `at`.
+func _clump(rng: RandomNumberGenerator, at: Vector2, tint: Color) -> void:
+	var shape: int = rng.randi_range(0, 5)
+	var shade: float = rng.randf_range(0.9, 1.04)
+	draw_texture_rect_region(_edge, Rect2(at, Vector2(48, 44)), Rect2(shape * 48, _season * 44, 48, 44), Color(tint.r * shade, tint.g * shade, tint.b * shade))
+
+
 func _near(points: Array[float], x: float) -> bool:
 	for p: float in points:
 		if absf(p + TILE / 2.0 - x) < 26.0:
@@ -116,59 +126,70 @@ func _near(points: Array[float], x: float) -> bool:
 
 
 ## Adds the standing things round the garden to `layer` (the y-sorted layer
-## the players walk in): tree lines down the sides, trees on the cliff top,
-## and a fence with boulders and bushes along the bottom.
+## the players walk in): woods down the sides, trees on the cliff top, and a
+## fence with boulders, bushes and trees along the bottom. Things are
+## scattered at random (the same every time) with a little space each, so
+## there is no repeating pattern.
 static func decorate(layer: Node2D) -> void:
 	var size: Vector2i = GameState.WORLD_SIZE
-	var kinds: Array[String] = ["oak", "pine", "maple", "pine", "birch", "oak", "cherry", "pine", "apple"]
-	# Down both sides, two staggered rows of trees with bushes and rocks between.
-	for side: int in [0, 1]:
-		var y: float = -2.0
-		var n: int = side * 5
-		while y < size.y + 2:
-			var h: int = absi(hash(Vector2i(side, int(y * 10))))
-			var near_x: float = -0.6 * TILE if side == 0 else size.x * TILE + 0.6 * TILE
-			var far_x: float = -1.7 * TILE if side == 0 else size.x * TILE + 1.7 * TILE
-			_add(layer, kinds[n % kinds.size()], Vector2(far_x + (h % 7) - 3, y * TILE + 16), h % 2 == 0)
-			if h % 3 != 0:
-				_add(layer, kinds[(n + 4) % kinds.size()], Vector2(near_x + (h % 5) - 2, (y + 0.9) * TILE + 16), h % 4 == 0)
-			else:
-				_add(layer, ["bush", "boulder", "stump"][h % 3], Vector2(near_x, (y + 1.1) * TILE + 16), h % 2 == 1)
-			y += 1.6 + float(h % 4) * 0.2
-			n += 1
-	# On the ledge above the cliff.
-	var x: float = -1.0
-	var m: int = 2
-	while x < size.x + 1:
-		var h: int = absi(hash(Vector2i(int(x * 10), -9)))
-		if absf(x - 22.5) > 1.6:  # leave the trail clear
-			if h % 4 == 0:
-				_add(layer, "bush", Vector2((x + 0.5) * TILE, CLIFF_TOP + 2), h % 2 == 0)
-			else:
-				_add(layer, kinds[m % kinds.size()], Vector2((x + 0.5) * TILE + (h % 5), CLIFF_TOP - 4 - (h % 6)), h % 2 == 0)
-		x += 1.5 + float(h % 3) * 0.4
-		m += 1
-	# A fence along the bottom, gapped where the trail leaves, then boulders,
-	# bushes and stumps among the first trees.
+	var w: float = size.x * TILE
+	var h: float = size.y * TILE
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2024
+	var placed: Array[Vector2] = []
+	var trees: Dictionary = {"pine": 5, "oak": 4, "maple": 3, "birch": 2, "cherry": 2, "apple": 1}
+	var small: Dictionary = {"bush": 5, "boulder": 2, "stump": 2}
+	# Down both sides: a deep, uneven band of trees with bushes among them.
+	for band: Rect2 in [Rect2(-30, -36, 28, h + 60), Rect2(w + 2, -36, 28, h + 60)]:
+		_scatter(layer, rng, placed, band, trees, 13.0, 140)
+		_scatter(layer, rng, placed, band.grow_individual(0, 0, 0, 0), small, 9.0, 40)
+	# Along the ledge above the cliff, leaving the trail clear.
+	var trail_x: float = 22.5 * TILE
+	for ledge: Rect2 in [Rect2(-16, -62, trail_x - 30, 18), Rect2(trail_x + 14, -62, w - trail_x - 14 + 16, 18)]:
+		_scatter(layer, rng, placed, ledge, trees, 15.0, 80)
+		_scatter(layer, rng, placed, Rect2(ledge.position.x, -44, ledge.size.x, 3), {"bush": 3, "boulder": 1}, 12.0, 30)
+	# A fence along the bottom, gapped where the trail leaves.
 	for fx in range(-1, size.x + 1):
 		if not GameState.TRAILS.has(Vector2i(fx, size.y)):
-			_add(layer, "fence", Vector2(fx * TILE + 8, size.y * TILE + 9), false)
-	var bx: float = -1.0
-	var k: int = 0
-	while bx < size.x + 1:
-		var h: int = absi(hash(Vector2i(int(bx * 10), 99)))
-		if absf(bx - 20.5) > 1.4:
-			if h % 3 == 0:
-				_add(layer, kinds[k % kinds.size()], Vector2((bx + 0.5) * TILE + (h % 5), (size.y + 1.4) * TILE + (h % 4)), h % 2 == 0)
-			else:
-				_add(layer, ["boulder", "bush", "stump", "bush"][h % 4], Vector2((bx + 0.5) * TILE, (size.y + 1.2) * TILE), h % 2 == 1)
-		bx += 1.3 + float(h % 3) * 0.5
-		k += 1
+			_add(layer, "fence", Vector2(fx * TILE + 8, h + 9), false, Color.WHITE)
+	var out_x: float = 20.5 * TILE
+	for strip: Rect2 in [Rect2(-16, h + 16, out_x - 30, 16), Rect2(out_x + 14, h + 16, w - out_x - 14 + 16, 16)]:
+		_scatter(layer, rng, placed, Rect2(strip.position.x, h + 22, strip.size.x, 14), trees, 18.0, 80)
+		_scatter(layer, rng, placed, strip, {"bush": 5, "boulder": 2, "stump": 1}, 14.0, 25)
 
 
-static func _add(layer: Node2D, kind: String, at: Vector2, flip: bool) -> void:
+## Tries `tries` random spots in `area` and puts something (picked by
+## weight) on each that is at least `space` from everything already there.
+static func _scatter(layer: Node2D, rng: RandomNumberGenerator, placed: Array[Vector2], area: Rect2, weights: Dictionary, space: float, tries: int) -> void:
+	var total: int = 0
+	for kind: String in weights.keys():
+		total += int(weights[kind])
+	for i in tries:
+		var at := Vector2(rng.randf_range(area.position.x, area.end.x), rng.randf_range(area.position.y, area.end.y))
+		var crowded: bool = false
+		for other: Vector2 in placed:
+			if other.distance_to(at) < space:
+				crowded = true
+				break
+		if crowded:
+			continue
+		var pick: int = rng.randi_range(1, total)
+		var kind: String = ""
+		for option: String in weights.keys():
+			pick -= int(weights[option])
+			if pick <= 0:
+				kind = option
+				break
+		var shade: float = rng.randf_range(0.86, 1.0)
+		var tint := Color(shade * rng.randf_range(0.96, 1.02), shade, shade * rng.randf_range(0.95, 1.02))
+		placed.append(at.round())
+		_add(layer, kind, at.round(), rng.randf() < 0.5, tint)
+
+
+static func _add(layer: Node2D, kind: String, at: Vector2, flip: bool, tint: Color) -> void:
 	var view := SceneryView.new()
 	view.kind = kind
 	view.position = at
 	view.flip_h = flip and kind != "fence"
+	view.modulate = tint
 	layer.add_child(view)
