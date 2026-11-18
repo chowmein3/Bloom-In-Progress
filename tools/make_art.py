@@ -1918,6 +1918,44 @@ def tool_picture(fill):
     return img
 
 
+def big_tool(draw_fn):
+    """Draws a tool at 4x (64x64) with clean shapes, then shrinks it to 16x16,
+    keeping a pixel where most of its 4x4 block is filled (in that block's
+    main colour), and adds the outline."""
+    from PIL import ImageDraw
+    big = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw_fn(ImageDraw.Draw(big))
+    fill = {}
+    for y in range(16):
+        for x in range(16):
+            counts = {}
+            for dy in range(4):
+                for dx in range(4):
+                    r, g, b, a = big.getpixel((x * 4 + dx, y * 4 + dy))
+                    if a > 0:
+                        counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
+            if sum(counts.values()) >= 7:
+                fill[(x, y)] = max(counts, key=counts.get)
+    return tool_picture(fill)
+
+
+def thick_line(d, a, b, width, col):
+    d.line([a, b], fill=col, width=width)
+    for p in (a, b):
+        d.ellipse([p[0] - width / 2, p[1] - width / 2, p[0] + width / 2, p[1] + width / 2], fill=col)
+
+
+def big_handle(d, top, wood=rgb("#a8774a")):
+    """The handle, grip at the bottom left, up to `top`, light on its upper side."""
+    thick_line(d, (12, 54), top, 8, shade(wood, 0.18))
+    thick_line(d, (10, 52), (top[0] - 2, top[1] - 2), 3, light(wood, 0.25))
+
+
+def bezier(p0, p1, p2, steps=24):
+    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+             (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / steps for i in range(steps + 1))]
+
+
 def tool_handle(fill, top_y, wood=rgb("#a8774a")):
     """A round wooden handle running from the grip up to the right."""
     for y in range(top_y, 15):
@@ -1933,18 +1971,14 @@ def make_tools():
         B, b, c_ = (rgb(c) for c in body)
         pictures = []
 
-        # Hoe: a flat blade hanging from the top of the handle.
-        f = {}
-        tool_handle(f, 6)
-        for y in range(3, 9):
-            for x in range(9, 15):
-                d = x - y
-                if 6 <= d <= 8:
-                    f[(x, y)] = M if d == 6 else (m if d == 7 else n)
-        f[(9, 5)] = n
-        f[(10, 5)] = n
-        f[(14, 8)] = M  # the sharpened edge catches the light
-        pictures.append(tool_picture(f))
+        # Hoe: a broad blade hanging from a collar at the top of the handle.
+        def hoe(d):
+            big_handle(d, (42, 24))
+            d.polygon([(38, 14), (50, 10), (54, 18), (44, 26)], fill=n)  # the collar
+            d.polygon([(46, 16), (58, 20), (60, 48), (48, 46)], fill=m)  # the blade
+            d.polygon([(46, 16), (50, 17), (51, 46), (48, 46)], fill=M)  # its lit face
+            d.polygon([(48, 42), (60, 44), (60, 48), (48, 47)], fill=M)  # the sharpened edge
+        pictures.append(big_tool(hoe))
 
         # Watering can: a round body, an arched handle, a spout with a rose.
         f = {}
@@ -1995,29 +2029,28 @@ def make_tools():
         f[(14, 11)] = WHITE
         pictures.append(tool_picture(f))
 
-        # Pickaxe: a curved head with two points across the handle's top.
-        f = {}
-        tool_handle(f, 6)
-        for t in range(-5, 6):
-            bow = round(2.2 * (1 - (t / 5.5) ** 2))
-            x, y = 9 + t + bow, 6 + t - bow
-            f[(x, y)] = M if abs(t) < 5 else m  # the outer curve catches the light
-            if abs(t) <= 3:  # thicker in the middle, tapering to points
-                f[(x, y + 1)] = m
-            if abs(t) <= 1:
-                f[(x - 1, y + 1)] = n
-        pictures.append(tool_picture(f))
+        # Pickaxe: a curved head across the handle's top, tapering to two points.
+        def pickaxe(d):
+            big_handle(d, (40, 26))
+            curve = bezier((10, 10), (50, 2), (58, 50))
+            for i, (x, y) in enumerate(curve):
+                t = i / (len(curve) - 1)
+                r = 1.5 + 4.5 * (1 - abs(t - 0.5) * 2) ** 0.7
+                d.ellipse([x - r, y - r, x + r, y + r], fill=m)
+            for i, (x, y) in enumerate(curve[3:-3]):  # light along the outer curve
+                d.ellipse([x - 1.6, y - 3.2, x + 1.6, y - 0.2], fill=M)
+            d.polygon([(36, 18), (44, 14), (48, 22), (40, 28)], fill=n)  # where the handle goes in
+        pictures.append(big_tool(pickaxe))
 
-        # Axe: a wedge-shaped head, its wide edge out to the left.
-        f = {}
-        tool_handle(f, 6)
-        rows = {3: (1, 7), 4: (1, 7), 5: (2, 6), 6: (2, 6), 7: (3, 6), 8: (3, 5), 9: (3, 5), 10: (3, 5)}
-        for x, (top, bottom) in rows.items():
-            for y in range(top, bottom + 1):
-                f[(x, y)] = M if x == 3 else (n if x >= 9 else (M if y == top and x < 7 else m))
-        f[(11, 4)] = n
-        f[(11, 5)] = n
-        pictures.append(tool_picture(f))
+        # Axe: a wedge-shaped head with a curved cutting edge, out to the left.
+        def axe(d):
+            big_handle(d, (44, 22))
+            d.polygon([(40, 10), (50, 14), (48, 26), (38, 24)], fill=n)  # the eye round the handle
+            d.polygon([(40, 12), (19, 6), (14, 21), (19, 35), (38, 24)], fill=m)  # the head
+            edge = bezier((19, 6), (9, 20), (19, 35))
+            d.line(edge, fill=M, width=6)  # the bright cutting edge
+            d.polygon([(40, 12), (24, 9), (25, 14), (38, 16)], fill=M)  # light on the top
+        pictures.append(big_tool(axe))
 
         for col, pic in enumerate(pictures):
             sheet_img.paste(pic, (col * 16, tier * 16))

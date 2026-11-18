@@ -609,7 +609,7 @@ func _draw_tool(lean: Vector2) -> void:
 	if facing.x != 0:
 		hand = Vector2(3 * facing.x, -9)
 	elif facing == Vector2i.UP:
-		hand = Vector2(-3, -11)
+		hand = Vector2(-1, -18)  # facing away: held up so it shows above the head
 	var side: float = -1.0 if mirror else 1.0
 	if _swing_tool == 1:
 		# Hold the can out in front and tip it; water drips from the spout.
@@ -622,26 +622,29 @@ func _draw_tool(lean: Vector2) -> void:
 				var fall: float = fposmod(progress * 30.0 + drop * 4.0, 10.0)
 				draw_rect(Rect2(hand + lean + Vector2((11 + drop) * side, -5 + fall), Vector2(1, 2)), Color(0.55, 0.8, 1.0, 0.9))
 		return
+	var pose: float = _tool_angle()
+	if pose <= -100.0:  # raised over the shoulder: hands up and back, so it shows above the head
+		hand += Vector2(-4.0 * side, -7.0)
 	# The picture points up-right (-45 degrees); turn it to the swing's angle.
 	# Facing left, the same turn is mirrored (Godot mirrors after turning).
-	var angle: float = deg_to_rad(_tool_angle() + 45.0)
+	var angle: float = deg_to_rad(pose + 45.0)
 	draw_set_transform(hand + lean, angle, Vector2(-1, 1) if mirror else Vector2.ONE)
 	draw_texture_rect_region(_tools, Rect2(-ToolArt.GRIP, Vector2(16, 16)), frame)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Where the swung tool points from the hands, in degrees (0 = ahead for a
-## sideways swing, -90 = up): from raised behind the head, over and down
-## towards the tile ahead.
+## sideways swing, -90 = up). The tool is turned only in quarter turns, so
+## its pixels stay crisp: three poses, like frames of a swing (raised behind
+## the head, over the top, then down on the tile ahead). The tool pictures
+## point up-right (-45), so the poses are -135, -45 and 45.
 func _tool_angle() -> float:
 	var progress: float = 1.0 - _swing
-	var eased: float = progress * progress * (3.0 - 2.0 * progress)
-	var start: float = -125.0
-	var finish: float = 20.0
-	if facing == Vector2i.DOWN:
-		start = -140.0
-		finish = 75.0
-	elif facing == Vector2i.UP:
-		start = -150.0
-		finish = -95.0
-	return lerpf(start, finish, eased)
+	var poses: Array[float] = [-135.0, -45.0, 45.0]
+	if facing == Vector2i.UP:
+		poses = [-135.0, -45.0, -45.0]  # facing away: up behind them the whole time
+	if progress < 0.3:
+		return poses[0]
+	if progress < 0.55:
+		return poses[1]
+	return poses[2]
