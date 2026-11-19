@@ -39,6 +39,9 @@ KEYS
   Shift (hold)   run             J    journal (plants, goals, fish)
   Space / click  use held tool   M    map on/off
   F / right click  use hand      N    music on/off
+  Space and F work on the tile in front of you. Clicking works on the
+  tile under the cursor when it is right next to you (diagonals too);
+  farther away, on the tile in front.
   1-7            choose tool     H    help card
   8 9 0 -        hot bar
   Q              change seed     Esc  pause menu

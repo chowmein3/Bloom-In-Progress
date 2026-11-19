@@ -242,6 +242,28 @@ func _ready() -> void:
 	await _hold(KEY_S, 0.3)
 	_expect(GameState.item_count("wood") > wood, "walking onto it picks the wood up")
 
+	print("aiming with the mouse")
+	await _tap(KEY_1)  # the hoe
+	GameState.energy[P] = 80
+	var here := Vector2i(14, 14)
+	player.position = Vector2((here.x + 0.5) * 16, (here.y + 1) * 16 - 2)
+	player.set("facing", Vector2i.DOWN)
+	var corner := here + Vector2i(-1, -1)
+	_expect(not GameState.soil.has(corner) and not GameState.soil.has(here + Vector2i.DOWN), "the ground round the player is untouched")
+	_mouse_at(corner)
+	_expect(player.call("target_cell") == corner, "hovering over a tile next to the player aims at it, diagonals too")
+	_mouse_at(corner, MOUSE_BUTTON_LEFT)
+	_expect(GameState.soil.has(corner) and not GameState.soil.has(here + Vector2i.DOWN), "clicking it digs that tile, not the one in front")
+	_expect(player.get("facing") != Vector2i.DOWN, "and turns the player towards it")
+	player.set("facing", Vector2i.DOWN)
+	_mouse_at(here + Vector2i(6, 6), MOUSE_BUTTON_LEFT)
+	_expect(GameState.soil.has(here + Vector2i.DOWN), "clicking farther away works on the tile in front instead")
+	player.set("facing", Vector2i.RIGHT)
+	_mouse_at(here + Vector2i(1, -1))
+	await _tap(KEY_SPACE)
+	_expect(GameState.soil.has(here + Vector2i.RIGHT) and not GameState.soil.has(here + Vector2i(1, -1)), "Space works on the tile in front, wherever the mouse is")
+	_expect(player.call("target_cell") == here + Vector2i.RIGHT, "and after a key press the aim is back in front")
+
 	print("fishing")
 	player.position = Vector2((GameState.POND_RECT.position.x - 0.5) * 16, (GameState.POND_RECT.position.y + 1) * 16 + 10)
 	await _hold(KEY_D, 0.15)
@@ -574,6 +596,22 @@ func _key(key: Key, pressed: bool) -> void:
 	event.keycode = key
 	event.pressed = pressed
 	Input.parse_input_event(event)
+
+
+## Moves the mouse over `tile` (and clicks `button` there, if given), sending
+## the events straight to the player as the game would.
+func _mouse_at(tile: Vector2i, button: MouseButton = MOUSE_BUTTON_NONE) -> void:
+	var player: Node2D = main.get("player")
+	var spot: Vector2 = get_viewport().get_canvas_transform() * (Vector2(tile * 16) + Vector2(8, 8))
+	var motion := InputEventMouseMotion.new()
+	motion.position = spot
+	player.call("_unhandled_input", motion)
+	if button != MOUSE_BUTTON_NONE:
+		var click := InputEventMouseButton.new()
+		click.position = spot
+		click.button_index = button
+		click.pressed = true
+		player.call("_unhandled_input", click)
 
 
 func _tap(key: Key) -> void:

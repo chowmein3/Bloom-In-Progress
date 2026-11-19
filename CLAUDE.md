@@ -101,7 +101,9 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   1-7; the hot bar is 8, 9, 0, -). Anything that needs
   no tool goes through `Player.hand_action()` / `use_hand()`; `use_tool()`
   falls back to the hand when the tool has nothing to do. Don't add tools for
-  hand jobs.
+  hand jobs. Always act on `Player.target_cell()`: the tile in front for keys,
+  or for mouse clicks the hovered tile if it is one of the 8 round the player
+  (else the tile in front).
 - Harvest ids may carry a quality suffix (`sunpuff.gold`). Use
   `GameState.base_of(id)` for icons and tables, `name_of`, `stock_of`,
   `sell_price_of` and `sellable_ids()` for everything else. Anything that
