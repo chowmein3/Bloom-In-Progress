@@ -59,6 +59,7 @@ godot --path .
 | Shift (hold) | Run |
 | Space / left click | Use the held tool on the tile ahead. If the tool has nothing to do there, your hand acts instead |
 | F / right click | Use your hand: pet, pick, pick up, clear, hug the tree, open doors and stalls |
+| Aiming | Space and F work on the tile in front of you. A click works on the tile under the cursor if it's one of the 8 round you (diagonals too), turning you to face it; click farther away and it works on the tile in front. The highlighted tile shows which |
 | 1-7 | Hoe, Watering Can, Seeds, Item (place or eat), Fishing Rod, Pickaxe once bought, and Axe. Clicking a slot works too |
 | T | Emotes (then 1-6) |
 | Enter | Chat with your partner (co-op) |

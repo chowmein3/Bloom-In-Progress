@@ -62,6 +62,9 @@ var _texture_slot: int = -1
 var _hats: Texture2D
 var _lunge: float = 0.0  # 1 -> 0 after using a tool or hand
 var _swings: int = 0  # how many times we have acted; sent so partners see it
+const NO_CELL := Vector2i(-99999, -99999)
+var _mouse_aim: bool = false  # the mouse was used last, so the cursor aims (a key press stops it)
+var _mouse_screen := Vector2.ZERO  # where the mouse was last seen, in viewport coordinates
 var _acted_with: int = -1  # the tool just used, or -1 for a bare hand
 var _swing: float = 0.0  # 1 -> 0 while a tool is being swung (or the can poured)
 var _swing_tool: int = -1
@@ -114,8 +117,43 @@ func cell() -> Vector2i:
 	return _cell_at(position + Vector2(0, -1))
 
 
+## The tile the next action works on. With the keyboard (Space, F) it is
+## the tile in front. With the mouse, it is the tile under the cursor when
+## that is one of the 8 round the player; farther away, the tile in front.
 func target_cell() -> Vector2i:
+	if _mouse_aim and not is_remote:
+		var hovered: Vector2i = _hovered_neighbour()
+		if hovered != NO_CELL:
+			return hovered
 	return cell() + facing
+
+
+## The tile under the mouse if it is next to the player (diagonals too), or NO_CELL.
+func _hovered_neighbour() -> Vector2i:
+	var offset: Vector2i = _cell_at(_mouse_world()) - cell()
+	if offset != Vector2i.ZERO and absi(offset.x) <= 1 and absi(offset.y) <= 1:
+		return cell() + offset
+	return NO_CELL
+
+
+## Where the mouse is in the garden (it was last seen at _mouse_screen).
+func _mouse_world() -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * _mouse_screen
+
+
+## A click on a tile next to the player turns them towards it first (for a
+## diagonal tile, whichever way the cursor is further off).
+func _face_mouse() -> void:
+	var hovered: Vector2i = _hovered_neighbour()
+	if hovered == NO_CELL:
+		return
+	var offset: Vector2i = hovered - cell()
+	var turn := Vector2i(offset.x, 0)
+	if offset.x == 0 or (offset.y != 0 and absf(_mouse_world().y - (position.y - 8.0)) > absf(_mouse_world().x - position.x)):
+		turn = Vector2i(0, offset.y)
+	if turn != facing:
+		facing = turn
+		queue_redraw()
 
 
 func indoors() -> bool:
@@ -248,15 +286,28 @@ func _arrived() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_remote or frozen or in_menu or reading:
+	if is_remote:
+		return
+	# Moving or clicking the mouse makes it aim; any key goes back to the
+	# tile in front.
+	if event is InputEventMouse:
+		_mouse_screen = (event as InputEventMouse).position
+		_mouse_aim = true
+	elif event is InputEventKey and event.is_pressed():
+		_mouse_aim = false
+	if frozen or in_menu or reading:
 		return
 	if GameState.is_sleeping(player_id):
 		if event.is_action_pressed("use"):
 			GameState.request_sleep(player_id)  # get back up
 		return
 	if event.is_action_pressed("use"):
+		if event is InputEventMouseButton:
+			_face_mouse()
 		use_tool()
 	elif event.is_action_pressed("interact"):
+		if event is InputEventMouseButton:
+			_face_mouse()
 		use_hand()
 	elif event.is_action_pressed("next_seed"):
 		if tool_index == ITEM_TOOL:
