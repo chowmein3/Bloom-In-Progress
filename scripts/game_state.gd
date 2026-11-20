@@ -26,6 +26,7 @@ signal mail_changed  # letters arrived or were opened, or the quest board change
 signal animals_changed  # an animal was bought, fed, petted or woke up
 signal time_warped  # the clock tower changed the date or time
 signal economy_changed  # coins, upgrades, hats owned or hats worn changed
+signal bedtime_started(kiss_by: int)  # everyone is in bed and the fade begins; kiss_by: who leans over for a kiss, or 0
 signal scenery_hit(cell: Vector2i, felled: bool)  # an axe struck a tree, stump or log; `felled` when it came down
 
 const SPECIES_PATHS: Array[String] = [
@@ -503,6 +504,10 @@ var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for t
 ## slowly to black (0 ends the day at once, for tests).
 var bedtime_fade: float = 3.2
 var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
+## The chance that, with two in bed, one leans over to kiss the other as the
+## night falls. Rolled on its own dice so it never changes the garden's luck.
+var kiss_chance: float = 0.25
+var _kiss_dice := RandomNumberGenerator.new()
 var rng := RandomNumberGenerator.new()
 
 
@@ -526,6 +531,7 @@ func _ready() -> void:
 	plant_added.connect(_mirror_cell)
 	plant_removed.connect(_mirror_cell)
 	plant_petted.connect(_mirror_pet)
+	_kiss_dice.randomize()
 	inventory_changed.connect(_mirror_inventory)
 	scenery_hit.connect(_mirror_scenery_hit)
 	energy_changed.connect(_mirror_energy)
@@ -2394,6 +2400,13 @@ func _do_sleep(player_id: int) -> bool:
 ## sleepers together under the covers, then start the next day.
 func _start_bedtime() -> void:
 	_bedtime += 1
+	var kiss_by: int = 0
+	if sleeping.size() >= 2 and _kiss_dice.randf() < kiss_chance:
+		var pair: Array = sleeping.keys()
+		kiss_by = int(pair[_kiss_dice.randi_range(0, pair.size() - 1)])
+	bedtime_started.emit(kiss_by)
+	if _mirroring():
+		_net_bedtime.rpc(kiss_by)
 	if bedtime_fade <= 0.0:
 		end_day(false)
 		return
@@ -3180,6 +3193,11 @@ func _net_scenery_hit(cell: Vector2i, did_fell: bool, day: int) -> void:
 func _mirror_energy(player_id: int) -> void:
 	if _mirroring():
 		_net_energy.rpc(player_id, get_energy(player_id))
+
+
+@rpc("authority", "call_remote", "reliable")
+func _net_bedtime(kiss_by: int) -> void:
+	bedtime_started.emit(kiss_by)
 
 
 func _mirror_sleepers() -> void:

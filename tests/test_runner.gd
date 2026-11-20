@@ -148,6 +148,24 @@ func _ready() -> void:
 	check(TimeManager.day_index == today, "a fade that was called off doesn't end the day early")
 	await get_tree().create_timer(0.15).timeout
 	check(TimeManager.day_index == today + 1, "the latest one does")
+
+	print("a goodnight kiss")
+	var kisses: Array = []
+	GameState.bedtime_started.connect(func(by: int) -> void: kisses.append(by))
+	GameState.kiss_chance = 1.0
+	GameState.request_sleep(P)  # alone: nobody to kiss
+	await get_tree().create_timer(0.45).timeout
+	check(kisses == [0], "sleeping alone, there's no kiss")
+	GameState.sleeping[2] = true  # a partner already tucked in
+	GameState.request_sleep(P)
+	check(kisses.size() == 2 and (kisses[1] == 1 or kisses[1] == 2), "with two in bed, one leans over to kiss the other (always, at chance 1)")
+	await get_tree().create_timer(0.45).timeout
+	GameState.kiss_chance = 0.0
+	GameState.sleeping[2] = true
+	GameState.request_sleep(P)
+	check(kisses.size() == 3 and kisses[2] == 0, "and never at chance 0 (normally it's one night in four)")
+	await get_tree().create_timer(0.45).timeout
+	GameState.kiss_chance = 0.25
 	GameState.bedtime_fade = 0.0
 
 	print("heart tree and journal")

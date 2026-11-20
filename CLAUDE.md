@@ -121,7 +121,9 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - Only the host saves, ends the day and runs the clock. When everyone is in
   bed the host waits `GameState.bedtime_fade` seconds (the HUD fades to
   black meanwhile) before `end_day`; getting up calls it off. Rule tests set
-  `bedtime_fade = 0.0` so the day ends at once.
+  `bedtime_fade = 0.0` so the day ends at once. As the fade starts the host
+  emits `bedtime_started(kiss_by)` (mirrored): with two in bed, a
+  `kiss_chance` goodnight kiss, which `bed_view.gd` animates.
 - Saves are one JSON file per garden in `GameState.saves_dir`. A garden must be
   opened (`create_garden` / `open_garden`) before play; while `save_path` is ""
   nothing is saved. `main.gd` does this from the menu's signals, then calls

@@ -18,6 +18,7 @@ var role: String = "host"
 var out_dir: String = ""
 var save_file: String = ""
 var heard: Array = []  # emotes and chat lines received
+var kisses: Array = []  # who leaned over for a goodnight kiss, each bedtime
 var failures: int = 0
 var main: Node
 
@@ -42,6 +43,8 @@ func _ready() -> void:
 	Net.use_upnp = false  # no router to talk to in a test
 	TimeManager.rain_chance = 0.0
 	GameState.rng.seed = 1
+	GameState.kiss_chance = 1.0  # so the goodnight kiss always happens and can be checked
+	GameState.bedtime_started.connect(func(by: int) -> void: kisses.append(by))
 	save_file = "user://coop_test_%s.json" % role
 	GameState.save_path = save_file
 	GameState.new_game()
@@ -113,6 +116,7 @@ func _run_host() -> void:
 	_expect(TimeManager.day_index == 0 and GameState.is_sleeping(HOST), "day waits while only the host is in bed")
 	_expect(await _until(func() -> bool: return GameState.sleeping.size() == 2, 15.0) and TimeManager.day_index == 0, "both are tucked in together before the night falls")
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 15.0), "day ends once both are in bed")
+	_expect(kisses.size() == 1 and (kisses[0] == HOST or kisses[0] == GUEST), "as the night fell, one leaned over to kiss the other")
 	_check_morning()
 	_expect(GameState.coins == 160 and int(GameState.bag_of(GUEST)["coins"]) > 10, "the night's sale paid the guest, not the host")
 	_expect(FileAccess.file_exists(save_file), "host saved the garden")
@@ -205,6 +209,7 @@ func _after_join() -> void:
 	GameState.request_sleep(GUEST)
 	_expect(await _until(func() -> bool: return GameState.sleeping.size() == 2, 5.0) and TimeManager.day_index == 0, "the guest sees both of them in bed before the night falls")
 	_expect(await _until(func() -> bool: return TimeManager.day_index == 1, 10.0), "day ends for the guest too")
+	_expect(kisses.size() == 1 and (kisses[0] == HOST or kisses[0] == GUEST), "the guest sees the same goodnight kiss")
 	_check_morning()
 	_expect(await _until(func() -> bool: return GameState.coins > 10, 5.0), "the night's sale paid the guest")
 	_expect(GameState.save_path == "" and not FileAccess.file_exists(save_file), "guest does not save the host's garden")
