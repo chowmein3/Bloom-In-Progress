@@ -66,7 +66,7 @@ blooms and radiant blooms are announced on the morning screen.
   the day (after a slow fade to black, `GameState.bedtime_fade` seconds, so
   everyone sees the sleepers together; getting up calls it off); sleepers
   are drawn tucked in and breathing, host on the left pillow, partner on
-  the right. One night in four (`kiss_chance`, rolled by the host and sent
+  the right. Every night for now (`kiss_chance` = 1.0; it was one night in four, rolled by the host and sent
   with `bedtime_started`) there is a goodnight kiss as the fade begins, drawn
   frame by frame: he turns his head to her and pushes the covers down, sits
   up (his shoulders and overalls coming out as the covers slide to his

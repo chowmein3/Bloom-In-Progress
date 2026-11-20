@@ -163,9 +163,9 @@ func _ready() -> void:
 	GameState.kiss_chance = 0.0
 	GameState.sleeping[2] = true
 	GameState.request_sleep(P)
-	check(kisses.size() == 3 and kisses[2] == 0, "and never at chance 0 (normally it's one night in four)")
+	check(kisses.size() == 3 and kisses[2] == 0, "and never at chance 0")
 	await get_tree().create_timer(0.45).timeout
-	GameState.kiss_chance = 0.25
+	GameState.kiss_chance = 1.0
 	GameState.bedtime_fade = 0.0
 
 	print("heart tree and journal")

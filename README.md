@@ -102,7 +102,7 @@ in the pause menu.
 - Plants sleep through seasons they don't like; they don't die.
 - **Home:** the tent has a room inside with a bed for two. Once everyone is
   in bed you see them tucked in together, breathing softly, while the screen
-  fades slowly to black, then the next day begins. One night in four, he sits
+  fades slowly to black, then the next day begins. Every night (for now), he sits
   up, turns to her and leans over for a goodnight kiss, with a little heart. Getting
   up during the fade (Space) calls it off.
 - **Bristle's stall** (the hedgehog beside your home): sell picked plants for

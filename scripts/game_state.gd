@@ -506,7 +506,8 @@ var bedtime_fade: float = 3.2
 var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
 ## The chance that, with two in bed, one leans over to kiss the other as the
 ## night falls. Rolled on its own dice so it never changes the garden's luck.
-var kiss_chance: float = 0.25
+## Every night for now (it was one night in four, 0.25).
+var kiss_chance: float = 1.0
 var _kiss_dice := RandomNumberGenerator.new()
 var rng := RandomNumberGenerator.new()
 
