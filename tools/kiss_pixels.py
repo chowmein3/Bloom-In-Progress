@@ -21,7 +21,8 @@ NOTES = [
     "turns his head on the pillow to look at her; a hand comes out to push the covers down",
     "pushes himself up: shoulders and the top of his overalls come out of the covers",
     "sits up, turning to her, one hand reaching across to lean on",
-    "side-on to her now, sitting up, his hand on the bed beside her",
+    "side-on to her now, the same hand still on the bed (his far arm from here on,"
+    " reaching out from behind his chest), his other arm at his side",
     "leans over to her",
     "the kiss: eyes shut, on her cheek",
 ]
@@ -44,7 +45,7 @@ KISS_BOY = [
         "oohHHHHHHHHHHHo.................",  # 13
         ".ohhHHHHHHhHHHHo................",  # 14
         ".ohhhHHHhHHhHHo.................",  # 15
-        "ohhhhHSSSShSSHo.................",  # 16
+        "ohhhhHhSSSSSSHo.................",  # 16
         ".ohhSsSSoSSoSSo.................",  # 17
         "..ohSsSSoSSoSSo.................",  # 18
         "...ohSSSSSSSSo..................",  # 19
@@ -76,7 +77,7 @@ KISS_BOY = [
         ".oohHHHHHHHHHHHo................",  # 11
         "..ohhHHHHHHhHHHHo...............",  # 12
         "..ohhhHHHhHHhHHo................",  # 13
-        ".ohhhhHSSSShSSHo................",  # 14
+        ".ohhhhHhSSSSSSHo................",  # 14
         "..ohhSsSSoSSoSSo................",  # 15
         "...ohSsSSoSSoSSo................",  # 16
         "....ohSSSSSSSSo.................",  # 17
@@ -108,7 +109,7 @@ KISS_BOY = [
         "..oohHHHHHHHHHHHo...............",  # 9
         "...ohhHHHHHHhHHHHo..............",  # 10
         "...ohhhHHHhHHhHHo...............",  # 11
-        "..ohhhhHSShSSShHo...............",  # 12
+        "..ohhhhHhSSSSSSHo...............",  # 12
         "...ohhSsSSoSSoSSo...............",  # 13
         "....ohSsSSoSSoSSo...............",  # 14
         ".....ohSSSSSSSSo................",  # 15
@@ -148,13 +149,13 @@ KISS_BOY = [
         ".......oooSSSSSo................",  # 15
         ".........osSooo.................",  # 16
         "........oSSSSo..................",  # 17
-        "........ovSSSo..................",  # 18
-        "........oVoSSSo.................",  # 19
-        "........oVVoSSSo................",  # 20
-        "........oVVVoSSSo...............",  # 21
-        "........oVVVVoSoooo.............",  # 22
-        "........oVVVVVoSSSSo............",  # 23
-        "........ovVVVvoSSSSo............",  # 24
+        "........oSSSvoo.................",  # 18
+        "........oSSoVoSo................",  # 19
+        "........oSSoVoSo................",  # 20
+        "........oSSoVVoSo...............",  # 21
+        "........oSSoVVoSSoo.............",  # 22
+        "........oSSoVVoSSSSo............",  # 23
+        "........osSoVVoSSSSo............",  # 24
         "...............oooo.............",  # 25
         "................................",
         "................................",
@@ -183,12 +184,12 @@ KISS_BOY = [
         ".........ohhoSSSSSSo............",  # 16
         "..........oooSSSSSo.............",  # 17
         "............osSoooo.............",  # 18
-        "...........oSSSo................",  # 19
-        "..........ovSSSSo...............",  # 20
-        ".........oVvVoSSSo..............",  # 21
-        ".........oVVVVoSoooo............",  # 22
-        "........oVVVVVVoSSSSo...........",  # 23
-        "........ovVVVVvoSSSSo...........",  # 24
+        "...........oSSSSo...............",  # 19
+        "..........oSSSSvoo..............",  # 20
+        ".........oVoSSoVoo..............",  # 21
+        ".........oVoSSoVVooo............",  # 22
+        "........oVVoSSoVVoSSo...........",  # 23
+        "........ovVoSSoVVoSSo...........",  # 24
         "................oooo............",  # 25
         "................................",
         "................................",
@@ -218,11 +219,11 @@ KISS_BOY = [
         "...........ohhoSSSpSSpo.........",  # 17
         "............oooSSSSSo...........",  # 18
         "..............osSoooo...........",  # 19
-        ".............oSSSo..............",  # 20
-        "............ovSSSSo.............",  # 21
-        "..........ooVvVoSSSo............",  # 22
-        ".........oVVVVVVoSSooo..........",  # 23
-        "........ovVVVVVvoooSSSo.........",  # 24
+        ".............oSSSSo.............",  # 20
+        "............oVSSSvoo............",  # 21
+        "..........ooVVoSSVoo............",  # 22
+        ".........oVVVVoSSVoSoo..........",  # 23
+        "........ovVVVVoSSVoSSSo.........",  # 24
         ".................oSSSSo.........",  # 25
         "..................oooo..........",  # 26
         "................................",
