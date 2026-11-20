@@ -66,6 +66,7 @@ var _help_status: Label
 var _help_chosen: bool = false
 var _fade: ColorRect
 var _fade_label: Label
+var _bedtime_tween: Tween  # the slow fade to black once everyone is in bed
 var _message_time: float = 0.0
 
 
@@ -245,6 +246,7 @@ func _ready() -> void:
 	GameState.economy_changed.connect(_update_tool)
 	GameState.state_reloaded.connect(refresh)
 	GameState.sleepers_changed.connect(_update_banner)
+	GameState.sleepers_changed.connect(_on_sleepers_changed)
 	GameState.notice.connect(show_message)
 	GameState.day_advanced.connect(_on_day_advanced)
 	Net.player_joined.connect(func(_s: int) -> void: _update_banner())
@@ -493,6 +495,19 @@ func _update_banner() -> void:
 	_set_line(_banner, line)
 
 
+## Once everyone is in bed, the screen fades slowly to black so you see the
+## sleepers together; if someone gets up, it fades back.
+func _on_sleepers_changed() -> void:
+	if _bedtime_tween != null:
+		_bedtime_tween.kill()
+	_bedtime_tween = create_tween()
+	if GameState.everyone_in_bed():
+		var fade_time: float = maxf(GameState.bedtime_fade - 0.3, 0.1)
+		_bedtime_tween.tween_property(_fade, "modulate:a", 1.0, fade_time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	elif _fade.modulate.a > 0.0 and _fade_label.modulate.a == 0.0:
+		_bedtime_tween.tween_property(_fade, "modulate:a", 0.0, 0.4)
+
+
 func _on_day_advanced(summary: Dictionary) -> void:
 	var content: String = "%s %d" % [TimeManager.season_name(), TimeManager.day_of_season()]
 	var dozers: Array = summary.get("passed_out", [])
@@ -513,11 +528,14 @@ func _on_day_advanced(summary: Dictionary) -> void:
 	if not extra.is_empty():
 		content += "\n\n" + "\n".join(extra)
 	_fade_label.text = content
+	if _bedtime_tween != null:
+		_bedtime_tween.kill()
 	_fade.modulate.a = 1.0
-	_fade_label.modulate.a = 1.0
+	_fade_label.modulate.a = 0.0
 	if player != null:
 		player.set("frozen", true)
 	var tween: Tween = create_tween()
+	tween.tween_property(_fade_label, "modulate:a", 1.0, 0.5)  # the new day's words come up out of the dark
 	tween.tween_interval(1.0 + 0.8 * extra.size())  # longer when there is news to read
 	tween.tween_property(_fade, "modulate:a", 0.0, 0.6)
 	tween.parallel().tween_property(_fade_label, "modulate:a", 0.0, 0.6)

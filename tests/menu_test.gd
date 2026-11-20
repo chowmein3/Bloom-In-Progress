@@ -19,6 +19,7 @@ func _ready() -> void:
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
 	GameState.wild_growth = false  # no surprise debris where a test wants to dig
+	GameState.bedtime_fade = 0.0  # no slow fade to morning while the menus are checked
 	TimeManager.rain_chance = 0.0
 	GameState.saves_dir = "user://menu_test_saves"
 	for old: Dictionary in GameState.list_gardens():

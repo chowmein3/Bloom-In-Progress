@@ -100,8 +100,10 @@ in the pause menu.
 - The **journal** (J) fills in as you plant, bloom and make radiant each of
   the eight kinds of plant.
 - Plants sleep through seasons they don't like; they don't die.
-- **Home:** the tent has a room inside with a bed for two. The day ends when
-  everyone is in bed; in co-op you can see each other tucked in.
+- **Home:** the tent has a room inside with a bed for two. Once everyone is
+  in bed you see them tucked in together, breathing softly, while the screen
+  fades slowly to black, then the next day begins. Getting up during the
+  fade (Space) calls it off.
 - **Bristle's stall** (the hedgehog beside your home): sell picked plants for
   coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
   cabin and then a cottage (more room, more energy each morning), and hats.

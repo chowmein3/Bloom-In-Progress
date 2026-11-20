@@ -63,7 +63,9 @@ blooms and radiant blooms are announced on the morning screen.
 ## Home, shop and backpack
 - **Home:** walking into the home's door leads to a room inside (its own
   space, far to the side of the garden grid). The bed is the only way to end
-  the day; sleepers are drawn tucked in, host on the left pillow, partner on
+  the day (after a slow fade to black, `GameState.bedtime_fade` seconds, so
+  everyone sees the sleepers together; getting up calls it off); sleepers
+  are drawn tucked in and breathing, host on the left pillow, partner on
   the right. Anyone still up at 2am is carried to bed with half energy.
 - **Coins:** each player's own purse, 100 to start. Each plant has a sell price and a
   seed price (`data/plants/*.tres`).
