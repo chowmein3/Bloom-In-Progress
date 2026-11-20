@@ -65,10 +65,15 @@ blooms and radiant blooms are announced on the morning screen.
   space, far to the side of the garden grid). The bed is the only way to end
   the day (after a slow fade to black, `GameState.bedtime_fade` seconds, so
   everyone sees the sleepers together; getting up calls it off); sleepers
-  are drawn tucked in and breathing (and one night in four, `kiss_chance`, one
-  leans over to kiss the other as the fade begins, with a floating heart;
-  the host rolls it and sends it with `bedtime_started`), host on the left pillow, partner on
-  the right. Anyone still up at 2am is carried to bed with half energy.
+  are drawn tucked in and breathing, host on the left pillow, partner on
+  the right. One night in four (`kiss_chance`, rolled by the host and sent
+  with `bedtime_started`) there is a goodnight kiss as the fade begins, drawn
+  frame by frame: he turns his head to her and pushes the covers down, sits
+  up (his shoulders and overalls coming out as the covers slide to his
+  waist, leaving a hollow in the pillow), turns side-on with a hand on the
+  bed beside her, leans over and kisses her cheek as a heart pops up, then
+  settles back down. Her side of it isn't drawn yet, so for now he is always
+  the one who leans over. Anyone still up at 2am is carried to bed with half energy.
 - **Coins:** each player's own purse, 100 to start. Each plant has a sell price and a
   seed price (`data/plants/*.tres`).
 - **Bristle's stall** sells:

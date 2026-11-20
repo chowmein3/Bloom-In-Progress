@@ -50,9 +50,26 @@ func _ready() -> void:
 	await _wait(0.3)
 	_expect(not player.visible, "a player in bed is under the covers, not standing")
 	await _shot("home_2_both_in_bed")
+	# The goodnight kiss, as the host sends it: he sits up, turns, leans over
+	# to her and kisses her, the covers turning down, then settles back.
+	var bed: Node2D = null
+	for node: Node in main.find_children("*", "Node2D", true, false):
+		if node.get_script() == preload("res://scripts/bed_view.gd"):
+			bed = node
+	GameState.bedtime_started.emit(2)  # her turn, but only his frames are drawn: he leans over
+	var frames_seen: Dictionary = {}
+	for i in 70:
+		frames_seen[bed.call("kiss_frame")] = true
+		if bed.call("kiss_frame") == 6 and not frames_seen.has("shot"):
+			frames_seen["shot"] = true
+			await _shot("home_2a_goodnight_kiss")
+		await _wait(0.05)
+	_expect(bed.get("_kiss_by") == 1, "until her frames are drawn, he is the one who leans over")
+	_expect(frames_seen.has(1) and frames_seen.has(3) and frames_seen.has(4) and frames_seen.has(6), "the kiss plays frame by frame: turning, sitting up, side-on, the kiss")
+	_expect(bed.call("kiss_frame") == 0, "and then he settles back down under the covers")
 	GameState.sleeping = {}
 	GameState.sleepers_changed.emit()
-	await _wait(0.1)
+	await _wait(0.6)  # the fade the picture started lifts again
 	await _tap(KEY_SPACE)
 	var hud_fade: ColorRect = hud.get("_fade")
 	_expect(TimeManager.day_index == 0 and GameState.everyone_in_bed() and not player.visible, "getting into bed tucks you in")

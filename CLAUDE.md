@@ -123,7 +123,12 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   black meanwhile) before `end_day`; getting up calls it off. Rule tests set
   `bedtime_fade = 0.0` so the day ends at once. As the fade starts the host
   emits `bedtime_started(kiss_by)` (mirrored): with two in bed, a
-  `kiss_chance` goodnight kiss, which `bed_view.gd` animates.
+  `kiss_chance` goodnight kiss, which `bed_view.gd` plays frame by frame
+  (`KISS_STEPS`) from `assets/sprites/kiss_<slot>.png`, hand-placed pixels in
+  `tools/kiss_pixels.py` (32x32 frames over the bed, matched to the player
+  sheet's size in bed), turning the covers down with
+  `blanket_<level>_turned.png`. Only slot 1's frames exist so far: when the
+  roll picks a slot without frames, slot 1 leans over instead.
 - Saves are one JSON file per garden in `GameState.saves_dir`. A garden must be
   opened (`create_garden` / `open_garden`) before play; while `save_path` is ""
   nothing is saved. `main.gd` does this from the menu's signals, then calls
@@ -157,3 +162,6 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
 - Visual smoke test: `godot --path . res://tests/screenshot.tscn -- <output folder>`.
 - Whole map, one picture per season (add `blocked` to tint tiles that can't be
   walked on): `godot --path . res://tests/map_shot.tscn -- <output folder>`.
+- The goodnight kiss, every frame in each home (add `film` for 20 pictures a
+  second of it playing, darkening as in the game):
+  `godot --path . res://tests/bed_shot.tscn -- <output folder>`.
