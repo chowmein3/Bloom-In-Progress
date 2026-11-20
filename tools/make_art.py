@@ -1129,6 +1129,10 @@ def make_tower():
 # rows of wall, then the floor, with the furniture drawn in. Sizes and
 # furniture places must match GameState.ROOMS.
 # assets/sprites/blanket_<level>.png: 32x19, drawn over sleepers in the bed.
+# assets/sprites/blanket_<level>_turned.png: the same with the left side turned
+# down 1-5 rows (a frame each), for a sleeper sitting up.
+# assets/sprites/kiss_<slot>.png: the goodnight kiss, a 32x32 frame per pose,
+# hand-placed in tools/kiss_pixels.py.
 
 ROOM_SIZES = [(8, 5), (10, 6), (12, 7)]
 
@@ -1240,25 +1244,53 @@ def bed(level):
     return piece(32, 32, draw)
 
 
-def blanket(level):
+def blanket(level, turned=0):
+    """The covers. `turned`: how many rows the left side is turned down, as
+    the one sleeping there sits up (the dip eases back across the middle)."""
+    def edge(x):
+        if turned == 0:
+            return 0
+        if level == 0:  # bedrolls: only the left one
+            return turned if x < 16 else 0
+        if x <= 12:
+            return turned
+        if x >= 19:
+            return 0
+        t = (x - 12) / 7.0
+        return round(turned * (1 - (3 * t * t - 2 * t * t * t)))
+
+    def covered(x, y, band):  # a pattern pixel under the turned-down band?
+        if turned == TURNED_ROWS and 14 <= x <= 24 and 3 <= y <= 7:
+            return True  # where a hand rests on the covers (tools/kiss_pixels.py)
+        return y < edge(x) + band
+
     def draw(c):
+        def column(x, bottom, colour, band, band_rows):
+            for y in range(edge(x), bottom):
+                c.px(x, y, band if y < edge(x) + band_rows else colour)
+
         if level == 0:
-            for x, colour in ((1, "#7fa8e0"), (17, "#e89ab8")):
-                c.rect(x, 0, 14, 18, rgb(colour))
-                c.rect(x, 0, 14, 2, light(rgb(colour), 0.4))
+            for x0, colour in ((1, "#7fa8e0"), (17, "#e89ab8")):
+                for x in range(x0, x0 + 14):
+                    column(x, 18, rgb(colour), light(rgb(colour), 0.4), 2)
         elif level == 1:
-            c.rect(2, 0, 28, 17, rgb("#d9605a"))
-            c.rect(2, 0, 28, 3, WHITE)
+            for x in range(2, 30):
+                column(x, 17, rgb("#d9605a"), WHITE, 3)
             for x in range(4, 28, 8):
                 for y in range(5, 15, 6):
+                    if any(covered(x + i, y + j, 3) for i in range(4) for j in range(3)):
+                        continue
                     c.rect(x, y, 4, 3, rgb("#f2b84a"))
         else:
-            c.rect(2, 0, 28, 17, rgb("#5aa88a"))
-            c.rect(2, 0, 28, 3, WHITE)
+            for x in range(2, 30):
+                column(x, 17, rgb("#5aa88a"), WHITE, 3)
             for x in (6, 15, 24):
-                for dx, dy in ((0, 0), (2, 0), (0, 1), (1, 1), (2, 1), (1, 2)):
-                    c.dot(x + dx, 7 + dy, rgb("#ffd9ea"))
-                    c.dot(x + dx - 4, 12 + dy, rgb("#ffd9ea"))
+                for ox, oy in ((0, 7), (-4, 12)):
+                    flower = [(x + ox + dx, oy + dy) for dx, dy in ((0, 0), (2, 0), (0, 1), (1, 1), (2, 1), (1, 2))]
+                    if any(covered(fx, fy, 3) for fx, fy in flower):
+                        continue
+                    for fx, fy in flower:
+                        c.dot(fx, fy, rgb("#ffd9ea"))
     return piece(32, 19, draw)
 
 
@@ -1333,6 +1365,24 @@ def make_rooms():
             put(piece(16, 24, pot_plant), 0, 8, -8)
         save(room, "room_%d.png" % level)
         save(blanket(level), "blanket_%d.png" % level)
+        save(sheet([blanket(level, turned) for turned in range(1, TURNED_ROWS + 1)]), "blanket_%d_turned.png" % level)
+
+
+TURNED_ROWS = 5
+
+
+def make_kiss():
+    from kiss_pixels import KISS_BOY, KISS_COLOURS
+    colours = {k: rgb(v) + (255,) for k, v in KISS_COLOURS.items()}
+    frames = []
+    for rows in KISS_BOY:
+        img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    img.putpixel((x, y), colours[ch])
+        frames.append(img)
+    save(sheet(frames), "kiss_1.png")
 
 
 # ------------------------------------------------------------ shop & items
@@ -2173,6 +2223,7 @@ if __name__ == "__main__":
     make_cabin()
     make_cottage()
     make_rooms()
+    make_kiss()
     make_stall()
     make_tower()
     make_things()
