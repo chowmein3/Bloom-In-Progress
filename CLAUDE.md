@@ -118,7 +118,10 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   rule changes state, emit one of the existing change signals (they are
   mirrored to guests by the `_net_*()` functions) or add a mirrored one.
   Player ids are slots from `Net.local_id()`, never network peer ids.
-- Only the host saves, ends the day and runs the clock.
+- Only the host saves, ends the day and runs the clock. When everyone is in
+  bed the host waits `GameState.bedtime_fade` seconds (the HUD fades to
+  black meanwhile) before `end_day`; getting up calls it off. Rule tests set
+  `bedtime_fade = 0.0` so the day ends at once.
 - Saves are one JSON file per garden in `GameState.saves_dir`. A garden must be
   opened (`create_garden` / `open_garden`) before play; while `save_path` is ""
   nothing is saved. `main.gd` does this from the menu's signals, then calls

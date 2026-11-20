@@ -33,7 +33,7 @@ func _refresh() -> void:
 
 
 func _process(_delta: float) -> void:
-	var blink: int = int(Time.get_ticks_msec() / 700.0) % 2
+	var blink: int = int(Time.get_ticks_msec() / 750.0)  # the Zzz bobbing and the sleepers breathing
 	if blink != _blink and not _sleepers.is_empty():
 		_blink = blink
 		queue_redraw()
@@ -45,8 +45,10 @@ func _draw() -> void:
 		# These sheets have no sleeping row; tuck the front-facing head under the covers.
 		var head: Rect2 = Assets.player_head_frame(slot)
 		var head_size: Vector2 = head.size * minf(18.0 / head.size.x, 13.0 / head.size.y)
-		var head_position := Vector2(-8 + side * 16 - head_size.x / 2.0, -19 - head_size.y)
+		# Breathing slowly: each sleeper sinks a pixel into the pillow and back.
+		var breath: float = 1.0 if int(Time.get_ticks_msec() / 1500.0 + side * 0.5) % 2 == 1 else 0.0
+		var head_position := Vector2(-8 + side * 16 - head_size.x / 2.0, -19 - head_size.y + breath)
 		draw_texture_rect_region(_heads[clampi(slot, 1, 2)], Rect2(head_position, head_size), head)
 	draw_texture(_blankets[GameState.home_level()], Vector2(-16, -19))
 	for slot: int in _sleepers:
-		Effects.zzz(self, -8 + (clampi(slot, 1, 2) - 1) * 16 + 4, -40 - _blink, 0.9)
+		Effects.zzz(self, -8 + (clampi(slot, 1, 2) - 1) * 16 + 4, -40 - _blink % 2, 0.9)

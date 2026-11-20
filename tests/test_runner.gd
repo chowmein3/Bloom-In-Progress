@@ -19,6 +19,7 @@ func _ready() -> void:
 	Net.stop_lookup()
 	Net.relay_url = ""  # never touch the real relay from a test
 	GameState.wild_growth = false  # no surprise debris where a test wants to dig
+	GameState.bedtime_fade = 0.0  # rules first: the day ends the moment everyone is in bed
 	TimeManager.rain_chance = 0.0
 	GameState.save_path = "user://test_save.json"
 	GameState.register_player(P)
@@ -126,6 +127,28 @@ func _ready() -> void:
 	var today: int = TimeManager.day_index
 	GameState.request_sleep(P)
 	check(TimeManager.day_index == today + 1 and GameState.sleeping.is_empty(), "alone, sleeping ends the day at once")
+
+	print("the fade to morning")
+	GameState.bedtime_fade = 0.3
+	today = TimeManager.day_index
+	GameState.request_sleep(P)
+	check(GameState.everyone_in_bed() and TimeManager.day_index == today, "once everyone is in bed, the night falls slowly first")
+	await get_tree().create_timer(0.45).timeout
+	check(TimeManager.day_index == today + 1 and GameState.sleeping.is_empty(), "then the next day begins")
+	today = TimeManager.day_index
+	GameState.request_sleep(P)
+	GameState.request_sleep(P)  # changed their mind and got up
+	await get_tree().create_timer(0.45).timeout
+	check(TimeManager.day_index == today and not GameState.everyone_in_bed(), "getting up during the fade calls it off")
+	GameState.request_sleep(P)
+	await get_tree().create_timer(0.1).timeout
+	GameState.request_sleep(P)
+	GameState.request_sleep(P)  # up and back to bed: only the latest fade counts
+	await get_tree().create_timer(0.25).timeout
+	check(TimeManager.day_index == today, "a fade that was called off doesn't end the day early")
+	await get_tree().create_timer(0.15).timeout
+	check(TimeManager.day_index == today + 1, "the latest one does")
+	GameState.bedtime_fade = 0.0
 
 	print("heart tree and journal")
 	GameState.new_game()

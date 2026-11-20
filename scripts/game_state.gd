@@ -499,6 +499,10 @@ var hats_owned: Array = ["straw"]
 var outfits: Dictionary = {}  # str(player id) -> hat id being worn
 var journal: Dictionary = {}  # species id -> best milestone so far (JOURNAL_*)
 var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for the others
+## Seconds from everyone being in bed to the next day, while the screen fades
+## slowly to black (0 ends the day at once, for tests).
+var bedtime_fade: float = 3.2
+var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
 var rng := RandomNumberGenerator.new()
 
 
@@ -2376,14 +2380,32 @@ func _pay(player_id: int, cost: int) -> bool:
 func _do_sleep(player_id: int) -> bool:
 	if sleeping.has(player_id):
 		sleeping.erase(player_id)
+		_bedtime += 1  # getting up calls off the fade to morning
 		sleepers_changed.emit()
 		return true
 	sleeping[player_id] = true
+	sleepers_changed.emit()  # everyone sees them tucked in
 	if _everyone_asleep():
-		end_day(false)
-	else:
-		sleepers_changed.emit()
+		_start_bedtime()
 	return true
+
+
+## Everyone is in bed: let the screens fade slowly to black with the
+## sleepers together under the covers, then start the next day.
+func _start_bedtime() -> void:
+	_bedtime += 1
+	if bedtime_fade <= 0.0:
+		end_day(false)
+		return
+	var ticket: int = _bedtime
+	get_tree().create_timer(bedtime_fade).timeout.connect(func() -> void:
+		if ticket == _bedtime and everyone_in_bed():
+			end_day(false))
+
+
+## Whether everyone in the garden is in bed (the fade to morning is on).
+func everyone_in_bed() -> bool:
+	return not sleeping.is_empty() and _everyone_asleep()
 
 
 # ------------------------------------------------------------ day rollover
@@ -2393,6 +2415,7 @@ func _do_sleep(player_id: int) -> bool:
 func end_day(passed_out: bool) -> void:
 	if not Net.is_host():
 		return
+	_bedtime += 1  # any fade still waiting is done with
 	var night_news: Array = _end_festival()
 	night_news.append_array(_tend_animals_overnight())
 	night_news.append_array(_grow_fruit_trees())
@@ -2973,10 +2996,9 @@ func _on_player_left(slot: int) -> void:
 	if not _mirroring():
 		return
 	sleeping.erase(slot)
-	if not sleeping.is_empty() and _everyone_asleep():
-		end_day(false)
-	else:
-		sleepers_changed.emit()
+	sleepers_changed.emit()
+	if everyone_in_bed():
+		_start_bedtime()
 
 
 ## After leaving someone else's garden, go back to our own.
