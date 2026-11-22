@@ -682,6 +682,28 @@ def make_things():
             c.dot(3, 8, DARK)
         return draw
 
+    def eel(c):
+        for i in range(12):
+            y = 8 + math.sin(i * 0.8) * 2
+            c.ell(2.5 + i, y, 1.6, 1.8, rgb("#4f5a6a"))
+        c.dot(3, 7, DARK)
+        c.rect(12, 8, 3, 1, rgb("#6f7a8a"))
+
+    def tonic(c):
+        c.rect(6, 2, 4, 3, rgb("#8a5e3a"))
+        c.rect(7, 5, 2, 2, rgb("#cfe8f0"))
+        c.ell(7.5, 10, 4.5, 4.5, rgb("#cfe8f0"))
+        c.ell(7.5, 11, 3.5, 3, rgb("#5fbf6a"))
+        c.dot(6, 9, WHITE)
+
+    def bottleship(c):
+        c.ell(7.5, 9, 7, 4.5, rgb("#cfe8f0"))
+        c.rect(13, 8, 3, 3, rgb("#8a5e3a"))
+        c.rect(3, 10, 8, 2, rgb("#8a5e3a"))
+        c.rect(6, 5, 1, 5, rgb("#6b4630"))
+        c.tri(7, 5, 2.5, 4, WHITE)
+        c.rect(2, 12, 11, 1, rgb("#5aa6dc"))
+
     def fern(c):
         c.rect(5, 11, 6, 4, rgb("#c9744a"))
         c.rect(4, 10, 8, 1, rgb("#dd8a5e"))
@@ -1002,6 +1024,11 @@ def make_things():
         "moonfin": fish("#7a6ac8", "#e3d8ff", "#4f418f"),
         "frostfin": fish("#bfe9ff", "#ffffff", "#7fbfe6"),
         "goldie": fish("#ffd24a", "#fff6c9", "#f08a2e"),
+        "trout": fish("#8fa86a", "#f3d9c8", "#5f7a4a"),
+        "pike": fish("#b9c2cc", "#eef2f5", "#7f8a96"),
+        "eel": eel,
+        "salmon": fish("#e88a7a", "#ffd9cc", "#c0604f"),
+        "tonic": tonic, "bottleship": bottleship,
         "fern": fern, "lamp": lamp, "rug": rug, "armchair": armchair, "teatable": teatable,
         "bookcase": bookcase, "gnome": gnome, "birdbath": birdbath, "skewer": skewer, "bin": crate_bin,
         "supper": lambda c: bowl(c, rgb("#7a6ac8"), ("#f3e9d2", "#e8584f", "#f3e9d2")),
@@ -2224,6 +2251,8 @@ if __name__ == "__main__":
     make_cottage()
     make_rooms()
     make_kiss()
+    from town_art import make_town
+    make_town()
     make_stall()
     make_tower()
     make_things()

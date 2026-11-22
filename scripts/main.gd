@@ -39,6 +39,7 @@ const SceneryView := preload("res://scripts/scenery_view.gd")
 const BorderView := preload("res://scripts/border_view.gd")
 const CAMERA_MARGIN := Vector2(64, 64)  # how far the view may go past the garden's edge
 const TowerView := preload("res://scripts/tower_view.gd")
+const TownView := preload("res://scripts/town_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
 
@@ -64,6 +65,8 @@ var _visitor: Sprite2D
 var _animal_views: Array = []
 var _greeted: Dictionary = {}  # slots whose arrival has been announced by name
 var _light: CanvasModulate
+var _town: Node2D
+var _town_people: Dictionary = {}  # id -> sprite of a townsperson or villager in town
 
 
 func _ready() -> void:
@@ -76,6 +79,8 @@ func _ready() -> void:
 	add_child(_mine)
 	var pond := PondView.new()
 	add_child(pond)
+	_town = TownView.new()  # the town up the trail: its own part of the grid
+	add_child(_town)
 	_flats = Node2D.new()  # rugs and other flat things: above the floor, under everyone
 	add_child(_flats)
 
@@ -123,6 +128,8 @@ func _ready() -> void:
 	GameState.day_advanced.connect(func(_summary: Dictionary) -> void: _sync_scenery())
 	GameState.scenery_hit.connect(_on_scenery_hit)
 	BorderView.decorate(_entities)
+	TownView.decorate(_entities)
+	_town_people = TownView.people(_entities)
 	_visitor = Sprite2D.new()
 	_visitor.centered = false
 	_visitor.offset = Vector2(-8, -23)
@@ -190,6 +197,7 @@ func _ready() -> void:
 	var fishing := Fishing.new()
 	fishing.player = player
 	fishing.pond = pond
+	fishing.river = _town
 	add_child(fishing)
 	player.fish_requested.connect(fishing.cast)
 	var villager := Villager.new()
@@ -213,6 +221,7 @@ func _ready() -> void:
 	GameState.animals_changed.connect(_refresh_animals)
 	GameState.state_reloaded.connect(_refresh_animals)
 	TimeManager.time_changed.connect(_refresh_visitor)
+	TimeManager.time_changed.connect(func() -> void: TownView.refresh(_town_people))
 	var warp := TimeWarp.new()
 	warp.player = player
 	add_child(warp)
@@ -549,6 +558,7 @@ func _refresh_animals() -> void:
 
 func _refresh_visitor() -> void:
 	var who: String = GameState.visitor_today()
+	TownView.refresh(_town_people)
 	_visitor.visible = who != ""
 	if who != "":
 		_visitor.texture = Assets.texture("res://assets/sprites/villager_%s.png" % who)
@@ -562,7 +572,13 @@ func _on_area_changed() -> void:
 	_barn.visible = GameState.upgrade_level("barn") > 0
 	_refresh_visitor()
 	var inside: bool = player.call("indoors")
-	if inside:
+	if bool(player.call("in_town")):
+		var town := Rect2(Vector2(GameState.TOWN_ORIGIN * TILE), Vector2(GameState.TOWN_SIZE * TILE))
+		_camera.limit_left = int(town.position.x)
+		_camera.limit_top = int(town.position.y)
+		_camera.limit_right = int(town.end.x)
+		_camera.limit_bottom = int(town.end.y)
+	elif inside:
 		# Centre the room whatever shape the window is (it may be wider or
 		# taller than 320x180 in fullscreen).
 		var middle: Vector2 = _mine.call("centre") if GameState.is_in_mine(player.call("cell")) else _interior.call("centre")

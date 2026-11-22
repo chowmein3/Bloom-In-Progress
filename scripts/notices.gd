@@ -98,7 +98,7 @@ func _rebuild() -> void:
 			_list.add_child(Ui.label("Nothing pinned up today.", Ui.FAINT))
 		for i in GameState.quests.size():
 			var quest: Dictionary = GameState.quests[i]
-			var who: String = "Bristle" if not GameState.VILLAGERS.has(str(quest["who"])) else str(GameState.VILLAGERS[quest["who"]]["name"])
+			var who: String = str(GameState.person(str(quest["who"])).get("name", "Bristle"))
 			var have: int = GameState.total_of(quest["id"])  # any quality will do
 			var count: int = quest["count"]
 			var icon := TextureRect.new()

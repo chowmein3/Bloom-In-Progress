@@ -242,6 +242,188 @@ const VILLAGERS: Dictionary = {
 		"rewards": [{"items": {"mulch": 4}}, {"items": {"cinnamon": 3, "sugar": 3, "butter": 2}}, {"items": {"sprinkler": 1}}, {"coins": 300}, {"items": {"sapling": 1}}]},
 }
 
+## The town, up the trail from the top of the garden: its own area of the
+## grid at TOWN_ORIGIN (TOWN_SIZE tiles), drawn from this map, one letter a
+## tile (tools/make_art.py reads it too, to paint the ground):
+##   T woods   . grass   , path   # cobbles   ~ river   w waterfall   = bridge
+##   ^ cliff   u up on the cliff   s stairs   * flower meadow   o orchard
+## Positions in the TOWN_ tables are tiles from its top-left corner.
+const TOWN_ORIGIN := Vector2i(0, -100)
+const TOWN_SIZE := Vector2i(56, 40)
+const TOWN_MAP: Array[String] = [
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTwwwwTTTTTTTTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTwwwwTTTTTTTTTTT",
+	"TT.TTT.T....TTT..T.T..T....^T......T...TTwwww..T..TT.TTT",
+	"TT.uuuuuuuuuuuuuuuuuuuuu,,u^.............~~~~.........TT",
+	"TT.uuuuuuuuuuuuuuuuuuuuu,,u^.............~~~~.........TT",
+	"TTTuuuuuuuuuuuuuuuuuuuuu,,u^.............~~~~.........TT",
+	"TTTuuuuuuuuuuuuuuuuuuuuu,,u^.............~~~~........TTT",
+	"TTTuuu,,,,,,,,,,,,,,,,,,,,u^.............~~~~........TTT",
+	"TTTuuu,,,,,,,,,,,,,,,,,,,uu^.............~~~~........TTT",
+	"TTTuuuuuuuu,,uuuuuuuuuuuuuu^.............~~~~........TTT",
+	"TT^^^^^^^^^ss^^^^^^^^^^^^^^^............~~~~..........TT",
+	"TT^^^^^^^^^ss^^^^^^^^^^^^^^^............~~~~.,,,,.....TT",
+	"TT......................................~~===,,,,....TTT",
+	"TTT.....................................~~~~.,,......TTT",
+	"TT...................................,,====,,,,......TTT",
+	"TT...........##################......,,====,,,,.......TT",
+	"TT...........##################,,,,,,,~~~~...,,oooooooTT",
+	"TTT...,,,,,,,##################,,,,,,,~~~~...,,oooooooTT",
+	"TTT...,,,,,,,##################.......~~~~...,,oooooooTT",
+	"TT....,,.....##################.......~~~~...,,oooooooTT",
+	"TTT...,,.....##################.......~~~~...,,oooooooTT",
+	"TT....,,.....##################.......~~~~...,,oooooooTT",
+	"TT....,,.....##################........~~~~..,,oooooooTT",
+	"TT....,,,,,,,##################,,,,,,..~~~~..,,oooooooTT",
+	"TT....,,,,,,,##################,,,,,,..~~~~..,,oooooooTT",
+	"TTT.....,,.......,,........,,..........~~~~..,,oooooooTT",
+	"TTT..............,,........,,,,,,,,,,,,~~~~..,,oooooooTT",
+	"TT...............,,........,,,,,,,,,,,,,====,,,.......TT",
+	"TTT..............,,........,,...,,......====,,,......TTT",
+	"TT...............,,........,,...,,.......~~~~,,,,,,...TT",
+	"TT...............,,........,,...,,.......~~~~,********TT",
+	"TT...............,,,,,,....,,...,,.......~~~~,********TT",
+	"TTT..............,,,,,,....,,...,,.......~~~~,********TT",
+	"TT.........................,,............~~~~,********TT",
+	"TTT........................,,.............~~~~********TT",
+	"TTT........................,,.............~~~~********TT",
+	"TT.........................,,.............~~~~********TT",
+	"TT...T.T..TTT...TT..T...TT.,,.T......T..T.~~~~...TT.T.TT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTTTT~~~~TTTTTTTTTT",
+	"TTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTTTT~~~~TTTTTTTTTT",
+]
+## Buildings: where they stand (blocked) and their sprite, town_<id>.png.
+const TOWN_BUILDINGS: Dictionary = {
+	"museum": Rect2i(5, 4, 6, 3),
+	"apothecary": Rect2i(16, 4, 4, 3),
+	"townhall": Rect2i(17, 12, 7, 3),
+	"inn": Rect2i(31, 13, 6, 3),
+	"store": Rect2i(5, 14, 5, 3),
+	"bakery": Rect2i(5, 20, 5, 3),
+	"forge": Rect2i(31, 20, 5, 3),
+	"carpenter": Rect2i(16, 28, 5, 3),
+	"fishshack": Rect2i(46, 8, 4, 3),
+	"home_thistle": Rect2i(4, 30, 4, 3),
+	"home_pebble": Rect2i(31, 29, 4, 3),
+	"home_maple": Rect2i(47, 26, 4, 3),
+}
+## Things standing about (blocked): a picture each in town_props.png.
+const TOWN_PROPS: Dictionary = {
+	Vector2i(21, 19): "fountain", Vector2i(15, 16): "bench", Vector2i(26, 16): "bench", Vector2i(15, 23): "bench",
+	Vector2i(26, 23): "bench", Vector2i(14, 15): "lamp", Vector2i(29, 15): "lamp", Vector2i(14, 24): "lamp",
+	Vector2i(29, 24): "lamp", Vector2i(10, 28): "bench", Vector2i(21, 4): "bench", Vector2i(25, 4): "telescope",
+	Vector2i(24, 15): "board", Vector2i(52, 30): "hive", Vector2i(52, 32): "hive", Vector2i(22, 29): "lumber",
+	Vector2i(36, 21): "barrel", Vector2i(50, 9): "crate", Vector2i(29, 36): "signpost", Vector2i(50, 11): "barrel",
+	Vector2i(17, 19): "planter", Vector2i(26, 19): "planter", Vector2i(17, 21): "planter", Vector2i(26, 21): "planter",
+}
+const TOWN_PROP_SIZES: Dictionary = {"fountain": Vector2i(2, 2), "bench": Vector2i(2, 1), "lumber": Vector2i(2, 1)}
+## Trees (not for cutting: they belong to the town).
+const TOWN_TREES: Dictionary = {
+	Vector2i(9, 2): "oak", Vector2i(18, 2): "pine", Vector2i(36, 2): "maple", Vector2i(49, 2): "pine", Vector2i(2, 3): "birch",
+	Vector2i(13, 3): "pine", Vector2i(22, 3): "maple", Vector2i(32, 3): "oak", Vector2i(39, 3): "oak", Vector2i(52, 3): "pine",
+	Vector2i(29, 4): "oak", Vector2i(37, 5): "oak", Vector2i(46, 5): "pine", Vector2i(50, 5): "pine", Vector2i(31, 6): "pine",
+	Vector2i(3, 7): "pine", Vector2i(39, 7): "maple", Vector2i(52, 7): "maple", Vector2i(29, 8): "pine", Vector2i(34, 8): "pine",
+	Vector2i(32, 10): "pine", Vector2i(37, 11): "oak", Vector2i(53, 11): "oak", Vector2i(50, 12): "cherry", Vector2i(15, 13): "oak",
+	Vector2i(28, 13): "cherry", Vector2i(11, 14): "maple", Vector2i(48, 14): "oak", Vector2i(52, 14): "oak", Vector2i(2, 15): "maple",
+	Vector2i(4, 18): "pine", Vector2i(43, 18): "birch", Vector2i(3, 21): "cherry", Vector2i(11, 21): "maple", Vector2i(2, 24): "oak",
+	Vector2i(4, 26): "cherry", Vector2i(14, 26): "pine", Vector2i(21, 26): "pine", Vector2i(9, 27): "cherry", Vector2i(25, 27): "pine",
+	Vector2i(53, 27): "birch", Vector2i(6, 28): "cherry", Vector2i(2, 29): "oak", Vector2i(11, 29): "oak", Vector2i(38, 29): "oak",
+	Vector2i(14, 30): "birch", Vector2i(25, 31): "oak", Vector2i(36, 31): "pine", Vector2i(12, 32): "oak", Vector2i(2, 33): "cherry",
+	Vector2i(15, 33): "pine", Vector2i(38, 33): "maple", Vector2i(5, 34): "oak", Vector2i(9, 34): "cherry", Vector2i(22, 34): "pine",
+	Vector2i(35, 34): "birch", Vector2i(17, 35): "maple", Vector2i(31, 35): "pine", Vector2i(3, 36): "cherry", Vector2i(12, 36): "cherry",
+	Vector2i(20, 36): "birch", Vector2i(25, 36): "birch", Vector2i(40, 36): "birch", Vector2i(6, 37): "cherry", Vector2i(15, 37): "birch",
+	Vector2i(36, 37): "birch", Vector2i(48, 37): "cherry", Vector2i(53, 37): "maple",
+}
+## The town orchard: fruit trees anyone may pick.
+const TOWN_ORCHARD: Dictionary = {
+	Vector2i(48, 17): "applesapling", Vector2i(50, 17): "sapling", Vector2i(52, 17): "bananasapling",
+	Vector2i(48, 20): "sapling", Vector2i(50, 20): "bananasapling", Vector2i(52, 20): "applesapling",
+	Vector2i(48, 23): "bananasapling", Vector2i(50, 23): "applesapling", Vector2i(52, 23): "sapling",
+}
+## Where each of the townsfolk and villagers stands in town.
+const TOWN_SPOTS: Dictionary = {
+	"quill": Vector2i(8, 7), "sage": Vector2i(18, 7), "clementine": Vector2i(20, 15), "rosie": Vector2i(34, 16),
+	"bristle": Vector2i(7, 17), "juniper": Vector2i(7, 23), "flint": Vector2i(33, 23), "birch": Vector2i(18, 31),
+	"marlow": Vector2i(48, 11), "thistle": Vector2i(9, 29), "pebble": Vector2i(38, 24), "maple": Vector2i(50, 31),
+}
+## The way back down to the garden (walk down off it), and where you arrive.
+const TOWN_GATE: Array[Vector2i] = [Vector2i(27, 39), Vector2i(28, 39)]
+
+## The townsfolk: each keeps a shop in town, standing at TOWN_SPOTS[id] in
+## front of their building (TOWN_BUILDINGS[place]) while it is open, between
+## `hours` (minutes after midnight). `sells`: what they sell, at what price.
+## `buys`: what they pay extra for (SPECIALTY times the usual price; Bristle
+## buys anything at the usual price). `wants`: what their requests ask for
+## (an id, or "@crop" for any crop in season, "@forage", "@fish", "@flower").
+## `tabs`: the pages of their shop screen. Friendship, gifts and heart
+## rewards work as with VILLAGERS.
+const SPECIALTY := 1.4
+const TOWNSFOLK: Dictionary = {
+	"bristle": {"name": "Bristle", "what": "the shopkeeper", "place": "store", "title": "Bristle's General Store", "hours": [480, 1080],
+		"lines": ["Fresh seeds, fair prices.", "My little stall by your garden is still open for selling.", "The Heart Tree's looking grand these days."],
+		"loves": ["sunberry", "applepie", "chestnut"], "likes": ["sunpuff", "jam", "honey", "egg"], "dislikes": ["stone", "fiber"],
+		"rewards": [{"seeds": {"sunpuff": 5}}, {"coins": 150}, {"items": {"gnome": 1}}, {"coins": 300}, {"items": {"birdbath": 1}}],
+		"sells": {}, "buys": [], "wants": [], "tabs": ["Sell", "Seeds", "Animals", "Pantry", "Decor", "Hats", "Gift"]},
+	"juniper": {"name": "Juniper", "what": "the baker", "place": "bakery", "title": "Juniper's Bakery", "hours": [360, 900],
+		"lines": ["Bread's best before the sun is properly up.", "Bring me your wheat and I'll pay you well for it.", "Cinnamon buns are just flour, butter and patience."],
+		"loves": ["honey", "applepie", "cocoa"], "likes": ["wheat", "apple", "banana", "egg", "milk"], "dislikes": ["minnow", "stone", "copper"],
+		"rewards": [{"items": {"flour": 3}}, {"coins": 150}, {"items": {"cinnamonbuns": 3}}, {"coins": 300}, {"items": {"oven": 1}}],
+		"sells": {"flour": 35, "sugar": 15, "butter": 25, "cinnamon": 30, "cinnamonbuns": 170, "oven": 400},
+		"buys": ["wheat", "apple", "banana", "honey", "egg", "milk", "cinnamonbuns", "bananabread", "applepie"],
+		"wants": ["wheat", "apple", "banana", "egg", "milk", "honey"], "tabs": ["Request", "Wares", "Sell", "Gift"]},
+	"flint": {"name": "Flint", "what": "the blacksmith", "place": "forge", "title": "Flint's Forge", "hours": [540, 1020],
+		"lines": ["Bring me ore and I'll make your tools sing.", "A good pickaxe is worth ten bad ones.", "Copper first. Gold when you're ready."],
+		"loves": ["amethyst", "goldore", "stew"], "likes": ["copper", "pie", "skewer", "omelette"], "dislikes": ["moonbell", "tea", "sunpuff"],
+		"rewards": [{"items": {"copper": 5}}, {"coins": 200}, {"items": {"goldore": 2}}, {"coins": 400}, {"items": {"bigsprinkler": 1}}],
+		"sells": {"copper": 60, "goldore": 220}, "buys": ["stone", "copper", "goldore", "amethyst"],
+		"wants": ["copper", "stone", "goldore"], "tabs": ["Request", "Tools", "Wares", "Sell", "Gift"]},
+	"marlow": {"name": "Marlow", "what": "the fishmonger", "place": "fishshack", "title": "The Wet Line", "hours": [360, 840],
+		"lines": ["River fish fight harder than pond fish. Tastier too.", "Eels only come out after dark.", "Salmon leap the falls in spring and fall. Mind the spray."],
+		"loves": ["goldie", "supper", "salmon"], "likes": ["minnow", "trout", "pike", "eel", "skewer"], "dislikes": ["wheat", "flour", "fiber"],
+		"rewards": [{"items": {"skewer": 2}}, {"coins": 150}, {"items": {"supper": 2}}, {"coins": 350}, {"items": {"bottleship": 1}}],
+		"sells": {"minnow": 40, "skewer": 90, "supper": 230, "bottleship": 300},
+		"buys": ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie", "trout", "pike", "eel", "salmon", "skewer", "supper"],
+		"wants": ["@fish"], "tabs": ["Request", "Wares", "Sell", "Gift"]},
+	"birch": {"name": "Birch", "what": "the carpenter", "place": "carpenter", "title": "Birch & Bough Joinery", "hours": [480, 1020],
+		"lines": ["Measure twice, gnaw once.", "Wood, stone and a bit of time: that's a house.", "Your home could do with another room, I reckon."],
+		"loves": ["bananabread", "plumble", "juice"], "likes": ["wood", "apple", "honey", "cheese"], "dislikes": ["minnow", "frostfin"],
+		"rewards": [{"items": {"wood": 20}}, {"coins": 200}, {"items": {"armchair": 1}}, {"coins": 400}, {"items": {"bookcase": 1}}],
+		"sells": {"wood": 15, "stone": 20, "fern": 80, "lamp": 120, "rug": 150, "teatable": 180, "armchair": 200, "bookcase": 250},
+		"buys": ["wood", "stone", "fiber"], "wants": ["wood", "stone", "fiber"], "tabs": ["Request", "Home", "Build", "Wares", "Sell", "Gift"]},
+	"sage": {"name": "Sage", "what": "the herbalist", "place": "apothecary", "title": "Sage's Apothecary", "hours": [540, 1080],
+		"lines": ["Every weed is a herb nobody has thanked yet.", "Forage what the season gives. I'll pay well for it.", "A tonic a day keeps the tiredness away."],
+		"loves": ["moonbell", "tea", "frostroot"], "likes": ["wildgreens", "sunberry", "chestnut", "honey", "dewcup"], "dislikes": ["copper", "goldore", "stone"],
+		"rewards": [{"items": {"tonic": 2}}, {"coins": 150}, {"items": {"mulch": 6}}, {"coins": 300}, {"items": {"tonic": 5}}],
+		"sells": {"tonic": 120, "mulch": 35, "tea": 90},
+		"buys": ["wildgreens", "sunberry", "chestnut", "frostroot", "moonbell", "skybell", "dewcup", "blazestar", "amberleaf", "icebloom", "tea"],
+		"wants": ["@forage", "@flower"], "tabs": ["Request", "Wares", "Sell", "Gift"]},
+	"quill": {"name": "Professor Quill", "what": "the museum curator", "place": "museum", "title": "Valley Museum", "hours": [540, 1080],
+		"lines": ["Hoo! Every fish and stone has a story to tell.", "The collection grows with every donation. Thank you.", "Have you seen what glitters deep in the mine?"],
+		"loves": ["amethyst", "goldie", "cocoa"], "likes": ["goldore", "moonfin", "chestnut", "eel"], "dislikes": ["fiber", "stone"],
+		"rewards": [{"coins": 100}, {"items": {"amethyst": 1}}, {"coins": 250}, {"items": {"lamp": 1}}, {"coins": 500}],
+		"sells": {}, "buys": [], "wants": ["copper", "goldore", "@forage"], "tabs": ["Request", "Donate", "Gift"]},
+	"clementine": {"name": "Mayor Clementine", "what": "the mayor", "place": "townhall", "title": "Town Hall", "hours": [480, 1020],
+		"lines": ["Slow and steady makes a good town.", "The notice board is how this town looks after itself.", "Our festivals are the heart of the valley."],
+		"loves": ["pie", "juice", "goldie"], "likes": ["cheese", "jam", "honey", "lanternsquash"], "dislikes": ["minnow", "fiber"],
+		"rewards": [{"coins": 200}, {"items": {"lantern": 2}}, {"coins": 350}, {"items": {"birdbath": 1}}, {"coins": 600}],
+		"sells": {}, "buys": [], "wants": ["@crop"], "tabs": ["Request", "Board", "Gift"]},
+	"rosie": {"name": "Rosie", "what": "the innkeeper", "place": "inn", "title": "The Snug Mug", "hours": [720, 1440],
+		"lines": ["Pull up a stool, the stew's on.", "A hot meal fixes most things.", "Bring me good food and I'll pay a fair price for it."],
+		"loves": ["juice", "cheese", "stew"], "likes": ["jam", "salad", "omelette", "melonbub"], "dislikes": ["stone", "copper"],
+		"rewards": [{"items": {"stew": 2}}, {"coins": 200}, {"items": {"pie": 2}}, {"coins": 350}, {"items": {"teatable": 1}}],
+		"sells": {"tea": 80, "salad": 110, "omelette": 120, "cocoa": 150, "stew": 180, "pie": 260},
+		"buys": ["tea", "salad", "stew", "pie", "omelette", "cocoa", "skewer", "supper", "cheese", "jam", "juice"],
+		"wants": ["@crop", "egg", "milk", "cheese", "jam"], "tabs": ["Request", "Wares", "Sell", "Gift"]},
+}
+## Fish from the town's river (the pond has FISH).
+const RIVER_FISH: Array[String] = ["trout", "pike", "eel", "salmon"]
+## What the museum collects, one of each, and what it gives at each count.
+const MUSEUM: Array[String] = ["minnow", "sunfish", "raincarp", "moonfin", "frostfin", "goldie", "trout", "pike", "eel", "salmon",
+	"copper", "goldore", "amethyst", "wildgreens", "sunberry", "chestnut", "frostroot"]
+const MUSEUM_REWARDS: Dictionary = {3: {"coins": 150}, 6: {"items": {"lamp": 1}}, 9: {"coins": 300}, 13: {"items": {"bookcase": 1}}, 17: {"coins": 1000}}
+const COST_WISH := 10  # a coin in the fountain, for luck today
+const LOOKOUT_ENERGY := 20  # a deep breath at the lookout, once a day
+
 ## The mine: a cave whose rocks are renewed every morning. It sits below the
 ## home's room in the far part of the grid. Rocks need the pickaxe.
 const MINE_RECT := Rect2i(25, 1, 2, 2)  # the entrance, in the garden
@@ -313,29 +495,35 @@ const GOALS: Array[Dictionary] = [
 ##   soil:     spread on a tilled tile
 ##   meal:     eaten for energy
 ##   fish:     caught in the pond; sold or cooked
-##   decor:    bought from Bristle; set down indoors or in the garden
+##   decor:    bought in town (Birch, Bristle, Marlow); set down indoors or in the garden
 ## `price` is what Bristle pays for one; `cost` is what he charges.
 const ITEMS: Dictionary = {
-	"wood": {"name": "Wood", "kind": "material", "blurb": "From fallen branches."},
-	"stone": {"name": "Stone", "kind": "material", "blurb": "From rocks."},
-	"fiber": {"name": "Fiber", "kind": "material", "blurb": "From weeds."},
+	"wood": {"name": "Wood", "kind": "material", "price": 2, "blurb": "From fallen branches."},
+	"stone": {"name": "Stone", "kind": "material", "price": 2, "blurb": "From rocks."},
+	"fiber": {"name": "Fiber", "kind": "material", "price": 1, "blurb": "From weeds."},
 	"mulch": {"name": "Rich Mulch", "kind": "soil", "blurb": "Spread on tilled soil. Plants in it often grow twice as fast, and the bed never grasses over."},
 	"path": {"name": "Stepping Stone", "kind": "place", "solid": false, "blurb": "A tidy path. Nothing sprouts on it."},
 	"fence": {"name": "Fence", "kind": "place", "solid": true, "blurb": "Marks out a bed."},
 	"sprinkler": {"name": "Sprinkler", "kind": "place", "solid": true, "blurb": "Waters the four tiles beside it every morning."},
 	"lantern": {"name": "Garden Lantern", "kind": "place", "solid": true, "blurb": "A warm glow after dark."},
-	"tea": {"name": "Moonbell Tea", "kind": "meal", "energy": 30, "blurb": "Restores 30 energy."},
-	"salad": {"name": "Garden Salad", "kind": "meal", "energy": 45, "blurb": "Restores 45 energy."},
-	"stew": {"name": "Gigglecap Stew", "kind": "meal", "energy": 75, "blurb": "Restores 75 energy."},
-	"pie": {"name": "Lantern Pie", "kind": "meal", "energy": 110, "blurb": "Restores 110 energy."},
-	"skewer": {"name": "Fish Skewer", "kind": "meal", "energy": 50, "blurb": "Restores 50 energy."},
-	"supper": {"name": "Moonfin Supper", "kind": "meal", "energy": 95, "blurb": "Restores 95 energy."},
+	"tea": {"name": "Moonbell Tea", "kind": "meal", "energy": 30, "price": 40, "blurb": "Restores 30 energy."},
+	"salad": {"name": "Garden Salad", "kind": "meal", "energy": 45, "price": 70, "blurb": "Restores 45 energy."},
+	"stew": {"name": "Gigglecap Stew", "kind": "meal", "energy": 75, "price": 110, "blurb": "Restores 75 energy."},
+	"pie": {"name": "Lantern Pie", "kind": "meal", "energy": 110, "price": 160, "blurb": "Restores 110 energy."},
+	"skewer": {"name": "Fish Skewer", "kind": "meal", "energy": 50, "price": 60, "blurb": "Restores 50 energy."},
+	"supper": {"name": "Moonfin Supper", "kind": "meal", "energy": 95, "price": 140, "blurb": "Restores 95 energy."},
 	"minnow": {"name": "Pond Minnow", "kind": "fish", "price": 15, "blurb": "Bites any time."},
 	"sunfish": {"name": "Sunny Bream", "kind": "fish", "price": 35, "blurb": "Spring and summer, by day."},
 	"raincarp": {"name": "Rain Carp", "kind": "fish", "price": 50, "blurb": "Only when it rains."},
 	"moonfin": {"name": "Moonfin", "kind": "fish", "price": 60, "blurb": "After six in the evening."},
 	"frostfin": {"name": "Frostfin", "kind": "fish", "price": 55, "blurb": "Winter only."},
 	"goldie": {"name": "Golden Koi", "kind": "fish", "price": 200, "blurb": "Very rare. Any time."},
+	"trout": {"name": "River Trout", "kind": "fish", "price": 40, "blurb": "In the town's river, any time."},
+	"pike": {"name": "Silver Pike", "kind": "fish", "price": 70, "blurb": "In the river, fall and winter."},
+	"eel": {"name": "Night Eel", "kind": "fish", "price": 85, "blurb": "In the river, after eight in the evening."},
+	"salmon": {"name": "Rosy Salmon", "kind": "fish", "price": 95, "blurb": "In the river, spring and fall."},
+	"tonic": {"name": "Herbal Tonic", "kind": "meal", "energy": 60, "price": 50, "blurb": "Restores 60 energy. From Sage's apothecary."},
+	"bottleship": {"name": "Ship in a Bottle", "kind": "decor", "solid": true, "blurb": "From Marlow's fish shack. Smells faintly of the sea."},
 	"fern": {"name": "Potted Fern", "kind": "decor", "solid": true, "cost": 80, "blurb": "A bit of the garden indoors."},
 	"lamp": {"name": "Floor Lamp", "kind": "decor", "solid": true, "cost": 120, "blurb": "Cosy light."},
 	"rug": {"name": "Round Rug", "kind": "decor", "solid": false, "flat": true, "cost": 150, "blurb": "Soft underfoot. Can be walked on."},
@@ -376,8 +564,8 @@ const ITEMS: Dictionary = {
 	"copper": {"name": "Copper Ore", "kind": "material", "price": 25, "blurb": "From the mine."},
 	"goldore": {"name": "Gold Nugget", "kind": "material", "price": 80, "blurb": "From the mine."},
 	"amethyst": {"name": "Amethyst", "kind": "material", "price": 150, "blurb": "A rare find in the mine."},
-	"omelette": {"name": "Omelette", "kind": "meal", "energy": 60, "blurb": "Restores 60 energy."},
-	"cocoa": {"name": "Moonbell Cocoa", "kind": "meal", "energy": 85, "blurb": "Restores 85 energy."},
+	"omelette": {"name": "Omelette", "kind": "meal", "energy": 60, "price": 70, "blurb": "Restores 60 energy."},
+	"cocoa": {"name": "Moonbell Cocoa", "kind": "meal", "energy": 85, "price": 100, "blurb": "Restores 85 energy."},
 	"gnome": {"name": "Garden Gnome", "kind": "decor", "solid": true, "cost": 100, "blurb": "Keeps watch. Happy indoors or out."},
 	"birdbath": {"name": "Bird Bath", "kind": "decor", "solid": true, "cost": 220, "blurb": "Visitors welcome."},
 }
@@ -486,7 +674,11 @@ var wild_growth: bool = true
 var mail: Array = []  # unopened letters: {"from", "text", "gift": {"coins", "items", "seeds"}}
 var quests: Array = []  # notice board: {"who", "id", "count", "coins", "days"}
 var animals: Array = []  # each {"kind", "mood", "fed", "petted_by"}; order gives its spot
-var friends: Dictionary = {}  # villager id -> {"points", "talked", "gifted", "rewards"}
+var friends: Dictionary = {}  # villager or townsfolk id -> {"points", "talked", "gifted", "rewards"}
+## The town: the townsfolk's requests (id -> {"id", "count", "coins"}), the
+## museum's collection, and the day each player last made a wish at the
+## fountain ("luck") or took in the view ("looked"), by str(player id).
+var town: Dictionary = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
 var bin: Dictionary:  # what this player put in the shipping bin: id -> count, sold overnight
 	get: return _bag()["bin"]
 	set(value): _bag()["bin"] = value
@@ -555,6 +747,7 @@ func new_game() -> void:
 	wanted = {}
 	animals = []
 	friends = {}
+	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
 	mail = []
 	quests = []
 	stats = {"requests": 0, "cooked": {}, "fish": {}}
@@ -563,6 +756,7 @@ func new_game() -> void:
 	hats_owned = ["straw"]
 	outfits = {}
 	_fill_mine()
+	_plant_orchard()
 	for pid: int in energy.keys():
 		energy[pid] = MAX_ENERGY
 	TimeManager.reset()
@@ -792,6 +986,364 @@ func hearts(villager: String) -> int:
 	return mini(int(friends.get(villager, {}).get("points", 0)) / 100, MAX_HEARTS)
 
 
+# ----- the town
+
+## Whether `cell` is in the town (up the trail from the garden).
+func is_in_town(cell: Vector2i) -> bool:
+	return Rect2i(TOWN_ORIGIN, TOWN_SIZE).has_point(cell)
+
+
+## The town map's letter for `cell` ("T", woods, outside the town).
+func town_tile(cell: Vector2i) -> String:
+	if not is_in_town(cell):
+		return "T"
+	var at: Vector2i = cell - TOWN_ORIGIN
+	return TOWN_MAP[at.y][at.x]
+
+
+## The town cell `local` tiles from its top-left corner.
+func town_cell(local: Vector2i) -> Vector2i:
+	return TOWN_ORIGIN + local
+
+
+## The building standing on `cell`, or "".
+func town_building_at(cell: Vector2i) -> String:
+	for id: String in TOWN_BUILDINGS.keys():
+		var rect: Rect2i = TOWN_BUILDINGS[id]
+		if Rect2i(rect.position + TOWN_ORIGIN, rect.size).has_point(cell):
+			return id
+	return ""
+
+
+## The prop standing on `cell` ("fountain", "bench" ...), or "".
+func town_prop_at(cell: Vector2i) -> String:
+	var at: Vector2i = cell - TOWN_ORIGIN
+	for corner: Vector2i in TOWN_PROPS.keys():
+		var kind: String = TOWN_PROPS[corner]
+		if Rect2i(corner, TOWN_PROP_SIZES.get(kind, Vector2i.ONE)).has_point(at):
+			return kind
+	return ""
+
+
+func is_river(cell: Vector2i) -> bool:
+	return town_tile(cell) == "~"
+
+
+## Water a line can be cast into: the pond or the town's river.
+func is_fishable(cell: Vector2i) -> bool:
+	return is_pond(cell) or is_river(cell)
+
+
+## A villager's or one of the townsfolk's table entry.
+func person(id: String) -> Dictionary:
+	return VILLAGERS.get(id, TOWNSFOLK.get(id, {}))
+
+
+## Whether one of the townsfolk is at their shop now.
+func is_open(id: String) -> bool:
+	if not TOWNSFOLK.has(id):
+		return false
+	var hours: Array = TOWNSFOLK[id]["hours"]
+	return TimeManager.minutes >= int(hours[0]) and TimeManager.minutes < int(hours[1])
+
+
+## "6am to 3pm" for a keeper's opening hours.
+func hours_text(id: String) -> String:
+	var hours: Array = TOWNSFOLK[id]["hours"]
+	return "%s to %s" % [_clock_words(int(hours[0])), _clock_words(int(hours[1]))]
+
+
+static func _clock_words(minutes: int) -> String:
+	@warning_ignore("integer_division")
+	var hour: int = (minutes / 60) % 24
+	if hour == 0:
+		return "midnight"
+	if hour == 12:
+		return "noon"
+	return "%d%s" % [hour if hour <= 12 else hour - 12, "am" if hour < 12 else "pm"]
+
+
+## Who stands in town now: the townsfolk at their shops while open, and the
+## villagers who aren't visiting the garden today. Id -> cell.
+func people_in_town() -> Dictionary:
+	var here: Dictionary = {}
+	for id: String in TOWN_SPOTS.keys():
+		if TOWNSFOLK.has(id) and not is_open(id):
+			continue
+		if VILLAGERS.has(id) and visitor_today() == id:
+			continue
+		here[id] = town_cell(TOWN_SPOTS[id])
+	return here
+
+
+## The villager or keeper standing on `cell` (in town, or the garden's
+## visitor), or "".
+func person_at(cell: Vector2i) -> String:
+	if cell == VISITOR_CELL and visitor_today() != "":
+		return visitor_today()
+	if not is_in_town(cell):
+		return ""
+	var here: Dictionary = people_in_town()
+	for id: String in here.keys():
+		if here[id] == cell:
+			return id
+	return ""
+
+
+## Open town ground: no water, cliff, woods, building, prop or tree on it.
+func _town_ground(cell: Vector2i) -> bool:
+	if not ".,#us*o=".contains(town_tile(cell)):
+		return false
+	return not TOWN_TREES.has(cell - TOWN_ORIGIN) and town_building_at(cell) == "" and town_prop_at(cell) == ""
+
+
+## Town ground a player may stand on (nobody and nothing solid there).
+func _town_free(cell: Vector2i) -> bool:
+	return _town_ground(cell) and person_at(cell) == "" and not is_solid(cell)
+
+
+## Where you arrive in town from the garden, and in the garden from town.
+func town_arrival() -> Vector2i:
+	return town_cell(TOWN_GATE[0] + Vector2i(0, -2))
+
+
+## Words for what is on a town tile (shown when the cursor is on it).
+func _describe_town(cell: Vector2i) -> String:
+	var who: String = person_at(cell)
+	if who != "":
+		var info: Dictionary = person(who)
+		return "%s, %s" % [info["name"], info["what"]]
+	var building: String = town_building_at(cell)
+	if building.begins_with("home_"):
+		var owner: String = building.trim_prefix("home_")
+		return "%s's house" % person(owner)["name"]
+	for id: String in TOWNSFOLK.keys():
+		if TOWNSFOLK[id]["place"] == building:
+			return "%s: open %s%s" % [TOWNSFOLK[id]["title"], hours_text(id), "" if is_open(id) else " (closed now)"]
+	match town_prop_at(cell):
+		"fountain": return "Fountain: toss in %d coins for luck today" % COST_WISH
+		"telescope": return "Lookout: take in the view (once a day)"
+		"board": return "Notice board: %d requests" % quests.size()
+		"signpost": return "Signpost: down the trail to your garden"
+		"bench": return "Bench"
+		"hive": return "Maple's beehive"
+	if objects.has(cell):
+		return name_of(object_kind(cell)) if not TREES.has(object_kind(cell)) else "Town orchard: %s tree, free to pick" % name_of(TREES[object_kind(cell)]).to_lower()
+	if TOWN_TREES.has(cell - TOWN_ORIGIN):
+		return SCENERY_NAMES[TOWN_TREES[cell - TOWN_ORIGIN]]
+	match town_tile(cell):
+		"~": return "River: cast here with the fishing rod (5)"
+		"w": return "Waterfall"
+		"=": return "Bridge"
+		"^": return "Cliff"
+		"s": return "Stairs"
+		"*": return "Flower meadow"
+	if is_town_gate(cell):
+		return "Trail: down to your garden"
+	return ""
+
+
+func is_town_gate(cell: Vector2i) -> bool:
+	return is_in_town(cell) and TOWN_GATE.has(cell - TOWN_ORIGIN)
+
+
+## The top of the trail out of the garden (walk up off it to go to town).
+const GARDEN_TRAIL_TOP := Vector2i(22, 0)
+
+
+## Puts the town's orchard trees in place (grown), for new gardens and old saves.
+func _plant_orchard() -> void:
+	for local: Vector2i in TOWN_ORCHARD.keys():
+		var cell: Vector2i = town_cell(local)
+		if not TREES.has(object_kind(cell)):
+			objects[cell] = {"kind": TOWN_ORCHARD[local], "age": TREE_GROW_DAYS, "since": TREE_FRUIT_EVERY - 1}
+
+
+## One of the townsfolk's request: {"id", "count", "coins"}, or {}.
+func town_request(keeper: String) -> Dictionary:
+	return town["requests"].get(keeper, {})
+
+
+func donated(id: String) -> bool:
+	return town["museum"].has(id)
+
+
+## Whether `player_id` tossed a coin in the fountain today.
+func is_lucky(player_id: int) -> bool:
+	return int(town["luck"].get(str(player_id), -1)) == TimeManager.day_index
+
+
+func looked_today(player_id: int) -> bool:
+	return int(town["looked"].get(str(player_id), -1)) == TimeManager.day_index
+
+
+## What a keeper pays for one of `id` (0 if they don't buy it).
+func price_at(keeper: String, id: String) -> int:
+	if keeper == "bristle" or keeper == "stall":
+		return sell_price_of(id)
+	if not TOWNSFOLK.has(keeper) or not TOWNSFOLK[keeper]["buys"].has(base_of(id)):
+		return 0
+	return maxi(1, roundi(sell_price_of(id) * SPECIALTY))
+
+
+## Fish that bite somewhere this season (for requests).
+func fish_in_season() -> Array:
+	var season: int = TimeManager.season()
+	var fish: Array = ["minnow", "moonfin", "trout", "eel"]
+	if season <= 1:
+		fish.append("sunfish")
+	if season == 3:
+		fish.append("frostfin")
+	if season >= 2:
+		fish.append("pike")
+	if season == 0 or season == 2:
+		fish.append("salmon")
+	return fish
+
+
+## What a keeper could ask for today, from their `wants`.
+func _wishes(keeper: String) -> Array:
+	var out: Array = []
+	var season: int = TimeManager.season()
+	for want: String in TOWNSFOLK[keeper]["wants"]:
+		match want:
+			"@crop":
+				for id: String in species.keys():
+					if seed_in_stock(id) and species[id].seasons.has(season):
+						out.append(id)
+			"@flower":
+				for id: String in ["moonbell", "skybell", "dewcup", "blazestar", "amberleaf", "icebloom"]:
+					if species.has(id) and seed_in_stock(id) and species[id].seasons.has(season):
+						out.append(id)
+			"@forage":
+				out.append(FORAGE[season])
+			"@fish":
+				out.append_array(fish_in_season())
+			"egg":
+				if upgrade_level("coop") > 0:
+					out.append(want)
+			"milk", "cheese":
+				if upgrade_level("barn") > 0:
+					out.append(want)
+			_:
+				out.append(want)
+	return out
+
+
+## Each morning a keeper without a request may think of one.
+func _refresh_town_requests() -> void:
+	for keeper: String in TOWNSFOLK.keys():
+		if not town_request(keeper).is_empty() or rng.randf() > 0.6:
+			continue
+		var wishes: Array = _wishes(keeper)
+		if wishes.is_empty():
+			continue
+		var id: String = wishes[rng.randi_range(0, wishes.size() - 1)]
+		var count: int = rng.randi_range(1, 3) if sell_price_of(id) >= 60 else rng.randi_range(3, 6)
+		town["requests"][keeper] = {"id": id, "count": count, "coins": int(maxi(sell_price_of(id), 10) * count * 1.8) + 40}
+	_changed("economy")
+
+
+func _do_town_request(player_id: int, keeper: String) -> bool:
+	var wish: Dictionary = town_request(keeper)
+	if wish.is_empty():
+		return false
+	var id: String = wish["id"]
+	if total_of(id) < int(wish["count"]):
+		_notify(player_id, "%s asked for %d %s" % [TOWNSFOLK[keeper]["name"], int(wish["count"]), name_of(id)])
+		return false
+	_take_any(id, int(wish["count"]))
+	coins += int(wish["coins"])
+	town["requests"].erase(keeper)
+	stats["requests"] = int(stats["requests"]) + 1
+	_changed("inventory")
+	_gain_xp(XP_REQUEST)
+	_notify(player_id, "%s is delighted! +%d coins" % [TOWNSFOLK[keeper]["name"], int(wish["coins"])])
+	_befriend(player_id, keeper, 40)
+	return true
+
+
+func _do_sell_to(player_id: int, keeper: String, id: String, count: int) -> bool:
+	var price: int = price_at(keeper, id)
+	if price <= 0 or count < 1 or stock_of(id) < count:
+		return false
+	_take(id, count)
+	coins += price * count
+	_changed("inventory")
+	_changed("economy")
+	_notify(player_id, "+%d coins" % (price * count))
+	return true
+
+
+func _do_buy_from(player_id: int, keeper: String, id: String, count: int) -> bool:
+	var stock: Dictionary = TOWNSFOLK.get(keeper, {}).get("sells", {})
+	if not stock.has(id) or count < 1 or not _pay(player_id, int(stock[id]) * count):
+		return false
+	items[id] = item_count(id) + count
+	_changed("inventory")
+	return true
+
+
+func _do_donate(player_id: int, id: String) -> bool:
+	if not MUSEUM.has(id) or donated(id) or total_of(id) < 1:
+		return false
+	_take_any(id, 1)
+	town["museum"].append(id)
+	var count: int = town["museum"].size()
+	var words: String = "Professor Quill adds the %s to the collection" % name_of(id)
+	if MUSEUM_REWARDS.has(count):
+		words += ". A thank-you: %s" % ", ".join(_give(MUSEUM_REWARDS[count]))
+	_notify(player_id, words)
+	_changed("inventory")
+	_befriend(player_id, "quill", 25)
+	return true
+
+
+## A coin in the fountain: rare fish bite more often for you today.
+func _do_wish(player_id: int) -> bool:
+	if is_lucky(player_id):
+		_notify(player_id, "You've made today's wish")
+		return false
+	if not _pay(player_id, COST_WISH):
+		return false
+	town["luck"][str(player_id)] = TimeManager.day_index
+	_notify(player_id, "Plink! You feel lucky today. Rare fish will bite")
+	_changed("economy")
+	return true
+
+
+## The view from the lookout, once a day: a little energy back.
+func _do_lookout(player_id: int) -> bool:
+	if looked_today(player_id):
+		_notify(player_id, "What a view. (Once a day is enough to lift your spirits)")
+		return false
+	town["looked"][str(player_id)] = TimeManager.day_index
+	energy[player_id] = mini(get_energy(player_id) + LOOKOUT_ENERGY, max_energy())
+	energy_changed.emit(player_id)
+	_notify(player_id, "The whole valley below, and your garden beyond. +%d energy" % LOOKOUT_ENERGY)
+	_changed("economy")
+	return true
+
+
+## Wild things to pick in town too: on the flower meadow and up on the cliff.
+func _grow_town_forage() -> void:
+	var now: String = FORAGE[TimeManager.season()]
+	var have: int = 0
+	for cell: Vector2i in objects.keys():
+		if is_in_town(cell) and FORAGE.has(object_kind(cell)):
+			have += 1
+	for attempt in 16:
+		if have >= 4:
+			return
+		var local := Vector2i(rng.randi_range(0, TOWN_SIZE.x - 1), rng.randi_range(0, TOWN_SIZE.y - 1))
+		var cell: Vector2i = town_cell(local)
+		if not "*u".contains(town_tile(cell)) or not _town_free(cell) or objects.has(cell):
+			continue
+		objects[cell] = {"kind": now}
+		object_changed.emit(cell)
+		have += 1
+
+
 # ----- the mine
 
 func is_mine_entrance(cell: Vector2i) -> bool:
@@ -873,6 +1425,8 @@ func is_exit_mat(cell: Vector2i) -> bool:
 
 ## Whether a player may stand on `cell`, in the garden or indoors.
 func can_walk(cell: Vector2i) -> bool:
+	if is_in_town(cell):
+		return _town_free(cell)
 	if not is_indoors(cell):
 		# The Heart Tree's leaves hang over the tiles above its trunk: you can
 		# walk behind it there, but not dig or build.
@@ -1005,7 +1559,7 @@ func craft_problem(recipe_id: String) -> String:
 	if bool(recipe.get("kitchen", false)) and not has_kitchen():
 		return "Needs a stove (the Cabin has one)"
 	if bool(recipe.get("oven", false)) and not has_oven():
-		return "Needs an oven (Bristle sells one)"
+		return "Needs an oven (Juniper the baker sells one, in town)"
 	for id: String in recipe["needs"].keys():
 		if total_of(id) < int(recipe["needs"][id]):
 			return "Not enough %s" % name_of(id)
@@ -1147,6 +1701,8 @@ func describe_cell(cell: Vector2i) -> String:
 	if object_kind(cell) == "dropped":
 		var key: String = objects[cell]["key"]
 		return "%d %s%s: walk over it to pick it up" % [int(objects[cell]["count"]), name_of(key.get_slice(":", 1)), " seeds" if key.begins_with("seed:") else ""]
+	if is_in_town(cell):
+		return _describe_town(cell)
 	if is_indoors(cell):
 		if is_bed(cell):
 			return "Bed: tuck in to end the day"
@@ -1160,7 +1716,7 @@ func describe_cell(cell: Vector2i) -> String:
 	if is_tent(cell):
 		return "%s: your home" % HOME_NAMES[home_level()]
 	if is_stall(cell):
-		return "Bristle's stall: sell plants, buy seeds and more"
+		return "Bristle's stall: sell your harvest (his store is in town)"
 	if is_tower(cell):
 		return "Clock tower: set any date and time"
 	if scenery_at(cell) != "":
@@ -1304,6 +1860,36 @@ func request_quest(player_id: int, index: int) -> bool:
 	return _request("quest", player_id, [index])
 
 
+## Sell `count` of `id` to one of the townsfolk ("stall": Bristle's stall by the garden).
+func request_sell_to(player_id: int, keeper: String, id: String, count: int) -> bool:
+	return _request("sell_to", player_id, [keeper, id, count])
+
+
+## Buy `count` of something one of the townsfolk sells.
+func request_buy_from(player_id: int, keeper: String, id: String, count: int) -> bool:
+	return _request("buy_from", player_id, [keeper, id, count])
+
+
+## Hand over what one of the townsfolk asked for.
+func request_town_request(player_id: int, keeper: String) -> bool:
+	return _request("town_request", player_id, [keeper])
+
+
+## Give the museum one of something it doesn't have yet.
+func request_donate(player_id: int, id: String) -> bool:
+	return _request("donate", player_id, [id])
+
+
+## Toss a coin in the town fountain for luck.
+func request_wish(player_id: int) -> bool:
+	return _request("wish", player_id, [])
+
+
+## Take in the view from the lookout on the cliff.
+func request_lookout(player_id: int) -> bool:
+	return _request("lookout", player_id, [])
+
+
 func request_talk(player_id: int, villager: String) -> bool:
 	return _request("talk", player_id, [villager])
 
@@ -1314,8 +1900,8 @@ func request_gift(player_id: int, villager: String, id: String) -> bool:
 
 ## One cast of the fishing rod. `landed` is whether the player won the
 ## reeling game; the host decides which fish it was.
-func request_fish(player_id: int, landed: bool) -> bool:
-	return _request("fish", player_id, [landed])
+func request_fish(player_id: int, landed: bool, river: bool = false) -> bool:
+	return _request("fish", player_id, [landed, river])
 
 
 ## Buy `count` of a decor item from Bristle.
@@ -1392,7 +1978,13 @@ func _apply_now(action: String, player_id: int, args: Array) -> bool:
 		"craft": return _do_craft(player_id, args[0])
 		"eat": return _do_eat(player_id, args[0])
 		"deliver": return _do_deliver(player_id)
-		"fish": return _do_fish(player_id, args[0])
+		"fish": return _do_fish(player_id, args[0], args[1] if args.size() > 1 else false)
+		"sell_to": return _do_sell_to(player_id, args[0], args[1], args[2])
+		"buy_from": return _do_buy_from(player_id, args[0], args[1], args[2])
+		"town_request": return _do_town_request(player_id, args[0])
+		"donate": return _do_donate(player_id, args[0])
+		"wish": return _do_wish(player_id)
+		"lookout": return _do_lookout(player_id)
 		"buy_item": return _do_buy_item(player_id, args[0], args[1])
 		"ship": return _do_ship(args[0], args[1])
 		"mine": return _do_mine(player_id, args[0])
@@ -1556,7 +2148,7 @@ func _do_mine(player_id: int, cell: Vector2i) -> bool:
 	if not ORES.has(object_kind(cell)):
 		return false
 	if upgrade_level("pickaxe") < 1:
-		_notify(player_id, "That needs a pickaxe. Bristle sells one")
+		_notify(player_id, "That needs a pickaxe. Flint the blacksmith sells one, in town")
 		return false
 	if not _spend(player_id, COST_MINE):
 		return false
@@ -1596,7 +2188,7 @@ func _do_tend(player_id: int, cell: Vector2i) -> bool:
 	var animal: Dictionary = animals[index]
 	if not bool(animal["fed"]):
 		if item_count("feed") < 1:
-			_notify(player_id, "No feed. Make some from fiber, or buy it from Bristle")
+			_notify(player_id, "No feed. Make some from fiber, or buy it at Bristle's store in town")
 			return false
 		items["feed"] = item_count("feed") - 1
 		animal["fed"] = true
@@ -1636,7 +2228,7 @@ func _do_quest(player_id: int, index: int) -> bool:
 	stats["requests"] = int(stats["requests"]) + 1
 	_changed("inventory")
 	_gain_xp(15)
-	if VILLAGERS.has(str(quest["who"])):
+	if not person(str(quest["who"])).is_empty():
 		_befriend(player_id, quest["who"], 30)
 	_changed("economy")
 	mail_changed.emit()
@@ -1662,7 +2254,7 @@ func _give(gift: Dictionary) -> Array:
 func _deliver_mail() -> void:
 	var day: int = TimeManager.day_index
 	if day == 1:
-		mail.append({"from": "Bristle", "text": "Welcome to the neighbourhood! A little something to get you started. Come by the stall any time.", "gift": {"coins": 50}})
+		mail.append({"from": "Bristle", "text": "Welcome to the neighbourhood! A little something to get you started. My stall by your garden buys your harvest; for seeds and the rest, come up the trail to my store in town.", "gift": {"coins": 50}})
 	if TimeManager.day_of_season() == FESTIVAL_DAY - 2:
 		var fest: Dictionary = FESTIVALS[TimeManager.season()]
 		mail.append({"from": "The Garden Club", "text": "The %s is in two days, on the 14th. %s" % [fest["name"], fest["today"]], "gift": {}})
@@ -1670,7 +2262,7 @@ func _deliver_mail() -> void:
 		var friend: Dictionary = friends[id]
 		if hearts(id) >= 2 and not bool(friend.get("wrote", false)):
 			friend["wrote"] = true
-			var who: Dictionary = VILLAGERS[id]
+			var who: Dictionary = person(id)
 			var liked: String = who["likes"][0]
 			var present: Dictionary = {"coins": 100}
 			if ITEMS.has(liked):
@@ -1679,7 +2271,7 @@ func _deliver_mail() -> void:
 	mail_changed.emit()
 
 
-## Keeps the notice board stocked with requests from Bristle and the villagers.
+## Keeps the notice board stocked with requests from the villagers and townsfolk.
 func _refresh_quests() -> void:
 	for i in range(quests.size() - 1, -1, -1):
 		quests[i]["days"] = int(quests[i]["days"]) - 1
@@ -1691,7 +2283,7 @@ func _refresh_quests() -> void:
 			wants.append(id)
 	if upgrade_level("coop") > 0:
 		wants.append("egg")
-	var askers: Array = ["bristle"] + VILLAGERS.keys()
+	var askers: Array = VILLAGERS.keys() + TOWNSFOLK.keys()
 	var tries: int = 0
 	while quests.size() < MAX_QUESTS and tries < 12:
 		tries += 1
@@ -1743,7 +2335,7 @@ func machine_input(kind: String) -> String:
 
 
 func _do_talk(player_id: int, villager: String) -> bool:
-	if villager != visitor_today():
+	if person(villager).is_empty():
 		return false
 	var friend: Dictionary = _friend(villager)
 	if bool(friend["talked"]):
@@ -1755,13 +2347,13 @@ func _do_talk(player_id: int, villager: String) -> bool:
 
 ## A gift a day: loved +80, liked +40, disliked -20, anything else +15.
 func _do_gift(player_id: int, villager: String, id: String) -> bool:
-	if villager != visitor_today() or stock_of(id) < 1:
+	if person(villager).is_empty() or stock_of(id) < 1:
 		return false
 	var friend: Dictionary = _friend(villager)
 	if bool(friend["gifted"]):
 		_notify(player_id, "One gift a day is plenty")
 		return false
-	var who: Dictionary = VILLAGERS[villager]
+	var who: Dictionary = person(villager)
 	var what: String = base_of(id)
 	var points: int = 15
 	var reaction: String = "Oh, thank you."
@@ -1795,7 +2387,7 @@ func _befriend(player_id: int, villager: String, points: int) -> void:
 	var friend: Dictionary = _friend(villager)
 	friend["points"] = clampi(int(friend["points"]) + points, 0, MAX_HEARTS * 100)
 	while int(friend["rewards"]) < hearts(villager):
-		var reward: Dictionary = VILLAGERS[villager]["rewards"][int(friend["rewards"])]
+		var reward: Dictionary = person(villager)["rewards"][int(friend["rewards"])]
 		friend["rewards"] = int(friend["rewards"]) + 1
 		var parts: Array = []
 		if reward.has("coins"):
@@ -1807,7 +2399,7 @@ func _befriend(player_id: int, villager: String, points: int) -> void:
 		for id: String in reward.get("items", {}).keys():
 			items[id] = item_count(id) + int(reward["items"][id])
 			parts.append("%d %s" % [int(reward["items"][id]), name_of(id)])
-		_notify(player_id, "A new heart with %s! A gift: %s" % [VILLAGERS[villager]["name"], ", ".join(parts)])
+		_notify(player_id, "A new heart with %s! A gift: %s" % [person(villager)["name"], ", ".join(parts)])
 		_changed("inventory")
 	_changed("economy")
 
@@ -1861,12 +2453,12 @@ func _do_buy_item(player_id: int, item_id: String, count: int) -> bool:
 	return true
 
 
-func _do_fish(player_id: int, landed: bool) -> bool:
+func _do_fish(player_id: int, landed: bool, river: bool = false) -> bool:
 	if not _spend(player_id, COST_FISH):
 		return false
 	if not landed:
 		return true
-	var id: String = _roll_fish()
+	var id: String = _roll_fish(river, is_lucky(player_id))
 	items[id] = item_count(id) + 1
 	stats["fish"][id] = int(stats["fish"].get(id, 0)) + 1
 	_changed("inventory")
@@ -1875,10 +2467,20 @@ func _do_fish(player_id: int, landed: bool) -> bool:
 	return true
 
 
-## Which fish takes the bait, given the season, hour and weather.
-func _roll_fish() -> String:
-	if rng.randf() < 0.05:
+## Which fish takes the bait, given the water, season, hour and weather (and
+## the fountain's luck, which makes rare fish likelier).
+func _roll_fish(river: bool = false, lucky: bool = false) -> String:
+	if rng.randf() < (0.05 if not river else 0.03) * (2.5 if lucky else 1.0):
 		return "goldie"
+	if river:
+		var stream: Array = ["trout", "trout", "trout", "trout"]
+		if TimeManager.season() >= 2:
+			stream.append_array(["pike", "pike", "pike"])
+		if TimeManager.minutes >= 20 * 60:
+			stream.append_array(["eel", "eel", "eel"] + (["eel", "eel"] if lucky else []))
+		if TimeManager.season() == 0 or TimeManager.season() == 2:
+			stream.append_array(["salmon", "salmon"] + (["salmon", "salmon"] if lucky else []))
+		return stream[rng.randi_range(0, stream.size() - 1)]
 	var pool: Array = ["minnow", "minnow", "minnow"]
 	var evening: bool = TimeManager.minutes >= 18 * 60
 	if TimeManager.season() <= 1 and not evening:
@@ -2481,8 +3083,10 @@ func end_day(passed_out: bool) -> void:
 	_fill_mine()
 	_deliver_mail()
 	_refresh_quests()
+	_refresh_town_requests()
 	if wild_growth:
 		_grow_forage()
+		_grow_town_forage()
 	for id: String in friends.keys():
 		friends[id]["talked"] = false
 		friends[id]["gifted"] = false
@@ -2677,6 +3281,7 @@ func to_snapshot() -> Dictionary:
 		"mail": mail,
 		"quests": quests,
 		"friends": friends,
+		"town": town,
 		"stats": stats,
 		"goals_done": goals_done,
 		"energy": energy_out,
@@ -2747,6 +3352,8 @@ func apply_snapshot(data: Dictionary) -> void:
 		var fits: bool = in_bounds(at) and not is_blocked(at) and not soil.has(at)
 		if is_indoors(at):
 			fits = mine_floor().has_point(at) if is_in_mine(at) else room_floor().has_point(at)
+		elif is_in_town(at):
+			fits = _town_ground(at)
 		if kind == "dropped" and fits and _known(str(data["objects"][key].get("key", ""))) and int(data["objects"][key].get("count", 0)) > 0:
 			objects[at] = {"kind": kind, "key": str(data["objects"][key]["key"]), "count": int(data["objects"][key]["count"])}
 		elif (ITEMS.has(kind) or DEBRIS.has(kind) or ORES.has(kind)) and fits:
@@ -2767,7 +3374,7 @@ func apply_snapshot(data: Dictionary) -> void:
 			animals.append({"kind": str(saved["kind"]), "mood": int(saved.get("mood", 50)), "fed": bool(saved.get("fed", false)), "petted_by": pets})
 	friends = {}
 	for id: String in data.get("friends", {}).keys():
-		if VILLAGERS.has(id):
+		if VILLAGERS.has(id) or TOWNSFOLK.has(id):
 			var f: Dictionary = data["friends"][id]
 			friends[id] = {"points": int(f.get("points", 0)), "talked": bool(f.get("talked", false)), "gifted": bool(f.get("gifted", false)), "rewards": int(f.get("rewards", 0))}
 			if bool(f.get("wrote", false)):
@@ -2787,6 +3394,20 @@ func apply_snapshot(data: Dictionary) -> void:
 	for quest: Variant in data.get("quests", []):
 		if typeof(quest) == TYPE_DICTIONARY and (species.has(str(quest.get("id", ""))) or ITEMS.has(str(quest.get("id", "")))):
 			quests.append({"who": str(quest.get("who", "bristle")), "id": str(quest["id"]), "count": int(quest.get("count", 1)), "coins": int(quest.get("coins", 0)), "days": int(quest.get("days", 1))})
+	var saved_town: Dictionary = data.get("town", {})
+	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
+	for keeper: String in saved_town.get("requests", {}).keys():
+		var wish: Variant = saved_town["requests"][keeper]
+		if TOWNSFOLK.has(keeper) and typeof(wish) == TYPE_DICTIONARY and (species.has(str(wish.get("id", ""))) or ITEMS.has(str(wish.get("id", "")))):
+			town["requests"][keeper] = {"id": str(wish["id"]), "count": int(wish.get("count", 1)), "coins": int(wish.get("coins", 0))}
+	for id: Variant in saved_town.get("museum", []):
+		if MUSEUM.has(str(id)) and not town["museum"].has(str(id)):
+			town["museum"].append(str(id))
+	for part: String in ["luck", "looked"]:
+		for slot: String in saved_town.get(part, {}).keys():
+			town[part][slot] = int(saved_town[part][slot])
+	if Net.is_host():
+		_plant_orchard()  # gardens saved before the town existed
 	var has_rocks: bool = false
 	for at: Vector2i in objects.keys():
 		if is_in_mine(at):
@@ -3050,7 +3671,13 @@ func _rpc_request(action: String, args: Array) -> void:
 		"gift":
 			valid = args.size() == 2 and args[0] is String and args[1] is String
 		"fish":
-			valid = args.size() == 1 and args[0] is bool
+			valid = args.size() == 2 and args[0] is bool and args[1] is bool
+		"sell_to", "buy_from":
+			valid = args.size() == 3 and args[0] is String and args[1] is String and args[2] is int and args[2] >= 1 and args[2] <= 999
+		"town_request", "donate":
+			valid = args.size() == 1 and args[0] is String
+		"wish", "lookout":
+			valid = args.is_empty()
 		"buy_item":
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 99
 		"ship":
@@ -3124,12 +3751,13 @@ func _net_object(cell: Vector2i, thing: Variant) -> void:
 
 func _mirror_economy() -> void:
 	if _mirroring():
-		_net_economy.rpc(bags, upgrades, hats_owned, outfits, xp, wanted, stats, goals_done, friends)
+		_net_economy.rpc(bags, upgrades, hats_owned, outfits, xp, wanted, stats, goals_done, friends, town)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _net_economy(new_bags: Dictionary, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary, new_xp: int, new_wanted: Dictionary, new_stats: Dictionary, new_goals: Array, new_friends: Dictionary) -> void:
+func _net_economy(new_bags: Dictionary, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary, new_xp: int, new_wanted: Dictionary, new_stats: Dictionary, new_goals: Array, new_friends: Dictionary, new_town: Dictionary) -> void:
 	friends = new_friends
+	town = new_town
 	stats = new_stats
 	goals_done = new_goals
 	xp = new_xp

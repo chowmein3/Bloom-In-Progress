@@ -47,7 +47,7 @@ KEYS
   Q              change seed     Esc  pause menu
 
   Tools: 1 hoe, 2 watering can, 3 seeds, 4 held item, 5 fishing rod,
-  6 pickaxe (once bought from Bristle). T shows emotes; Enter chats with
+  6 pickaxe (once bought from Flint in town), 7 axe. T shows emotes; Enter chats with
   your partner. Settings (name, volume, fullscreen) are in the Esc menu.
   Your hand (F) pets, picks, picks up, clears and opens things, so those
   never need a tool. If the held tool has nothing to do, Space uses the
@@ -59,7 +59,18 @@ GOOD TO KNOW
            ends when everyone is in bed. The garden is saved every night.
   Coins:   pick grown plants by hand (F) and sell them to Bristle,
            the hedgehog at the stall next to your home (face the stall,
-           press Space). Buy seeds, better tools, a bigger home and hats.
+           press Space).
+  Town:    walk up the trail at the top of the garden. Shopkeepers stand
+           outside their shops while open; face one and press F. Bristle
+           (seeds, animals, hats), Juniper the baker, Flint the
+           blacksmith (better tools, pickaxe), Marlow the fishmonger,
+           Birch the carpenter (bigger home, coop, barn, furniture), Sage
+           the herbalist, Professor Quill at the museum (donations),
+           Mayor Clementine (notice board) and Rosie at the inn. Each
+           pays extra for their own kind of goods and has requests.
+           Fish the river, toss a coin in the fountain for luck, enjoy
+           the lookout, pick from the orchard. Walk down the trail at the
+           bottom of town to go home.
   Making:  clear branches, rocks and weeds by hand (F) for wood,
            stone and fiber. In the backpack (E), the Crafting tab turns
            them into paths, fences, mulch, sprinklers and lanterns. Click
@@ -69,26 +80,26 @@ GOOD TO KNOW
   Axe:     press 7 and Space at a tree, stump or log in the garden. A
            tree takes three swings, falls over and leaves wood to pick up.
            It grows back after a season.
-  Baking:  buy an oven from Bristle, set it down at home and press F
+  Baking:  buy an oven from Juniper in town, set it down at home and press F
            at it. Grow wheat (mill it into flour in the Kitchen tab)
            and apple or banana trees; buy sugar, butter and cinnamon
-           from the stall's Pantry tab.
+           from Juniper or Bristle's store.
   Backpack: each player has their own coins and things. Drag a stack
            to move it, or onto the hot bar row (keys 8, 9, 0, -). Drag
            it out of the backpack to drop it; walk over it to pick it up.
   Clock:   the tower left of your home sets any date, time and weather,
            so you can see the garden in every season. Nothing grows or
            wilts for the time you skip.
-  Fishing: face the pond with the rod (5), press Space, wait for the "!",
+  Fishing: face the pond or the river with the rod (5), press Space, wait for the "!",
            press Space, then press Space whenever the marker is on green.
   Bin:     the crate by your home sells what you put in it overnight.
   Goals:   the journal (J) lists goals that pay coins; day 14 of each
            season is a festival.
-  Animals: Bristle's Animals tab builds a coop and barn. Feed (F) and
+  Animals: Birch in town builds a coop and barn; Bristle sells animals. Feed (F) and
            stroke (F again) each animal daily for eggs and milk.
   Visitors: someone stands near the stall most days. Talk (F) and give
            a gift a day to make friends; friends send presents.
-  Mine:    the cave at the top right. Buy the pickaxe from Bristle, press
+  Mine:    the cave at the top right. Buy the pickaxe from Flint in town, press
            F at the cave mouth, then 6 and Space on rocks.
   Machines: craft a jar, press, cheese press or beehive, set it down,
            press F to fill it and F again to collect.

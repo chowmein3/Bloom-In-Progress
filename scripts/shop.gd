@@ -1,18 +1,23 @@
 extends CanvasLayer
-## Bristle's stall: sell the harvest for coins, and spend them on seeds,
-## better tools, a bigger home and hats. Every purchase goes through
+## A shop screen: Bristle's stall by the garden (selling only), or one of the
+## townsfolk in town (GameState.TOWNSFOLK): their pages (`tabs`) are chosen
+## from Sell, Wares, Request, Gift, Seeds, Animals, Pantry, Decor, Hats, Tools,
+## Home, Build, Donate and Board. Every purchase goes through
 ## GameState.request_*(), so it works the same for a guest.
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
-const TABS: Array[String] = ["Sell", "Seeds", "Tools", "Home", "Animals", "Pantry", "Decor", "Hats"]
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 
 var player: Node2D
 var tab: String = "Sell"
+var keeper: String = "stall"  # whose shop this is: "stall", or a TOWNSFOLK id
 
 var _root: Control
 var _speech: Label
+var _face: TextureRect
+var _title: Label
+var _hearts: Label
 var _coins: Label
 var _tab_row: HBoxContainer
 var _list: VBoxContainer
@@ -36,14 +41,18 @@ func _ready() -> void:
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 4)
-	var keeper := TextureRect.new()
-	keeper.texture = Assets.texture("res://assets/sprites/keeper.png")
-	keeper.custom_minimum_size = Vector2(32, 32)
-	header.add_child(keeper)
+	_face = TextureRect.new()
+	_face.custom_minimum_size = Vector2(32, 32)
+	_face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header.add_child(_face)
 	var words := VBoxContainer.new()
 	words.add_theme_constant_override("separation", 0)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	words.add_child(Ui.label("Bristle's Stall", Ui.ACCENT, 10))
+	_title = Ui.label("Bristle's Stall", Ui.ACCENT, 10)
+	words.add_child(_title)
+	_hearts = Ui.label("", Ui.FAINT, 5)
+	words.add_child(_hearts)
 	_speech = Ui.label("")
 	_speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_speech.custom_minimum_size = Vector2(120, 18)
@@ -75,14 +84,33 @@ func _ready() -> void:
 			_speech.text = text)
 
 
-func open() -> void:
+## Open `who`'s shop: "stall" (Bristle's stall by the garden) or one of the townsfolk.
+func open(who: String = "stall") -> void:
 	if visible or player == null or bool(player.get("reading")):
 		return
+	keeper = who if GameState.TOWNSFOLK.has(who) else "stall"
 	visible = true
 	player.set("reading", true)
-	_speech.text = "Welcome! Fresh seeds, fair prices."
+	tab = tabs()[0]
+	_scroll.scroll_vertical = 0
+	if keeper == "stall":
+		_title.text = "Bristle's Stall"
+		_face.texture = Assets.texture("res://assets/sprites/keeper.png")
+		_speech.text = "Selling? I'll take it all. Seeds and the rest are at my store in town, up the north trail."
+	else:
+		var info: Dictionary = GameState.TOWNSFOLK[keeper]
+		_title.text = "%s, %s" % [info["name"], info["what"]]
+		_face.texture = Assets.texture("res://assets/sprites/keeper.png" if keeper == "bristle" else "res://assets/sprites/villager_%s.png" % keeper)
+		var lines: Array = info["lines"]
+		_speech.text = lines[(TimeManager.day_index + GameState.hearts(keeper)) % lines.size()]
+		GameState.request_talk(player.get("player_id"), keeper)  # the day's chat
 	Sound.play("page")
 	_rebuild()
+
+
+## The pages of this shop.
+func tabs() -> Array:
+	return ["Sell"] if keeper == "stall" else GameState.TOWNSFOLK[keeper]["tabs"]
 
 
 func close() -> void:
@@ -107,10 +135,14 @@ func _rebuild() -> void:
 	if not visible:
 		return
 	_coins.text = str(GameState.coins)
+	_hearts.text = ""
+	if keeper != "stall":
+		var full: int = GameState.hearts(keeper)
+		_hearts.text = "%s   %s" % [GameState.TOWNSFOLK[keeper]["title"], "Hearts %d of %d" % [full, GameState.MAX_HEARTS]]
 	for child: Node in _tab_row.get_children():
 		_tab_row.remove_child(child)
 		child.queue_free()
-	for name_of: String in TABS:
+	for name_of: String in tabs():
 		var button := Button.new()
 		button.text = name_of
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -122,14 +154,24 @@ func _rebuild() -> void:
 		_list.remove_child(child)
 		child.queue_free()
 	match tab:
-		"Sell": _fill_sell()
+		"Sell":
+			if keeper == "stall" or keeper == "bristle":
+				_fill_sell()  # Bristle buys anything at the usual price
+			else:
+				_fill_sell_to()
 		"Seeds": _fill_seeds()
 		"Tools": _fill_upgrades(["hoe", "can", "pickaxe"])
 		"Animals": _fill_animals()
 		"Home": _fill_upgrades(["home", "greenhouse"])
+		"Build": _fill_buildings()
 		"Pantry": _fill_stock(true)
 		"Decor": _fill_stock(false)
 		"Hats": _fill_hats()
+		"Wares": _fill_buy()
+		"Request": _fill_request()
+		"Gift": _fill_gift()
+		"Donate": _fill_donate()
+		"Board": _fill_board()
 
 
 ## One line of the list: picture, name with a smaller note, price, buttons.
@@ -250,6 +292,23 @@ func _fill_upgrades(kinds: Array) -> void:
 
 func _fill_animals() -> void:
 	var me: int = player.get("player_id")
+	if GameState.upgrade_level("coop") == 0 or GameState.upgrade_level("barn") == 0:
+		_list.add_child(Ui.label("Birch the carpenter builds coops and barns.", Ui.FAINT, 5))
+	for kind: String in GameState.ANIMALS.keys():
+		var info: Dictionary = GameState.ANIMALS[kind]
+		var have: int = GameState.animal_count(kind)
+		var can: bool = GameState.upgrade_level(info["home"]) > 0 and have < int(info["max"]) and GameState.coins >= int(info["cost"])
+		_row(_item_icon(kind, false), info["name"], "Feed and stroke daily for %s. You have %d of %d." % [GameState.name_of(info["gives"]).to_lower(), have, int(info["max"])], str(int(info["cost"])), [
+			_button("Buy", can, func() -> void: GameState.request_buy_animal(me, kind), "Look after her well!"),
+		])
+	_row(_item_icon("feed", false), "Animal Feed", "One helping. Or make it from fiber. You have %d." % GameState.item_count("feed"), "10", [
+		_button("Buy 5", GameState.coins >= 50, func() -> void: GameState.request_buy_item(me, "feed", 5), "Hungry mouths, eh?"),
+	])
+
+
+## Birch builds the coop and the barn.
+func _fill_buildings() -> void:
+	var me: int = player.get("player_id")
 	for kind: String in ["coop", "barn"]:
 		var step: Dictionary = GameState.UPGRADES[kind][0]
 		var built: bool = GameState.upgrade_level(kind) > 0
@@ -264,16 +323,6 @@ func _fill_animals() -> void:
 			_row(house, step["name"], "%s." % step["blurb"], str(int(step["cost"])), [
 				_button("Build", GameState.coins >= int(step["cost"]), func() -> void: GameState.request_buy_upgrade(me, kind), "I'll have it up in no time."),
 			])
-	for kind: String in GameState.ANIMALS.keys():
-		var info: Dictionary = GameState.ANIMALS[kind]
-		var have: int = GameState.animal_count(kind)
-		var can: bool = GameState.upgrade_level(info["home"]) > 0 and have < int(info["max"]) and GameState.coins >= int(info["cost"])
-		_row(_item_icon(kind, false), info["name"], "Feed and stroke daily for %s. You have %d of %d." % [GameState.name_of(info["gives"]).to_lower(), have, int(info["max"])], str(int(info["cost"])), [
-			_button("Buy", can, func() -> void: GameState.request_buy_animal(me, kind), "Look after her well!"),
-		])
-	_row(_item_icon("feed", false), "Animal Feed", "One helping. Or make it from fiber. You have %d." % GameState.item_count("feed"), "10", [
-		_button("Buy 5", GameState.coins >= 50, func() -> void: GameState.request_buy_item(me, "feed", 5), "Hungry mouths, eh?"),
-	])
 
 
 ## Things sold one at a time: baking supplies (pantry) or furniture, the oven
@@ -287,6 +336,8 @@ func _fill_stock(pantry: bool) -> void:
 		var cost: int = int(info.get("cost", 0))
 		if cost <= 0 or id == "feed" or bool(info.get("pantry", false)) != pantry:
 			continue
+		if not pantry and _sold_elsewhere(id):
+			continue  # furniture is Birch's, the oven Juniper's
 		var note: String = "%s You have %d." % [info["blurb"], GameState.item_count(id)]
 		_row(_item_icon(id, false), info["name"], note, str(cost), [
 			_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_item(me, id, 1), "Fresh in this morning." if pantry else "Hold it (4) and press Space to set it down."),
@@ -310,3 +361,110 @@ func _fill_hats() -> void:
 			_row(icon, info["name"], "Either of you can wear it once bought.", str(cost), [
 				_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_hat(me, hat), "Very dashing!"),
 			])
+
+
+func _sold_elsewhere(id: String) -> bool:
+	for who: String in GameState.TOWNSFOLK.keys():
+		if who != "bristle" and GameState.TOWNSFOLK[who]["sells"].has(id):
+			return true
+	return false
+
+
+## What this keeper pays extra for.
+func _fill_sell_to() -> void:
+	var me: int = player.get("player_id")
+	var any: bool = false
+	for id: String in GameState.sellable_ids():
+		var each: int = GameState.price_at(keeper, id)
+		var count: int = GameState.stock_of(id)
+		if each <= 0 or count <= 0:
+			continue
+		any = true
+		var title: String = GameState.name_of(id)
+		_row(_item_icon(id, false), "%s x%d" % [title, count], "Bristle would pay %d." % GameState.sell_price_of(id), "%d each" % each, [
+			_button("Sell 1", true, func() -> void: GameState.request_sell_to(me, keeper, id, 1), "Just the thing."),
+			_button("Sell all", true, func() -> void: GameState.request_sell_to(me, keeper, id, count), "I'll take every one!"),
+		])
+	if not any:
+		var wanted: Array = []
+		for id: String in GameState.TOWNSFOLK[keeper]["buys"]:
+			wanted.append(GameState.name_of(id))
+		_list.add_child(Ui.label("I pay extra for: %s." % ", ".join(wanted), Ui.FAINT, 5))
+
+
+## What this keeper sells.
+func _fill_buy() -> void:
+	var me: int = player.get("player_id")
+	var stock: Dictionary = GameState.TOWNSFOLK[keeper]["sells"]
+	for id: String in stock.keys():
+		var cost: int = int(stock[id])
+		var info: Dictionary = GameState.ITEMS.get(id, {})
+		var note: String = "%s You have %d." % [info.get("blurb", ""), GameState.item_count(id)]
+		var buttons: Array = [_button("Buy", GameState.coins >= cost, func() -> void: GameState.request_buy_from(me, keeper, id, 1), "Thank you kindly!")]
+		if str(info.get("kind", "")) == "material" or str(info.get("kind", "")) == "fish":
+			buttons.append(_button("Buy 5", GameState.coins >= cost * 5, func() -> void: GameState.request_buy_from(me, keeper, id, 5), "A good stock of it."))
+		_row(_item_icon(id, false), str(info.get("name", id)), note, str(cost), buttons)
+
+
+## This keeper's request, if they have one.
+func _fill_request() -> void:
+	var me: int = player.get("player_id")
+	var wish: Dictionary = GameState.town_request(keeper)
+	if wish.is_empty():
+		_list.add_child(Ui.label("Nothing I need just now. Come back another day!", Ui.FAINT, 5))
+		return
+	var id: String = wish["id"]
+	var have: int = GameState.total_of(id)
+	_row(_item_icon(id, false), "Wanted: %d %s" % [int(wish["count"]), GameState.name_of(id)], "You have %d. Pays well, and makes a friend." % have, str(int(wish["coins"])), [
+		_button("Hand over", have >= int(wish["count"]), func() -> void: GameState.request_town_request(me, keeper), "Oh, wonderful. Thank you!"),
+	])
+
+
+## A gift a day for this keeper.
+func _fill_gift() -> void:
+	var me: int = player.get("player_id")
+	var given: bool = bool(GameState.friends.get(keeper, {}).get("gifted", false))
+	var info: Dictionary = GameState.TOWNSFOLK[keeper]
+	var any: bool = false
+	for id: String in GameState.sellable_ids():
+		any = true
+		var base: String = GameState.base_of(id)
+		var hint: String = "A favourite!" if info["loves"].has(base) and GameState.hearts(keeper) >= 1 else ""
+		_row(_item_icon(id, false), "%s x%d" % [GameState.name_of(id), GameState.stock_of(id)], hint, "", [
+			_button("Give", not given, func() -> void: GameState.request_gift(me, keeper, id), "For me? How kind."),
+		])
+	if given:
+		_list.add_child(Ui.label("One gift a day. Come back tomorrow!", Ui.FAINT, 5))
+	elif not any:
+		_list.add_child(Ui.label("Nothing to give yet. Harvest, fish and meals make good gifts.", Ui.FAINT, 5))
+
+
+## The museum's collection: donate one of each.
+func _fill_donate() -> void:
+	var me: int = player.get("player_id")
+	_list.add_child(Ui.label("The collection: %d of %d. Thank-you gifts at 3, 6, 9, 13 and 17." % [GameState.town["museum"].size(), GameState.MUSEUM.size()], Ui.FAINT, 5))
+	for id: String in GameState.MUSEUM:
+		var title: String = GameState.name_of(id)
+		if GameState.donated(id):
+			_row(_item_icon(id, false), title, "On display. Thank you!", "", [])
+		elif GameState.total_of(id) > 0:
+			_row(_item_icon(id, false), title, "You have one to give.", "", [
+				_button("Donate", true, func() -> void: GameState.request_donate(me, id), "Hoo! Splendid!"),
+			])
+		else:
+			_row(null, "???", str(GameState.ITEMS.get(id, {}).get("blurb", "")), "", [])
+
+
+## The town's notice board, at the town hall.
+func _fill_board() -> void:
+	var me: int = player.get("player_id")
+	if GameState.quests.is_empty():
+		_list.add_child(Ui.label("No requests on the board today.", Ui.FAINT, 5))
+	for index in GameState.quests.size():
+		var quest: Dictionary = GameState.quests[index]
+		var id: String = quest["id"]
+		var who: String = str(GameState.person(str(quest["who"])).get("name", "Bristle"))
+		var have: int = GameState.total_of(id)
+		_row(_item_icon(id, false), "%s wants %d %s" % [who, int(quest["count"]), GameState.name_of(id)], "%d days left. You have %d." % [int(quest["days"]), have], str(int(quest["coins"])), [
+			_button("Hand in", have >= int(quest["count"]), func() -> void: GameState.request_quest(me, index), "The town thanks you!"),
+		])

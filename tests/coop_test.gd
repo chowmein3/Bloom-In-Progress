@@ -106,7 +106,7 @@ func _run_host() -> void:
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "a stepping stone the guest crafted and placed appears for the host")
 	_expect(not GameState.objects.has(DROP_CELL) and int(GameState.bag_of(GUEST)["items"].get("stone", 0)) == 1 and GameState.item_count("stone") == 0, "the guest picked up the stone and used it")
 	_expect(await _until(func() -> bool: return int(GameState.friends.get("maple", {}).get("points", 0)) == 10, 10.0), "the guest's chat with today's visitor counts for the shared friendship")
-	_expect(await _until(func() -> bool: return GameState.stats["fish"].size() == 1 and GameState.bin.is_empty() and not GameState.bag_of(GUEST)["bin"].is_empty(), 10.0), "the guest's catch is tallied and lands in the guest's part of the shipping bin")
+	_expect(await _until(func() -> bool: return GameState.stats["fish"].size() >= 1 and GameState.bin.is_empty() and not GameState.bag_of(GUEST)["bin"].is_empty(), 10.0), "the guest's catches (pond and river) are tallied, and one lands in the guest's part of the shipping bin")
 	await _shot("coop_host")
 
 	# Bedtime: both go indoors and get into the bed.
@@ -198,6 +198,16 @@ func _after_join() -> void:
 		return catch[0] != "", 10.0), "guest lands a fish and it comes back from the host")
 	GameState.request_ship(GUEST, catch[0], 1)
 	_expect(await _until(func() -> bool: return int(GameState.bin.get(catch[0], 0)) == 1, 10.0), "and ships it in their part of the bin")
+	var before_river: Dictionary = GameState.items.duplicate()
+	GameState.request_fish(GUEST, true, true)
+	var river: Array = [""]
+	_expect(await _until(func() -> bool:
+		for id: String in GameState.RIVER_FISH + ["goldie"]:
+			if GameState.item_count(id) > int(before_river.get(id, 0)):
+				river[0] = id
+		return river[0] != "", 10.0), "guest fishes the town's river")
+	GameState.request_donate(GUEST, river[0])
+	_expect(await _until(func() -> bool: return GameState.donated(river[0]), 10.0), "and gives the catch to the museum, which the host's town keeps")
 	await _hold(KEY_A, 0.4)  # walk left so the host can see us move
 	await _wait(0.5)
 	main.get("player").call("go_inside")

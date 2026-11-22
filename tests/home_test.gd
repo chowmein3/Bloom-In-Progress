@@ -106,28 +106,61 @@ func _ready() -> void:
 	await _shot("home_3_shop_sell")
 	_click(shop, "Sell all")
 	_expect(GameState.coins == 190 and int(GameState.produce["sunpuff"]) == 0, "Sell all turns three sunpuffs into 90 coins")
+	_expect(_button(shop, "Seeds") == null, "the stall only buys: seeds and the rest are at Bristle's store in town")
+	await _tap(KEY_ESCAPE)
+	_expect(not shop.visible and not bool(player.get("reading")) and not main.get("menu").visible, "Esc closes the shop without opening the pause menu")
+	var at_stall: Vector2 = player.position
+
+	print("the town")
+	TimeManager.minutes = 10 * 60  # everyone's shop is open
+	TimeManager.time_changed.emit()
+	var top: Vector2i = GameState.GARDEN_TRAIL_TOP
+	player.position = Vector2((top.x + 0.5) * 16, (top.y + 1) * 16 - 3)
+	await _hold(KEY_W, 0.3)
+	_expect(bool(player.call("in_town")) and GameState.can_walk(player.call("cell")), "walking up the trail off the top of the garden goes to town")
+	await _wait(0.3)
+	await _shot("home_3b_town")
+	await _visit("bristle")
+	_expect(shop.visible and str(shop.get("keeper")) == "bristle", "F on Bristle in town opens his general store")
 	_click(shop, "Seeds")
 	await _wait(0.1)
 	await _shot("home_4_shop_seeds")
 	_click(shop, "Buy 5")
 	_expect(GameState.coins == 140 and GameState.seed_count("sunpuff") == 11, "Buy 5 adds five sunpuff seeds for 50")
+	GameState.coins = 2500
+	GameState.economy_changed.emit()
+	_click(shop, "Hats")
+	await _wait(0.1)
+	await _shot("home_5_shop_hats")
+	_click(shop, "Buy")
+	_expect(GameState.hat_of(P) == "flower", "a bought hat goes straight on")
+	await _tap(KEY_ESCAPE)
+	GameState.coins = 100
+	GameState.economy_changed.emit()
+	await _visit("flint")
+	_expect(shop.visible and str(shop.get("keeper")) == "flint", "Flint the blacksmith keeps the forge")
 	_click(shop, "Tools")
 	_expect(_button(shop, "Buy") != null and _button(shop, "Buy").disabled, "tools the purse can't cover are greyed out")
 	GameState.coins = 2500
 	GameState.economy_changed.emit()
 	_click(shop, "Buy")
 	_expect(GameState.upgrade_level("hoe") == 1, "with enough coins the Sturdy Hoe can be bought")
-	_click(shop, "Hats")
 	await _wait(0.1)
-	await _shot("home_5_shop_hats")
-	_click(shop, "Buy")
-	_expect(GameState.hat_of(P) == "flower", "a bought hat goes straight on")
+	await _shot("home_5b_forge")
+	await _tap(KEY_ESCAPE)
+	await _visit("birch")
 	_click(shop, "Home")
 	_click(shop, "Buy")
-	_expect(GameState.home_level() == 1, "the Cabin can be bought")
+	_expect(GameState.home_level() == 1, "Birch the carpenter builds the Cabin")
 	await _tap(KEY_ESCAPE)
-	_expect(not shop.visible and not bool(player.get("reading")) and not main.get("menu").visible, "Esc closes the shop without opening the pause menu")
 	_expect(int(str((hud.get("_coins") as Label).text)) == GameState.coins, "the HUD shows the purse")
+	var gate: Vector2i = GameState.town_arrival()
+	player.position = Vector2((gate.x + 1.0) * 16, (gate.y + 1) * 16 - 3)
+	await _hold(KEY_S, 0.6)
+	_expect(not bool(player.call("in_town")) and not bool(player.call("indoors")) and player.call("cell").y <= 2, "walking down the trail out of town goes back to the top of the garden")
+	player.position = at_stall
+	player.set("facing", Vector2i.UP)
+	await _wait(0.1)
 
 	print("the backpack")
 	await _tap(KEY_E)
@@ -665,6 +698,16 @@ func _hold(key: Key, seconds: float) -> void:
 	_key(key, true)
 	await _wait(seconds)
 	_key(key, false)
+	await _wait(0.1)
+
+
+## Stand just below one of the townsfolk, facing them, and press F.
+func _visit(who: String) -> void:
+	var spot: Vector2i = GameState.town_cell(GameState.TOWN_SPOTS[who])
+	player.position = Vector2((spot.x + 0.5) * 16, (spot.y + 1) * 16 + 10)
+	player.set("facing", Vector2i.UP)
+	await _wait(0.1)
+	await _tap(KEY_F)
 	await _wait(0.1)
 
 

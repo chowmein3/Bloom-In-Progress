@@ -13,13 +13,13 @@ const ToolArt := preload("res://scripts/tool_art.gd")
 
 signal loadout_changed
 signal area_changed  # stepped indoors or back out
-signal shop_requested  # used the shopkeeper's stall
+signal shop_requested(keeper: String)  # the stall ("stall") or one of the townsfolk
 signal clock_requested  # used the clock tower
 signal bin_requested  # opened the shipping bin
 signal bake_requested  # used the oven
 signal mail_requested
 signal board_requested
-signal villager_requested  # spoke to today's visitor
+signal villager_requested(who: String)  # spoke to a villager
 signal fish_requested  # cast the rod into the pond
 signal acted  # swung a tool or used a hand (for the little animation)
 
@@ -217,6 +217,10 @@ func _process(delta: float) -> void:
 			# down off the door mat or ladder goes back out.
 			if step.y > 0.0 and indoors() and GameState.is_exit_mat(cell()):
 				go_outside()
+			elif step.y < 0.0 and cell().y == GameState.GARDEN_TRAIL_TOP.y and absi(cell().x - GameState.GARDEN_TRAIL_TOP.x) <= 1:
+				go_to_town()  # up the trail out of the garden
+			elif step.y > 0.0 and GameState.is_town_gate(cell()):
+				go_to_garden()  # and back down it
 		var stride_before: int = int(_walk * 4.5)
 		_walk += delta * pace
 		if int(_walk * 4.5) != stride_before:
@@ -232,7 +236,7 @@ func _process(delta: float) -> void:
 			GameState.request_harvest(player_id, _last_cell)
 	if cursor != null:
 		cursor.position = Vector2(target_cell() * TILE)
-		cursor.visible = GameState.in_bounds(target_cell())
+		cursor.visible = GameState.in_bounds(target_cell()) or GameState.is_in_town(target_cell())
 
 
 func _try_move(step: Vector2) -> bool:
@@ -268,6 +272,26 @@ func go_outside() -> void:
 	position = Vector2((door.x + 0.5) * TILE, (door.y + 1) * TILE + 10.0)
 	facing = Vector2i.DOWN
 	_arrived()
+
+
+## Up the trail into town, arriving at the bottom by the gate.
+func go_to_town() -> void:
+	var at: Vector2i = GameState.town_arrival()
+	position = Vector2((at.x + 1.0) * TILE, (at.y + 1) * TILE - 2.0)
+	facing = Vector2i.UP
+	_arrived()
+
+
+## Back down the trail to the top of the garden.
+func go_to_garden() -> void:
+	var at: Vector2i = GameState.GARDEN_TRAIL_TOP
+	position = Vector2((at.x + 0.5) * TILE, (at.y + 1) * TILE + 6.0)
+	facing = Vector2i.DOWN
+	_arrived()
+
+
+func in_town() -> bool:
+	return GameState.is_in_town(cell())
 
 
 ## Stand beside the bed (where you wake after dozing off outdoors).
@@ -430,6 +454,21 @@ func hand_action() -> String:
 		if facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
 			return "leave"
 		return ""
+	if in_town():
+		if GameState.person_at(target) != "":
+			return "talk"
+		match GameState.town_prop_at(target):
+			"fountain": return "wish"
+			"telescope": return "look"
+			"board": return "board"
+			"signpost": return "read"
+		if GameState.town_building_at(target) != "":
+			return "read"
+		if GameState.TREES.has(GameState.object_kind(target)):
+			return "pick" if bool(GameState.objects[target].get("fruit", false)) else ""
+		if GameState.objects.has(target):
+			return "lift"
+		return ""
 	if GameState.is_tent(target):
 		return "enter"
 	if GameState.is_stall(target):
@@ -485,7 +524,9 @@ func hand_hint() -> String:
 		"enter", "mine": return "go in"
 		"shop": return "talk"
 		"clock", "bin", "mail": return "open"
-		"board": return "read"
+		"board", "read": return "read"
+		"wish": return "toss a coin"
+		"look": return "look out"
 		"wait": return "check"
 		"lift": return "clear" if GameState.DEBRIS.has(GameState.object_kind(target)) else "pick up"
 	return action
@@ -498,7 +539,7 @@ func use_hand() -> void:
 		"sleep": GameState.request_sleep(player_id)
 		"leave": go_outside()
 		"enter": go_inside()
-		"shop": shop_requested.emit()
+		"shop": shop_requested.emit("stall")
 		"clock": clock_requested.emit()
 		"bin": bin_requested.emit()
 		"mine": go_into_mine()
@@ -506,7 +547,15 @@ func use_hand() -> void:
 		"mail": mail_requested.emit()
 		"board": board_requested.emit()
 		"collect", "fill", "wait": GameState.request_harvest(player_id, target)
-		"talk": villager_requested.emit()
+		"talk":
+			var who: String = GameState.person_at(target)
+			if GameState.TOWNSFOLK.has(who):
+				shop_requested.emit(who)
+			else:
+				villager_requested.emit(who)
+		"wish": GameState.request_wish(player_id)
+		"look": GameState.request_lookout(player_id)
+		"read": GameState.notice.emit(GameState.describe_cell(target))
 		"feed", "stroke": GameState.request_tend(player_id, target)
 		"hug", "pet": GameState.request_pet(player_id, target)
 		"pick", "lift": GameState.request_harvest(player_id, target)
@@ -521,7 +570,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake", "wish", "look", "read"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)
@@ -542,7 +591,7 @@ func use_tool() -> void:
 		ITEM_TOOL:
 			done = _use_item(target, hand)
 		ROD_TOOL:
-			done = GameState.is_pond(target)
+			done = GameState.is_fishable(target)
 			if done:
 				fish_requested.emit()
 		PICK_TOOL:
@@ -559,7 +608,7 @@ func use_tool() -> void:
 	elif hand != "":
 		use_hand()
 	elif tool_index == ROD_TOOL:
-		GameState.notice.emit("Face the pond to cast")
+		GameState.notice.emit("Face the pond or the river to cast")
 	elif tool_index == AXE_TOOL:
 		GameState.notice.emit("Nothing to chop here. The axe cuts trees, stumps and logs")
 	elif tool_index == PICK_TOOL:

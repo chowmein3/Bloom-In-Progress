@@ -152,7 +152,7 @@ func _rebuild() -> void:
 				_grid.add_child(_goal(entry))
 		"Fish":
 			_grid.columns = 2
-			for id: String in GameState.FISH:
+			for id: String in GameState.FISH + GameState.RIVER_FISH:
 				_grid.add_child(_fish(id))
 		_:
 			_grid.columns = 2

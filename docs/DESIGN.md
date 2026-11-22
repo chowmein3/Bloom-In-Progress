@@ -76,13 +76,42 @@ blooms and radiant blooms are announced on the morning screen.
   the one who leans over. Anyone still up at 2am is carried to bed with half energy.
 - **Coins:** each player's own purse, 100 to start. Each plant has a sell price and a
   seed price (`data/plants/*.tres`).
-- **Bristle's stall** sells:
-  - seeds for plants the garden knows (starting three, plus Heart Tree gifts);
+- **Bristle's stall** by the garden only buys (anything, at the usual price).
+  Buying happens in town (below):
+  - seeds for plants the garden knows (starting three, plus Heart Tree gifts)
+    at Bristle's General Store, with animals, pantry, decor and hats (hats
+    are bought once for the garden and worn by either player);
   - hoe and watering can upgrades that reach 3 then 5 tiles in the direction
-    faced, for the energy of one use;
+    faced, for the energy of one use, and the pickaxe, at Flint's forge;
   - the home: tent -> cabin (1500) -> cottage (5000); each level is a bigger
-    room and +15 energy every morning;
-  - hats, bought once for the garden and worn by either player.
+    room and +15 energy every morning; the greenhouse, coop and barn: all
+    built by Birch the carpenter.
+
+## The town
+Up the trail at the top of the garden (walk up off it; walk down off the
+town's gate to come back). Its own area of the tile grid, drawn from one map
+(`GameState.TOWN_MAP`, a letter per tile, also read by `tools/town_art.py`
+to paint the ground for each season). Laid out like a valley town: woods all
+round; a river from a waterfall at the top, crossed by two bridges, with a
+fish shack on a dock; a cobbled plaza with a fountain, benches and planters
+below the red-brick town hall; the inn and forge beside it; the general
+store and bakery to the west; the carpenter's yard and a park with blossom
+trees to the south; a cliff with stairs up to the museum, the apothecary and
+a lookout; an orchard and a flower meadow across the river; homes for
+Maple, Pebble and Old Thistle.
+- **Townsfolk** (`TOWNSFOLK`), one per building, stand in front of it while
+  it's open (hours per keeper) and are solid then. F opens their shop
+  screen: chat (once a day, friendship as with the visitors), their request
+  (`town.requests`, a new one some mornings, paid well), their wares
+  (`sells`), what they pay extra for (`buys`, SPECIALTY times the usual
+  price), gifts, and special pages: Flint's Tools, Birch's Home and Build,
+  Quill's Donate (the museum, `MUSEUM`, rewards at milestones), the mayor's
+  Board (the notice board's quests).
+- **Nature with a purpose:** the river's own fish (`RIVER_FISH`); a coin in
+  the fountain for luck today (rare fish likelier); the lookout's once-a-day
+  energy; the town orchard (grown fruit trees anyone may pick, objects at
+  `TOWN_ORCHARD`); forage on the meadow and the cliff top (up to four).
+  Nothing is dug, built or chopped in town.
 - **Backpack (E):** grid of seeds and harvest, the purse, the player's
   portrait and the hat wardrobe.
 - Prices and upgrade tables live in `GameState` (`UPGRADES`, `HATS`).
