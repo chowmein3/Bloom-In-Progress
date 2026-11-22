@@ -695,6 +695,7 @@ var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for t
 ## Seconds from everyone being in bed to the next day, while the screen fades
 ## slowly to black (0 ends the day at once, for tests).
 var bedtime_fade: float = 3.2
+var _ending_day: bool = false  # the host is in end_day (the date is sent with the garden)
 var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
 ## The chance that, with two in bed, one leans over to kiss the other as the
 ## night falls. Rolled on its own dice so it never changes the garden's luck.
@@ -3032,6 +3033,10 @@ func end_day(passed_out: bool) -> void:
 	if not Net.is_host():
 		return
 	_bedtime += 1  # any fade still waiting is done with
+	# The new date goes to guests with the whole garden (_net_day, at the end),
+	# not on its own: a big snapshot can arrive a few frames after a small
+	# message, and a partner shouldn't see morning before the night's growth.
+	_ending_day = true
 	var night_news: Array = _end_festival()
 	night_news.append_array(_tend_animals_overnight())
 	night_news.append_array(_grow_fruit_trees())
@@ -3125,6 +3130,7 @@ func end_day(passed_out: bool) -> void:
 		"tree": tree_news,
 		"discoveries": discoveries,
 	}
+	_ending_day = false
 	day_advanced.emit(summary)
 	if _mirroring():
 		_net_day.rpc(to_snapshot(), summary)
@@ -3835,7 +3841,7 @@ func _mirror_sleepers() -> void:
 
 
 func _mirror_time() -> void:
-	if _mirroring():
+	if _mirroring() and not _ending_day:
 		_net_time.rpc(TimeManager.day_index, TimeManager.minutes, TimeManager.raining)
 
 
