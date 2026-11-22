@@ -76,7 +76,16 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   is false on a rest day. Walkers don't block the way; standing people do.
   `people_in_town()` says where everyone is (town or room cells);
   `town_rooms_view.gd` draws the rooms and the museum's cases.
-- `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
+- Festivals (`FESTIVALS`, day `FESTIVAL_DAY` of each season) are held in the
+  town plaza: everyone's routine ends at the party (`PARTY_GATHER` to
+  `PARTY_END`, `PARTY_SPOTS`, shops shut, the garden's visitor comes too) and
+  Mayor Clementine's screen gets a Festival page while `party_on()`. Each
+  has an activity, kept in `town["festival"]` (`festival_state()`, fresh each
+  festival) and judged by `_end_festival`: `request_show_entry` (Bloom Show
+  entry, Harvest Fair display), `request_catch_firefly` (`fireflies()` are
+  worked out from the clock; F on one catches it), `request_sky_lantern`.
+  `scripts/festival_view.gd` draws the plaza's bunting, petals, fireflies,
+  leaves and sky lanterns.
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
   (each blocks its base tile, a log two; use `scenery_at(cell)`, which is ""
   once cut down). Trees, stumps and logs are cut with `request_chop`

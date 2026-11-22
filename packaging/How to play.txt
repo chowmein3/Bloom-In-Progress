@@ -95,7 +95,8 @@ GOOD TO KNOW
            press Space, then press Space whenever the marker is on green.
   Bin:     the crate by your home sells what you put in it overnight.
   Goals:   the journal (J) lists goals that pay coins; day 14 of each
-           season is a festival.
+           season is a festival, with a party in the town plaza from 5pm
+           (talk to Mayor Clementine by the fountain to join in).
   Animals: Birch in town builds a coop and barn; Bristle sells animals. Feed (F) and
            stroke (F again) each animal daily for eggs and milk.
   Visitors: someone stands near the stall most days. Talk (F) and give

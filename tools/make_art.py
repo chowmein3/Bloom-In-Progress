@@ -704,6 +704,16 @@ def make_things():
         c.tri(7, 5, 2.5, 4, WHITE)
         c.rect(2, 12, 11, 1, rgb("#5aa6dc"))
 
+    def firefly_jar(c):
+        c.rect(5, 2, 6, 2, rgb("#8a5e3a"))
+        c.rect(4, 4, 8, 1, rgb("#6b4630"))
+        c.ell(7.5, 10, 5.5, 5.5, rgb("#cfe8f0"))
+        c.ell(7.5, 10.5, 4.5, 4.5, rgb("#3d4f6e"))
+        c.dot(6, 9, rgb("#f6ff8a"))
+        c.dot(9, 11, rgb("#f6ff8a"))
+        c.dot(7, 13, rgb("#e8f57a"))
+        c.dot(5, 7, WHITE)
+
     def fern(c):
         c.rect(5, 11, 6, 4, rgb("#c9744a"))
         c.rect(4, 10, 8, 1, rgb("#dd8a5e"))
@@ -1028,7 +1038,7 @@ def make_things():
         "pike": fish("#b9c2cc", "#eef2f5", "#7f8a96"),
         "eel": eel,
         "salmon": fish("#e88a7a", "#ffd9cc", "#c0604f"),
-        "tonic": tonic, "bottleship": bottleship,
+        "tonic": tonic, "bottleship": bottleship, "firefly_jar": firefly_jar,
         "fern": fern, "lamp": lamp, "rug": rug, "armchair": armchair, "teatable": teatable,
         "bookcase": bookcase, "gnome": gnome, "birdbath": birdbath, "skewer": skewer, "bin": crate_bin,
         "supper": lambda c: bowl(c, rgb("#7a6ac8"), ("#f3e9d2", "#e8584f", "#f3e9d2")),

@@ -159,6 +159,20 @@ func _ready() -> void:
 	await _hold(KEY_S, 0.3)
 	var below: Vector2i = player.call("cell") - GameState.building_door("carpenter")
 	_expect(bool(player.call("in_town")) and below.x == 0 and below.y >= 1 and below.y <= 4, "walking down off the mat goes back out in front of the door")
+	# Festival day: at the party the mayor runs the festival by the fountain.
+	var day_was: int = TimeManager.day_index
+	var minutes_was: int = TimeManager.minutes
+	TimeManager.set_clock(GameState.FESTIVAL_DAY - 1, 18 * 60, false)
+	var mayor: Vector2i = GameState.town_cell(GameState.PARTY_SPOTS["clementine"])
+	player.position = Vector2((mayor.x + 0.5) * 16, (mayor.y + 1) * 16 + 10)
+	player.set("facing", Vector2i.UP)
+	await _wait(0.2)
+	await _shot("home_5b_festival")
+	await _tap(KEY_F)
+	await _wait(0.1)
+	_expect(shop.visible and str(shop.get("keeper")) == "clementine" and str(shop.get("tab")) == "Festival", "at the Bloom Show party the mayor, by the fountain, opens the festival page")
+	await _tap(KEY_ESCAPE)
+	TimeManager.set_clock(day_was, minutes_was, false)
 	var gate: Vector2i = GameState.town_arrival()
 	player.position = Vector2((gate.x + 1.0) * 16, (gate.y + 1) * 16 - 3)
 	await _hold(KEY_S, 0.6)

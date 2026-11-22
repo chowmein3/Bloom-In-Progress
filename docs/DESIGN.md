@@ -166,9 +166,8 @@ Borrowed from farm sims and cut down to what serves a shared garden.
   bottom: a close row of trees with undergrowth between the trunks along
   each edge, then lighter woods behind, all on the garden's own level. The
   pond is in the bottom-left corner, an organic shape with shallows, reeds
-  and lily pads. All decoration only. On festival days
-  bunting hangs between the tower, home and stall, and the party (confetti,
-  a message) starts at 5pm.
+  and lily pads. All decoration only. Festivals are held up
+  in the town plaza (see Goals and festivals).
 - **Mulch** goes on tilled soil: 35% chance of an extra day's growth each
   night, and the bed never reverts to grass.
 - **Sprinklers** water the four neighbouring soil tiles each morning.
@@ -213,10 +212,21 @@ page.
 - Eleven goals (`GameState.GOALS`) are checked every night and pay once,
   150-500 coins each; finishing the other ten awards the Golden Laurel hat.
 - Day 14 of each season is a festival, announced the morning before and on
-  the day, with bunting across the yard: Bloom Show (50 coins per radiant
-  plant that night, up to 12), Firefly Night (petting counts double), Harvest
-  Fair (all sales x1.5), Lantern Night (three lanterns: 100 coins and winter
-  seeds).
+  the day, held in the town plaza with bunting between the lamps. Shops shut
+  at 4:30 and the whole town (the garden's visitor too) walks to the plaza
+  for the party, 5pm to 10pm, rain or shine. Mayor Clementine stands by the
+  fountain; talking to her opens the festival's page.
+  - Bloom Show: each player enters one harvest; the finest (by price, so
+    silver and gold count) wins 150 coins, every other entry 50. Radiant
+    plants in the garden still win 50 coins each (up to 12).
+  - Firefly Night: fireflies hover over the plaza tiles, moving every 10
+    minutes (the same for everyone); F on one catches it, and five earn a
+    Firefly Jar. Petting counts double all day.
+  - Harvest Fair: fill the town's display with up to 9 kinds of harvest;
+    each pays everyone 20 coins that night (+10 silver, +25 gold). All
+    sales x1.5 all day.
+  - Lantern Night: send garden lanterns up as sky lanterns; three earn
+    everyone 100 coins and winter seeds.
 
 ## Animals
 The coop (800) and barn (2000) are built at fixed sites on the left. Up to

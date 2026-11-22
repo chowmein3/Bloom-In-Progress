@@ -1,12 +1,13 @@
 extends Node
 ## Saves a picture of the whole garden and its border, for checking scenery.
 ## Run (needs a display):
-##   godot --path . res://tests/map_shot.tscn -- <output folder> [blocked] [town] [HH:MM]
+##   godot --path . res://tests/map_shot.tscn -- <output folder> [blocked] [town] [festival] [HH:MM]
 ## One picture per season; with "blocked", tiles that can't be walked on are
 ## tinted red so collisions can be compared with what is drawn. With "town",
 ## the town up the trail instead of the garden (town_<season>.png). A time
 ## such as 17:10 shows everyone where their routine puts them then (noon
-## otherwise).
+## otherwise). With "festival", each season's festival day (try 20:00 for
+## the party in the plaza).
 
 var out_dir: String = "user://"
 var show_blocked: bool = false
@@ -67,7 +68,7 @@ func _ready() -> void:
 						marks.draw_rect(Rect2(x * 16, y * 16, 16, 16), Color(1, 0, 0, 0.3)))
 		main.add_child(marks)
 	for season in 4:
-		TimeManager.day_index = season * 28 + 3
+		TimeManager.day_index = season * 28 + (GameState.FESTIVAL_DAY - 1 if args.has("festival") else 3)
 		TimeManager.time_changed.emit()
 		GameState.state_reloaded.emit()
 		for i in 20:

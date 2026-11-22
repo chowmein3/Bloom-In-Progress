@@ -195,9 +195,12 @@ in the pause menu.
   down inside your home or in the garden.
 - **Goals** (journal, Goals page): eleven long-term goals that pay coins when
   met, and a special hat for finishing them all.
-- **Festivals:** day 14 of each season. Bloom Show (radiant plants win coins),
-  Firefly Night (petting counts double), Harvest Fair (everything sells for
-  half as much again), Lantern Night (three lanterns bring a gift).
+- **Festivals:** day 14 of each season, with a party in the town plaza from
+  5pm to 10pm. The whole town comes, and Mayor Clementine by the fountain runs
+  the fun. Bloom Show: enter your finest harvest (radiant plants win coins
+  too). Firefly Night: catch five fireflies for a jar (petting counts double).
+  Harvest Fair: fill the town's display (everything sells for half as much
+  again). Lantern Night: send up three sky lanterns for a gift.
 - **Gathering:** branches, rocks and weeds turn up around the garden. Clear
   them by hand (F) for wood, stone and fiber.
 - **Crafting** (backpack, Crafting tab): stepping stones, fences, rich mulch

@@ -188,8 +188,8 @@ func _ready() -> void:
 	player.shop_requested.connect(shop.open)
 	player.bake_requested.connect(inventory.open_tab.bind("Oven"))
 	TimeManager.time_changed.connect(func() -> void:
-		if GameState.festival_today() != -1 and TimeManager.minutes == FestivalView.PARTY_START:
-			hud.call("show_message", "The %s party has begun in the yard!" % GameState.FESTIVALS[GameState.festival_today()]["name"], 6.0))
+		if GameState.festival_today() != -1 and TimeManager.minutes == GameState.PARTY_START:
+			hud.call("show_message", "The %s has begun in the town plaza!" % GameState.FESTIVALS[GameState.festival_today()]["name"], 6.0))
 	var clock := Clock.new()
 	clock.player = player
 	add_child(clock)

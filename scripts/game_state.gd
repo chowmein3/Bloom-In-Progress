@@ -620,11 +620,32 @@ const QUALITIES: Dictionary = {"silver": 1.25, "gold": 1.5}  # sell price multip
 ## One festival a season, on this day (1-28). Keyed by season.
 const FESTIVAL_DAY := 14
 const FESTIVALS: Dictionary = {
-	0: {"name": "Bloom Show", "today": "Party in the yard from 5pm. Radiant plants are judged tonight: 50 coins each."},
-	1: {"name": "Firefly Night", "today": "Party in the yard from 5pm. Plants petted today get twice the joy."},
-	2: {"name": "Harvest Fair", "today": "Party in the yard from 5pm. Bristle and the shipping bin pay half as much again today."},
-	3: {"name": "Lantern Night", "today": "Party in the yard from 5pm. Light three garden lanterns for a gift tonight."},
+	0: {"name": "Bloom Show", "today": "Party in the town plaza from 5pm: enter your best harvest in the show. Radiant plants are judged tonight too, 50 coins each."},
+	1: {"name": "Firefly Night", "today": "Party in the town plaza from 5pm: catch five fireflies for a jar. Plants petted today get twice the joy."},
+	2: {"name": "Harvest Fair", "today": "Party in the town plaza from 5pm: fill the fair's display with different harvests. Bristle and the shipping bin pay half as much again today."},
+	3: {"name": "Lantern Night", "today": "Party in the town plaza from 5pm: send up three sky lanterns (garden lanterns) for a gift tonight."},
 }
+## The party: the town gathers in the plaza (shops shut as everyone sets
+## off), Mayor Clementine runs the festival from in front of the fountain,
+## and at PARTY_END everyone goes home.
+const PARTY_GATHER := 16 * 60 + 30
+const PARTY_START := 17 * 60
+const PARTY_END := 22 * 60
+## Where each of the townsfolk and villagers stands at the party (town tiles).
+const PARTY_SPOTS: Dictionary = {
+	"clementine": Vector2i(21, 17), "bristle": Vector2i(18, 18), "juniper": Vector2i(25, 18), "flint": Vector2i(16, 20),
+	"marlow": Vector2i(27, 20), "birch": Vector2i(19, 22), "sage": Vector2i(24, 22), "quill": Vector2i(23, 17),
+	"rosie": Vector2i(19, 17), "thistle": Vector2i(15, 18), "pebble": Vector2i(28, 22), "maple": Vector2i(21, 22),
+}
+const SHOW_FIRST := 150  # the Bloom Show's best entry
+const SHOW_PLACED := 50  # every other entry
+const FAIR_KINDS := 9  # harvests the Harvest Fair's display holds
+const FAIR_PER_KIND := 20
+const FAIR_QUALITY: Dictionary = {"silver": 10, "gold": 25}
+const FIREFLIES := 6  # flitting over the plaza at a time
+const FIREFLY_EVERY := 10  # game minutes before they move on
+const FIREFLY_JAR := 5  # caught by one player for a jar
+const SKY_LANTERNS := 3  # sent up for Lantern Night's gift
 
 ## Long-term goals, checked each night. Each pays its reward once.
 const GOALS: Array[Dictionary] = [
@@ -676,6 +697,7 @@ const ITEMS: Dictionary = {
 	"salmon": {"name": "Rosy Salmon", "kind": "fish", "price": 95, "blurb": "In the river, spring and fall."},
 	"tonic": {"name": "Herbal Tonic", "kind": "meal", "energy": 60, "price": 50, "blurb": "Restores 60 energy. From Sage's apothecary."},
 	"bottleship": {"name": "Ship in a Bottle", "kind": "decor", "solid": true, "blurb": "From Marlow's fish shack. Smells faintly of the sea."},
+	"firefly_jar": {"name": "Firefly Jar", "kind": "decor", "solid": true, "blurb": "Caught on Firefly Night. It glows softly."},
 	"fern": {"name": "Potted Fern", "kind": "decor", "solid": true, "cost": 80, "blurb": "A bit of the garden indoors."},
 	"lamp": {"name": "Floor Lamp", "kind": "decor", "solid": true, "cost": 120, "blurb": "Cosy light."},
 	"rug": {"name": "Round Rug", "kind": "decor", "solid": false, "flat": true, "cost": 150, "blurb": "Soft underfoot. Can be walked on."},
@@ -1131,6 +1153,8 @@ func in_season(cell: Vector2i, species_id: String) -> bool:
 
 ## Id of the villager visiting today, or "".
 func visitor_today() -> String:
+	if festival_today() != -1 and TimeManager.minutes >= PARTY_GATHER:
+		return ""  # off to the party in town
 	for id: String in VILLAGERS.keys():
 		if VILLAGERS[id]["days"].has(TimeManager.day_index % 7):
 			return id
@@ -1199,6 +1223,8 @@ func person(id: String) -> Dictionary:
 func is_open(id: String) -> bool:
 	if not TOWNSFOLK.has(id) or is_rest_day(id):
 		return false
+	if festival_today() != -1 and TimeManager.minutes >= PARTY_GATHER:
+		return false  # everyone's at the party
 	var hours: Array = TOWNSFOLK[id]["hours"]
 	return TimeManager.minutes >= int(hours[0]) and TimeManager.minutes < int(hours[1])
 
@@ -1294,11 +1320,15 @@ func routine(id: String) -> Array:
 			if TOWN_PLACES.has(place):
 				var minute: int = int(plan[i][0])
 				plan[i] = [minute, "inn_%d" % stool if minute >= 720 and minute < 1440 and id != "rosie" else ("home" if VILLAGERS.has(id) else "back")]
+	if festival_today() != -1:  # everyone to the party in the plaza, rain or shine
+		plan = plan.filter(func(step: Array) -> bool: return int(step[0]) < PARTY_GATHER)
+		plan.append([PARTY_GATHER, "party"])
+		plan.append([PARTY_END, "home" if VILLAGERS.has(id) else "back"])
 	return plan
 
 
 func _indoor_place(place: String) -> bool:
-	return not TOWN_PLACES.has(place)
+	return not TOWN_PLACES.has(place) and place != "party"
 
 
 ## The building a place is in ("" outdoors).
@@ -1319,6 +1349,8 @@ func place_cell(id: String, place: String) -> Vector2i:
 	if place.begins_with("inn_"):
 		var stools: Array = town_room_spots("inn", "s")
 		return stools[clampi(int(place.trim_prefix("inn_")) - 1, 0, stools.size() - 1)]
+	if place == "party":
+		return town_cell(PARTY_SPOTS[id])
 	return town_cell(TOWN_PLACES.get(place, Vector2i.ZERO))
 
 
@@ -1328,6 +1360,8 @@ func place_anchor(id: String, place: String) -> Vector2i:
 	var building: String = place_building(id, place)
 	if building != "":
 		return building_door(building) + Vector2i.DOWN - TOWN_ORIGIN
+	if place == "party":
+		return PARTY_SPOTS[id]
 	return TOWN_PLACES.get(place, Vector2i.ZERO)
 
 
@@ -1726,6 +1760,74 @@ func _do_lookout(player_id: int) -> bool:
 	return true
 
 
+## Today's festival state, ready to change (it starts afresh each festival).
+func _festival() -> Dictionary:
+	town["festival"] = festival_state()
+	return town["festival"]
+
+
+## Bloom Show: enter your best harvest (one each). Harvest Fair: add a
+## harvest to the town's display (one of each kind). Judged tonight.
+func _do_show_entry(player_id: int, id: String) -> bool:
+	var fest: int = festival_today()
+	if not party_on() or (fest != 0 and fest != 2) or not species.has(base_of(id)) or stock_of(id) < 1:
+		return false
+	var state: Dictionary = _festival()
+	if fest == 0:
+		if state["entries"].has(str(player_id)):
+			_notify(player_id, "You've entered your %s. Judging is tonight" % name_of(state["entries"][str(player_id)]))
+			return false
+		state["entries"][str(player_id)] = id
+		_notify(player_id, "Your %s is in the Bloom Show. Good luck!" % name_of(id))
+	else:
+		if state["display"].has(base_of(id)):
+			_notify(player_id, "There's already %s on the display" % name_of(base_of(id)))
+			return false
+		if state["display"].size() >= FAIR_KINDS:
+			_notify(player_id, "The display is full")
+			return false
+		state["display"][base_of(id)] = id
+		_notify(player_id, "%s goes on the fair's display (%d of %d)" % [name_of(id), state["display"].size(), FAIR_KINDS])
+	_take(id, 1)
+	_changed("inventory")
+	_changed("economy")
+	return true
+
+
+## Firefly Night: cup your hands round a firefly over the plaza.
+func _do_catch_firefly(player_id: int, cell: Vector2i) -> bool:
+	if not fireflies().has(cell):
+		return false
+	var state: Dictionary = _festival()
+	state["taken"].append("%d|%d|%d" % [TimeManager.minutes / FIREFLY_EVERY, cell.x, cell.y])
+	var caught: int = fireflies_caught(player_id) + 1
+	state["caught"][str(player_id)] = caught
+	if caught == FIREFLY_JAR:
+		items["firefly_jar"] = item_count("firefly_jar") + 1
+		_notify(player_id, "%d fireflies! Mayor Clementine gives you a Firefly Jar" % caught)
+		_changed("inventory")
+	else:
+		_notify(player_id, "Caught a firefly (%d of %d), and let it go" % [caught, FIREFLY_JAR] if caught < FIREFLY_JAR else "Caught a firefly (%d), and let it go" % caught)
+	_changed("economy")
+	return true
+
+
+## Lantern Night: light a garden lantern and let it float up over the town.
+func _do_sky_lantern(player_id: int) -> bool:
+	if festival_today() != 3 or not party_on():
+		return false
+	if item_count("lantern") < 1:
+		_notify(player_id, "You need a Garden Lantern (made with wood, stone and fiber)")
+		return false
+	_take("lantern", 1)
+	var state: Dictionary = _festival()
+	state["lanterns"] = int(state["lanterns"]) + 1
+	_notify(player_id, "Your lantern drifts up over the town (%d sent up tonight)" % int(state["lanterns"]))
+	_changed("inventory")
+	_changed("economy")
+	return true
+
+
 ## Wild things to pick in town too: on the flower meadow and up on the cliff.
 func _grow_town_forage() -> void:
 	var now: String = FORAGE[TimeManager.season()]
@@ -1985,6 +2087,55 @@ func sell_price_of(id: String) -> int:
 ## The season (0-3) whose festival is today, or -1.
 func festival_today() -> int:
 	return TimeManager.season() if TimeManager.day_of_season() == FESTIVAL_DAY else -1
+
+
+## Whether the festival party is on in the plaza right now.
+func party_on() -> bool:
+	return festival_today() != -1 and TimeManager.minutes >= PARTY_START and TimeManager.minutes < PARTY_END
+
+
+## Today's festival doings (show entries, the fair's display, fireflies
+## caught, sky lanterns sent up), or a fresh set on any other day.
+func festival_state() -> Dictionary:
+	var state: Dictionary = town.get("festival", {})
+	if int(state.get("day", -1)) != TimeManager.day_index:
+		state = {"day": TimeManager.day_index, "entries": {}, "display": {}, "caught": {}, "taken": [], "lanterns": 0}
+	return state
+
+
+## The plaza tiles fireflies can hover over (open ground, nobody's party spot).
+func _firefly_tiles() -> Array:
+	var out: Array = []
+	for y in range(16, 24):
+		for x in range(14, 30):
+			var at := Vector2i(x, y)
+			if TOWN_MAP[y][x] == "#" and _town_ground(town_cell(at)) and not PARTY_SPOTS.values().has(at):
+				out.append(at)
+	return out
+
+
+## The fireflies over the plaza now (town cells), on Firefly Night's party.
+## They hop to new tiles every FIREFLY_EVERY minutes, worked out from the
+## clock so everyone sees them in the same places; caught ones are gone.
+func fireflies() -> Array:
+	if festival_today() != 1 or not party_on():
+		return []
+	var tiles: Array = _firefly_tiles()
+	var slot: int = TimeManager.minutes / FIREFLY_EVERY
+	var rng := RandomNumberGenerator.new()
+	rng.seed = TimeManager.day_index * 1000 + slot
+	var out: Array = []
+	var taken: Array = festival_state()["taken"]
+	for k in FIREFLIES:
+		var cell: Vector2i = town_cell(tiles[rng.randi_range(0, tiles.size() - 1)])
+		if not out.has(cell) and not taken.has("%d|%d|%d" % [slot, cell.x, cell.y]):
+			out.append(cell)
+	return out
+
+
+## How many fireflies a player has caught tonight.
+func fireflies_caught(player_id: int) -> int:
+	return int(festival_state()["caught"].get(str(player_id), 0))
 
 
 ## Whether a goal's condition holds right now.
@@ -2297,6 +2448,22 @@ func request_lookout(player_id: int) -> bool:
 	return _request("lookout", player_id, [])
 
 
+## At the festival: enter a harvest in the Bloom Show, or add it to the
+## Harvest Fair's display.
+func request_show_entry(player_id: int, id: String) -> bool:
+	return _request("show_entry", player_id, [id])
+
+
+## Firefly Night: catch the firefly over `cell`.
+func request_catch_firefly(player_id: int, cell: Vector2i) -> bool:
+	return _request("catch_firefly", player_id, [cell])
+
+
+## Lantern Night: send a garden lantern up into the sky.
+func request_sky_lantern(player_id: int) -> bool:
+	return _request("sky_lantern", player_id, [])
+
+
 func request_talk(player_id: int, villager: String) -> bool:
 	return _request("talk", player_id, [villager])
 
@@ -2392,6 +2559,9 @@ func _apply_now(action: String, player_id: int, args: Array) -> bool:
 		"donate": return _do_donate(player_id, args[0])
 		"wish": return _do_wish(player_id)
 		"lookout": return _do_lookout(player_id)
+		"show_entry": return _do_show_entry(player_id, args[0])
+		"catch_firefly": return _do_catch_firefly(player_id, args[0])
+		"sky_lantern": return _do_sky_lantern(player_id)
 		"buy_item": return _do_buy_item(player_id, args[0], args[1])
 		"ship": return _do_ship(args[0], args[1])
 		"mine": return _do_mine(player_id, args[0])
@@ -3275,24 +3445,49 @@ func _crows() -> Array:
 ## Judges the festival of the day that is ending. Returns lines for the
 ## morning screen.
 func _end_festival() -> Array:
+	var state: Dictionary = festival_state()
 	match festival_today():
 		0:  # Bloom Show
+			var lines: Array = []
 			var radiant: int = 0
 			for cell: Vector2i in plants.keys():
 				if plant_is_radiant(cell) and not bool(plants[cell]["dormant"]):
 					radiant += 1
 			var prize: int = mini(radiant, 12) * 50
 			_reward_everyone(prize)
-			return ["Bloom Show: %d radiant plants won %d coins" % [radiant, prize]] if radiant > 0 else ["Bloom Show: no radiant plants this year"]
+			lines.append("Bloom Show: %d radiant plants won %d coins" % [radiant, prize] if radiant > 0 else "Bloom Show: no radiant plants this year")
+			var entries: Dictionary = state["entries"]
+			var best: String = ""
+			for slot: String in entries.keys():  # the dearest harvest wins; the first in on a tie
+				if best == "" or sell_price_of(entries[slot]) > sell_price_of(entries[best]):
+					best = slot
+			for slot: String in entries.keys():
+				if bags.has(slot):
+					bags[slot]["coins"] = int(bags[slot]["coins"]) + (SHOW_FIRST if slot == best else SHOW_PLACED)
+			if best != "":
+				lines.append("Bloom Show: the %s took first prize (%d coins)%s" % [name_of(entries[best]), SHOW_FIRST, ", and every other entry won %d" % SHOW_PLACED if entries.size() > 1 else ""])
+				_changed("economy")
+			return lines
+		1:  # Firefly Night
+			var total: int = 0
+			for slot: String in state["caught"].keys():
+				total += int(state["caught"][slot])
+			return ["Firefly Night: %d fireflies caught, and every one let go" % total] if total > 0 else []
+		2:  # Harvest Fair
+			var display: Dictionary = state["display"]
+			if display.is_empty():
+				return ["Harvest Fair: the display stood empty this year"]
+			var prize: int = 0
+			for base: String in display.keys():
+				prize += FAIR_PER_KIND + int(FAIR_QUALITY.get(quality_of(display[base]), 0))
+			_reward_everyone(prize)
+			return ["Harvest Fair: %d kinds on the display won %d coins" % [display.size(), prize]]
 		3:  # Lantern Night
-			var lanterns: int = 0
-			for cell: Vector2i in objects.keys():
-				if object_kind(cell) == "lantern":
-					lanterns += 1
-			if lanterns >= 3:
+			var lanterns: int = int(state["lanterns"])
+			if lanterns >= SKY_LANTERNS:
 				_reward_everyone(100, {"frostwhisker": 3, "snowpip": 3})
-				return ["Lantern Night: your lanterns earned 100 coins and winter seeds"]
-			return ["Lantern Night: %d of 3 lanterns were lit" % lanterns]
+				return ["Lantern Night: %d sky lanterns earned 100 coins and winter seeds" % lanterns]
+			return ["Lantern Night: %d of %d sky lanterns went up" % [lanterns, SKY_LANTERNS]]
 	return []
 
 
@@ -3818,6 +4013,18 @@ func apply_snapshot(data: Dictionary) -> void:
 	for part: String in ["luck", "looked"]:
 		for slot: String in saved_town.get(part, {}).keys():
 			town[part][slot] = int(saved_town[part][slot])
+	var fest: Variant = saved_town.get("festival", {})
+	if typeof(fest) == TYPE_DICTIONARY and not fest.is_empty():
+		var restored: Dictionary = {"day": int(fest.get("day", -1)), "entries": {}, "display": {}, "caught": {}, "taken": [], "lanterns": int(fest.get("lanterns", 0))}
+		for part: String in ["entries", "display"]:
+			for key: String in fest.get(part, {}).keys():
+				if species.has(base_of(str(fest[part][key]))):
+					restored[part][key] = str(fest[part][key])
+		for slot: String in fest.get("caught", {}).keys():
+			restored["caught"][slot] = int(fest["caught"][slot])
+		for key: Variant in fest.get("taken", []):
+			restored["taken"].append(str(key))
+		town["festival"] = restored
 	if Net.is_host():
 		_plant_orchard()  # gardens saved before the town existed
 	var has_rocks: bool = false
@@ -4088,8 +4295,12 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 3 and args[0] is String and args[1] is String and args[2] is int and args[2] >= 1 and args[2] <= 999
 		"town_request", "donate":
 			valid = args.size() == 1 and args[0] is String
-		"wish", "lookout":
+		"wish", "lookout", "sky_lantern":
 			valid = args.is_empty()
+		"show_entry":
+			valid = args.size() == 1 and args[0] is String
+		"catch_firefly":
+			valid = args.size() == 1 and args[0] is Vector2i
 		"buy_item":
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 99
 		"ship":

@@ -542,11 +542,80 @@ func _ready() -> void:
 	GameState.end_day(false)
 	check(int(GameState.plants[show]["happiness"]) == 40 + 4 + 16, "on Firefly Night a pet counts double")
 	GameState.request_set_time(P, 3 * 28 + 13, 12 * 60, false)
+	GameState.items["lantern"] = 3
+	check(not GameState.request_sky_lantern(P), "sky lanterns wait for the party")
+	GameState.request_set_time(P, 3 * 28 + 13, 18 * 60, false)
 	for i in 3:
-		GameState.objects[Vector2i(1 + i, 16)] = {"kind": "lantern"}
+		GameState.request_sky_lantern(P)
+	check(GameState.item_count("lantern") == 0 and int(GameState.festival_state()["lanterns"]) == 3 and not GameState.request_sky_lantern(P), "at the party three garden lanterns go up as sky lanterns (and you need one to send)")
 	var winter_seeds: int = GameState.seed_count("snowpip")
 	GameState.end_day(false)
-	check(GameState.seed_count("snowpip") == winter_seeds + 3, "three lanterns on Lantern Night bring winter seeds")
+	check(GameState.seed_count("snowpip") == winter_seeds + 3, "three sky lanterns on Lantern Night bring winter seeds")
+
+	print("festivals in the town plaza")
+	GameState.new_game()
+	var fc: Callable = GameState.town_cell
+	var f_spots: bool = GameState.PARTY_SPOTS.size() == GameState.ROUTINES.size()
+	for id: String in GameState.PARTY_SPOTS.keys():
+		var at: Vector2i = GameState.PARTY_SPOTS[id]
+		if not GameState.ROUTINES.has(id) or GameState.TOWN_MAP[at.y][at.x] != "#" or not GameState._town_ground(fc.call(at)) or GameState.PARTY_SPOTS.values().count(at) != 1:
+			f_spots = false
+			print("    bad party spot for ", id, " at ", at)
+	check(f_spots, "everyone has their own spot on the plaza at the party")
+	GameState.request_set_time(P, 13, 12 * 60, false)
+	check(GameState.festival_today() == 0 and GameState.is_open("bristle") and not GameState.party_on(), "on festival day the shops are open until the party")
+	var f_plan: Array = GameState.routine("bristle")
+	check(f_plan[-2] == [GameState.PARTY_GATHER, "party"] and f_plan[-1] == [GameState.PARTY_END, "back"], "then everyone's day ends at the party, and home after")
+	GameState.request_set_time(P, 13, 17 * 60 + 30, true)
+	var f_there: bool = true
+	for id: String in GameState.PARTY_SPOTS.keys():
+		if GameState.people_in_town().get(id, Vector2i.ZERO) != fc.call(GameState.PARTY_SPOTS[id]):
+			f_there = false
+			print("    ", id, " is at ", GameState.people_in_town().get(id), " not the party")
+	check(f_there and GameState.visitor_today() == "" and not GameState.is_open("bristle"), "at half past five the whole town is in the plaza, rain or not, the garden's visitor too, and the shops are shut")
+	var f_side: Array = []
+	for side: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		if GameState.can_walk(fc.call(GameState.PARTY_SPOTS["clementine"]) + side):
+			f_side.append(side)
+	check(not f_side.is_empty() and GameState.town_path(GameState.town_arrival() - GameState.TOWN_ORIGIN, GameState.PARTY_SPOTS["clementine"] + f_side[0]).size() > 1, "the mayor can be reached from the trail")
+	GameState.produce["sunpuff"] = 2
+	GameState.items["sunpuff.gold"] = 1
+	check(GameState.request_show_entry(P, "sunpuff.gold") and not GameState.request_show_entry(P, "sunpuff") and GameState.stock_of("sunpuff.gold") == 0, "one harvest each goes in the Bloom Show")
+	GameState.register_player(2)
+	GameState.bag_of(2)["produce"]["sunpuff"] = 1
+	check(GameState.request_show_entry(2, "sunpuff"), "the partner enters one too")
+	var mine_before: int = GameState.coins
+	var theirs_before: int = int(GameState.bag_of(2)["coins"])
+	GameState.day_advanced.connect(func(summary: Dictionary) -> void: morning[0] = summary, CONNECT_ONE_SHOT)
+	GameState.end_day(false)
+	check(GameState.coins == mine_before + GameState.SHOW_FIRST and int(GameState.bag_of(2)["coins"]) == theirs_before + GameState.SHOW_PLACED, "the gold sunpuff takes first prize; the other entry is placed")
+	check(morning[0]["news"].has("Bloom Show: the Gold Sunpuff took first prize (150 coins), and every other entry won 50") or str(morning[0]["news"]).contains("took first prize"), "and the morning says so")
+	check(GameState.festival_state()["entries"].is_empty(), "the next day the show is cleared away")
+	GameState.request_set_time(P, 28 + 13, 16 * 60, false)
+	check(GameState.fireflies().is_empty(), "no fireflies before the party")
+	GameState.request_set_time(P, 28 + 13, 20 * 60, false)
+	var f_flies: Array = GameState.fireflies()
+	var flies_ok: bool = not f_flies.is_empty()
+	for fly: Vector2i in f_flies:
+		if not GameState.is_in_town(fly) or not GameState.can_walk(fly):
+			flies_ok = false
+	check(flies_ok, "on Firefly Night fireflies hover over open plaza tiles")
+	check(GameState.request_catch_firefly(P, f_flies[0]) and not GameState.fireflies().has(f_flies[0]) and not GameState.request_catch_firefly(P, f_flies[0]), "a caught firefly is gone")
+	check(not GameState.request_catch_firefly(P, GameState.town_arrival()), "there's nothing to catch where no firefly is")
+	var f_minute: int = 20 * 60
+	while GameState.fireflies_caught(P) < GameState.FIREFLY_JAR and f_minute < GameState.PARTY_END:
+		f_minute += GameState.FIREFLY_EVERY
+		GameState.request_set_time(P, 28 + 13, f_minute, false)
+		if not GameState.fireflies().is_empty():
+			GameState.request_catch_firefly(P, GameState.fireflies()[0])
+	check(GameState.item_count("firefly_jar") == 1, "five fireflies earn a Firefly Jar")
+	GameState.request_set_time(P, 2 * 28 + 13, 18 * 60, false)
+	GameState.items["sunpuff.silver"] = 1
+	GameState.produce["moonbell"] = 2
+	check(GameState.request_show_entry(P, "sunpuff.silver") and GameState.request_show_entry(P, "moonbell") and not GameState.request_show_entry(P, "sunpuff"), "the Harvest Fair's display takes one of each kind")
+	var fair_before: int = GameState.coins
+	GameState.end_day(false)
+	check(GameState.coins == fair_before + 2 * GameState.FAIR_PER_KIND + int(GameState.FAIR_QUALITY["silver"]), "two kinds on the display (one silver) pay everyone %d" % (2 * GameState.FAIR_PER_KIND + 10))
 	GameState.new_game()
 
 	print("quality, crows and fruit trees")

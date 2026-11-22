@@ -476,6 +476,8 @@ func hand_action() -> String:
 			return "leave"
 		return ""
 	if in_town():
+		if GameState.fireflies().has(target):
+			return "catch"
 		if GameState.person_at(target) != "":
 			return "talk"
 		match GameState.town_prop_at(target):
@@ -586,6 +588,7 @@ func use_hand() -> void:
 				villager_requested.emit(who)
 		"wish": GameState.request_wish(player_id)
 		"look": GameState.request_lookout(player_id)
+		"catch": GameState.request_catch_firefly(player_id, target)
 		"read": GameState.notice.emit(GameState.describe_cell(target))
 		"feed", "stroke": GameState.request_tend(player_id, target)
 		"hug", "pet": GameState.request_pet(player_id, target)
@@ -601,7 +604,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake", "wish", "look", "read", "visit", "projects"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake", "wish", "look", "read", "visit", "projects", "catch"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)

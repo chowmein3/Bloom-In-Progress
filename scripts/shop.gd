@@ -8,6 +8,12 @@ extends CanvasLayer
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
+const FESTIVAL_HINTS: Array[String] = [
+	"Enter your finest harvest in the show!",
+	"Catch the fireflies over the plaza. Five gets you a jar!",
+	"Help fill the town's display with harvests!",
+	"Bring a garden lantern and send it up with ours!",
+]
 
 var player: Node2D
 var tab: String = "Sell"
@@ -103,7 +109,11 @@ func open(who: String = "stall") -> void:
 		_face.texture = Assets.texture("res://assets/sprites/keeper.png" if keeper == "bristle" else "res://assets/sprites/villager_%s.png" % keeper)
 		var lines: Array = info["lines"]
 		_speech.text = lines[(TimeManager.day_index + GameState.hearts(keeper)) % lines.size()]
-		if not GameState.is_open(keeper):
+		if keeper == "clementine" and GameState.party_on():
+			_speech.text = "Welcome to the %s! %s" % [GameState.FESTIVALS[GameState.festival_today()]["name"], FESTIVAL_HINTS[GameState.festival_today()]]
+		elif GameState.party_on():
+			_speech.text = "Isn't this wonderful? Mayor Clementine's by the fountain if you want to join in."
+		elif not GameState.is_open(keeper):
 			_speech.text = "%s The shop's shut %s, but it's nice to chat." % [_speech.text, "today" if GameState.is_rest_day(keeper) else "just now"]
 		GameState.request_talk(player.get("player_id"), keeper)  # the day's chat
 	Sound.play("page")
@@ -118,6 +128,8 @@ func tabs() -> Array:
 	var pages: Array = GameState.TOWNSFOLK[keeper]["tabs"]
 	if not GameState.is_open(keeper):
 		pages = pages.filter(func(page: String) -> bool: return page == "Request" or page == "Gift")
+	if keeper == "clementine" and GameState.party_on():
+		pages = ["Festival"] + pages
 	return pages
 
 
@@ -180,6 +192,7 @@ func _rebuild() -> void:
 		"Gift": _fill_gift()
 		"Donate": _fill_donate()
 		"Board": _fill_board()
+		"Festival": _fill_festival()
 
 
 ## One line of the list: picture, name with a smaller note, price, buttons.
@@ -461,6 +474,53 @@ func _fill_donate() -> void:
 			])
 		else:
 			_row(null, "???", str(GameState.ITEMS.get(id, {}).get("blurb", "")), "", [])
+
+
+## The festival, run by the mayor in the plaza: the show, the fireflies,
+## the fair's display or the sky lanterns.
+func _fill_festival() -> void:
+	var me: int = player.get("player_id")
+	var state: Dictionary = GameState.festival_state()
+	match GameState.festival_today():
+		0:
+			var entered: String = str(state["entries"].get(str(me), ""))
+			if entered != "":
+				_list.add_child(Ui.label("Your %s is in the show. Judging is tonight: %d coins for the best, %d for every other entry." % [GameState.name_of(entered), GameState.SHOW_FIRST, GameState.SHOW_PLACED], Ui.FAINT, 5))
+				return
+			_list.add_child(Ui.label("Enter one harvest. The finest (silver and gold count!) wins %d coins." % GameState.SHOW_FIRST, Ui.FAINT, 5))
+			_fill_entries("Enter", "Lovely! Good luck tonight.")
+		1:
+			var caught: int = GameState.fireflies_caught(me)
+			_list.add_child(Ui.label("Fireflies hover over the plaza. Face one and press F to catch it. Catch %d for a Firefly Jar." % GameState.FIREFLY_JAR, Ui.FAINT, 5))
+			_row(_item_icon("firefly_jar", false), "Caught tonight: %d" % caught, "A jar is yours!" if caught >= GameState.FIREFLY_JAR else "%d more for a jar" % (GameState.FIREFLY_JAR - caught), "", [])
+		2:
+			var display: Dictionary = state["display"]
+			_list.add_child(Ui.label("The town's display: %d of %d kinds. Tonight each pays %d coins to everyone, more for silver and gold." % [display.size(), GameState.FAIR_KINDS, GameState.FAIR_PER_KIND], Ui.FAINT, 5))
+			for base: String in display.keys():
+				_row(_item_icon(display[base], false), GameState.name_of(display[base]), "On display", "", [])
+			if display.size() < GameState.FAIR_KINDS:
+				_fill_entries("Display", "That's a fine one for the display!", display.keys())
+		3:
+			var lanterns: int = int(state["lanterns"])
+			_list.add_child(Ui.label("Send up %d sky lanterns tonight for a gift from the town. %d so far." % [GameState.SKY_LANTERNS, lanterns], Ui.FAINT, 5))
+			_row(_item_icon("lantern", false), "Garden Lantern x%d" % GameState.item_count("lantern"), "Light it and let it go", "", [
+				_button("Send up", GameState.item_count("lantern") > 0, func() -> void: GameState.request_sky_lantern(me), "Oh, look at it go!"),
+			])
+
+
+## A row for each harvest in the backpack, with a button to put it in.
+func _fill_entries(verb: String, thanks: String, skip: Array = []) -> void:
+	var me: int = player.get("player_id")
+	var any: bool = false
+	for id: String in GameState.sellable_ids():
+		if not GameState.species.has(GameState.base_of(id)) or skip.has(GameState.base_of(id)):
+			continue
+		any = true
+		_row(_item_icon(id, false), "%s x%d" % [GameState.name_of(id), GameState.stock_of(id)], "", "", [
+			_button(verb, true, func() -> void: GameState.request_show_entry(me, id), thanks),
+		])
+	if not any:
+		_list.add_child(Ui.label("No harvest in your backpack to put in.", Ui.FAINT, 5))
 
 
 ## The town's notice board, at the town hall.
