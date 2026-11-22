@@ -40,6 +40,7 @@ const BorderView := preload("res://scripts/border_view.gd")
 const CAMERA_MARGIN := Vector2(64, 64)  # how far the view may go past the garden's edge
 const TowerView := preload("res://scripts/tower_view.gd")
 const TownView := preload("res://scripts/town_view.gd")
+const TownRoomsView := preload("res://scripts/town_rooms_view.gd")
 const TimeWarp := preload("res://scripts/time_warp.gd")
 const TILE := 16
 
@@ -66,6 +67,7 @@ var _animal_views: Array = []
 var _greeted: Dictionary = {}  # slots whose arrival has been announced by name
 var _light: CanvasModulate
 var _town: Node2D
+var _town_rooms: Node2D
 var _town_people: Dictionary = {}  # id -> sprite of a townsperson or villager in town
 
 
@@ -81,6 +83,8 @@ func _ready() -> void:
 	add_child(pond)
 	_town = TownView.new()  # the town up the trail: its own part of the grid
 	add_child(_town)
+	_town_rooms = TownRoomsView.new()  # inside the town's buildings
+	add_child(_town_rooms)
 	_flats = Node2D.new()  # rugs and other flat things: above the floor, under everyone
 	add_child(_flats)
 
@@ -582,6 +586,9 @@ func _on_area_changed() -> void:
 		# Centre the room whatever shape the window is (it may be wider or
 		# taller than 320x180 in fullscreen).
 		var middle: Vector2 = _mine.call("centre") if GameState.is_in_mine(player.call("cell")) else _interior.call("centre")
+		var room: String = GameState.town_room_of(player.call("cell"))
+		if room != "":
+			middle = _town_rooms.call("centre", room)
 		var half: Vector2 = get_viewport().get_visible_rect().size / 2.0
 		_camera.limit_left = int(middle.x - half.x)
 		_camera.limit_right = int(middle.x + half.x)

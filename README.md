@@ -111,9 +111,12 @@ in the pause menu.
   down the trail at its bottom to come home). A river runs through it from a
   waterfall, under two bridges; a cobbled plaza with a fountain sits below the
   town hall, and stairs climb a cliff to the museum, the apothecary and a
-  lookout. Shopkeepers stand outside their shops while they're open (the
-  cursor on a building shows its hours); face one and press F to talk, buy,
-  sell, take on their request or give a gift:
+  lookout. Every building can be walked into: press F at its door while
+  it's open (the cursor on a building shows its hours), and walk down off
+  the mat to leave. Shopkeepers stand behind their counters; face one and
+  press F to talk, buy, sell, take on their request or give a gift. The
+  museum shows every donation in a case, and Maple, Pebble and Thistle
+  welcome visitors at home from 8am to 9pm:
   - **Bristle** (General Store): seeds, animals and feed, pantry, decor, hats.
   - **Juniper** the baker: flour, sugar, butter, cinnamon, buns and the oven;
     pays extra for wheat, fruit, eggs, milk, honey and baking.

@@ -132,15 +132,14 @@ static func _tile(local: Vector2i) -> String:
 
 
 ## A sprite for each of the townsfolk and villagers, in `layer`; refresh()
-## shows whoever is about now.
+## puts whoever is about where they are now (in town or in a room).
 static func people(layer: Node2D) -> Dictionary:
 	var out: Dictionary = {}
-	for id: String in GameState.TOWN_SPOTS.keys():
+	for id: String in GameState.TOWNSFOLK.keys() + GameState.VILLAGERS.keys():
 		var who := Sprite2D.new()
 		who.texture = Assets.texture("res://assets/sprites/keeper_town.png" if id == "bristle" else "res://assets/sprites/villager_%s.png" % id)
 		who.centered = false
 		who.offset = Vector2(-8, -23)
-		who.position = foot(GameState.TOWN_SPOTS[id]) + Vector2(0, -1)
 		who.visible = false
 		layer.add_child(who)
 		out[id] = who
@@ -151,3 +150,5 @@ static func refresh(sprites: Dictionary) -> void:
 	var here: Dictionary = GameState.people_in_town()
 	for id: String in sprites.keys():
 		sprites[id].visible = here.has(id)
+		if here.has(id):
+			sprites[id].position = Vector2(here[id] * TILE) + Vector2(8, 15)

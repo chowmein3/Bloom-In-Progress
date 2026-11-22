@@ -340,14 +340,121 @@ const TOWN_ORCHARD: Dictionary = {
 	Vector2i(48, 20): "sapling", Vector2i(50, 20): "bananasapling", Vector2i(52, 20): "applesapling",
 	Vector2i(48, 23): "bananasapling", Vector2i(50, 23): "applesapling", Vector2i(52, 23): "sapling",
 }
-## Where each of the townsfolk and villagers stands in town.
+## Where each villager stands about in town by day (when not visiting the garden).
 const TOWN_SPOTS: Dictionary = {
-	"quill": Vector2i(8, 7), "sage": Vector2i(18, 7), "clementine": Vector2i(20, 15), "rosie": Vector2i(34, 16),
-	"bristle": Vector2i(7, 17), "juniper": Vector2i(7, 23), "flint": Vector2i(33, 23), "birch": Vector2i(18, 31),
-	"marlow": Vector2i(48, 11), "thistle": Vector2i(9, 29), "pebble": Vector2i(38, 24), "maple": Vector2i(50, 31),
+	"thistle": Vector2i(9, 29), "pebble": Vector2i(38, 24), "maple": Vector2i(50, 31),
 }
 ## The way back down to the garden (walk down off it), and where you arrive.
 const TOWN_GATE: Array[Vector2i] = [Vector2i(27, 39), Vector2i(28, 39)]
+
+## Inside the town's buildings: a room each, far to the side of the grid
+## (from TOWN_ROOMS_X, in TOWN_BUILDINGS order, 16 tiles apart), with two
+## rows of wall above the floor as at home. Floor maps, a letter a tile:
+##   . floor   D door mat (walk down off it to go out)   R rug
+##   K where the keeper stands at work (behind the counter)   H at home
+##   s a seat at the inn   C counter   S shelves   T table   c chair
+##   B bed   O oven   F fireplace or furnace   b barrels   P potted plant
+##   M museum case   A anvil   W workbench   G fish tank
+##   N notice board   J town projects board
+## tools/town_art.py reads these to paint town_room_<id>.png (wall colour,
+## floor kind), so the pictures always match.
+const TOWN_ROOMS_X := 200
+const TOWN_ROOMS: Dictionary = {
+	"museum": {"wall": "#efe9dc", "floor": "marble", "map": [
+		"MMM.MMM.MMM",
+		".H.........",
+		"M....K....M",
+		"M....C....M",
+		"...........",
+		".MM.....MM.",
+		"....DD.....",
+	]},
+	"apothecary": {"wall": "#a9d4a8", "floor": "wood", "map": [
+		"SSSPSSS",
+		"H..K...",
+		"bCCCCCb",
+		".......",
+		"P.....P",
+		"..DD...",
+	]},
+	"townhall": {"wall": "#e8d4b0", "floor": "carpet", "map": [
+		"SS.N..J.SS",
+		"H.........",
+		"....K.....",
+		"T..CCC..T.",
+		"..........",
+		"....DD....",
+	]},
+	"inn": {"wall": "#e9d2a8", "floor": "wood", "map": [
+		"FF.SSSbb.SS",
+		"H.....K....",
+		"bCCCCCCCCCb",
+		"...........",
+		".sTs...sTs.",
+		"...........",
+		"....DD.....",
+	]},
+	"store": {"wall": "#e9d7b4", "floor": "planks", "map": [
+		"SSSSSSSSS",
+		"H...K....",
+		"bCCCCCCCb",
+		".........",
+		"P.......P",
+		"...DD....",
+	]},
+	"bakery": {"wall": "#fbe3d0", "floor": "checker", "map": [
+		"OOSSSSSS",
+		"H...K...",
+		"bCCCCCCb",
+		"........",
+		"T.c..c.T",
+		"...DD...",
+	]},
+	"forge": {"wall": "#a8a196", "floor": "stone", "map": [
+		"FF.SSS.A",
+		"H....K..",
+		"bCCCCCCb",
+		"........",
+		"bb.....b",
+		"...DD...",
+	]},
+	"carpenter": {"wall": "#c49464", "floor": "planks", "map": [
+		"WWW.SSSbb",
+		"H.....K..",
+		"bCCCCCCCb",
+		".........",
+		"bb.....WW",
+		"...DD....",
+	]},
+	"fishshack": {"wall": "#8fb6c8", "floor": "planks", "map": [
+		"GGSSSbb",
+		"H..K...",
+		"bCCCCCb",
+		".......",
+		"..DD...",
+	]},
+	"home_thistle": {"wall": "#d8d0c0", "floor": "wood", "map": [
+		"B.SS.FP",
+		"B.....H",
+		".T.....",
+		".c.R...",
+		"..DD...",
+	]},
+	"home_pebble": {"wall": "#b8dcc0", "floor": "planks", "map": [
+		"B.GG.SP",
+		"B......",
+		"...T.H.",
+		"...c...",
+		"..DD...",
+	]},
+	"home_maple": {"wall": "#f6e2a8", "floor": "wood", "map": [
+		"B.bbSSP",
+		"B....H.",
+		".T.....",
+		".c..R..",
+		"..DD...",
+	]},
+}
 
 ## The townsfolk: each keeps a shop in town, standing at TOWN_SPOTS[id] in
 ## front of their building (TOWN_BUILDINGS[place]) while it is open, between
@@ -1064,17 +1171,110 @@ static func _clock_words(minutes: int) -> String:
 	return "%d%s" % [hour if hour <= 12 else hour - 12, "am" if hour < 12 else "pm"]
 
 
-## Who stands in town now: the townsfolk at their shops while open, and the
-## villagers who aren't visiting the garden today. Id -> cell.
+## Where everyone in town is now, id -> cell (in town or in one of its
+## rooms): the townsfolk behind their counters while open and at the back of
+## their building otherwise; the villagers about town by day and at home at
+## night (and not at all while visiting the garden).
 func people_in_town() -> Dictionary:
 	var here: Dictionary = {}
-	for id: String in TOWN_SPOTS.keys():
-		if TOWNSFOLK.has(id) and not is_open(id):
+	for id: String in TOWNSFOLK.keys():
+		here[id] = town_room_spot(TOWNSFOLK[id]["place"], "K" if is_open(id) else "H")
+	for id: String in VILLAGERS.keys():
+		if visitor_today() == id:
 			continue
-		if VILLAGERS.has(id) and visitor_today() == id:
-			continue
-		here[id] = town_cell(TOWN_SPOTS[id])
+		var night: bool = TimeManager.minutes >= 21 * 60 or TimeManager.minutes < 8 * 60
+		here[id] = town_room_spot("home_" + id, "H") if night else town_cell(TOWN_SPOTS[id])
 	return here
+
+
+## The room inside building `id`: its top-left corner (two rows of wall, then the floor).
+func town_room_origin(id: String) -> Vector2i:
+	return Vector2i(TOWN_ROOMS_X + 16 * TOWN_BUILDINGS.keys().find(id), 0)
+
+
+func town_room_floor(id: String) -> Rect2i:
+	var rows: Array = TOWN_ROOMS[id]["map"]
+	return Rect2i(town_room_origin(id) + Vector2i(0, 2), Vector2i(str(rows[0]).length(), rows.size()))
+
+
+## The building whose room `cell` is in (walls included), or "".
+func town_room_of(cell: Vector2i) -> String:
+	if cell.x < TOWN_ROOMS_X or cell.y < 0:
+		return ""
+	@warning_ignore("integer_division")
+	var index: int = (cell.x - TOWN_ROOMS_X) / 16
+	if index >= TOWN_BUILDINGS.size():
+		return ""
+	var id: String = TOWN_BUILDINGS.keys()[index]
+	var floor: Rect2i = town_room_floor(id)
+	return id if Rect2i(floor.position - Vector2i(0, 2), floor.size + Vector2i(0, 2)).has_point(cell) else ""
+
+
+## The room map's letter for `cell` ("#" for wall or outside a room).
+func town_room_tile(cell: Vector2i) -> String:
+	var id: String = town_room_of(cell)
+	if id == "" or not town_room_floor(id).has_point(cell):
+		return "#"
+	var at: Vector2i = cell - town_room_floor(id).position
+	return str(TOWN_ROOMS[id]["map"][at.y])[at.x]
+
+
+## The cells of building `id`'s room marked `letter`, in reading order.
+func town_room_spots(id: String, letter: String) -> Array:
+	var out: Array = []
+	var floor: Rect2i = town_room_floor(id)
+	var rows: Array = TOWN_ROOMS[id]["map"]
+	for y in rows.size():
+		for x in str(rows[y]).length():
+			if str(rows[y])[x] == letter:
+				out.append(floor.position + Vector2i(x, y))
+	return out
+
+
+func town_room_spot(id: String, letter: String) -> Vector2i:
+	var spots: Array = town_room_spots(id, letter)
+	return spots[0] if not spots.is_empty() else town_room_floor(id).position
+
+
+## The town tile of a building's door (the middle of its bottom row).
+func building_door(id: String) -> Vector2i:
+	var rect: Rect2i = TOWN_BUILDINGS[id]
+	@warning_ignore("integer_division")
+	return TOWN_ORIGIN + Vector2i(rect.position.x + rect.size.x / 2, rect.end.y - 1)
+
+
+## The building whose door is on `cell`, or "".
+func door_at(cell: Vector2i) -> String:
+	for id: String in TOWN_BUILDINGS.keys():
+		if building_door(id) == cell:
+			return id
+	return ""
+
+
+## Who keeps building `id` ("" for a villager's home).
+func keeper_of(id: String) -> String:
+	for keeper: String in TOWNSFOLK.keys():
+		if TOWNSFOLK[keeper]["place"] == id:
+			return keeper
+	return ""
+
+
+## Whether building `id`'s door is open: a shop during its hours, a
+## villager's home from 8am to 9pm.
+func is_room_open(id: String) -> bool:
+	var keeper: String = keeper_of(id)
+	if keeper != "":
+		return is_open(keeper)
+	return TimeManager.minutes >= 8 * 60 and TimeManager.minutes < 21 * 60
+
+
+## Who you'd talk to facing `cell`: whoever stands there, or across a
+## counter, whoever stands behind it.
+func talk_target(cell: Vector2i) -> String:
+	var who: String = person_at(cell)
+	if who == "" and town_room_tile(cell) == "C":
+		who = person_at(cell + Vector2i.UP)
+	return who
 
 
 ## The villager or keeper standing on `cell` (in town, or the garden's
@@ -1082,7 +1282,7 @@ func people_in_town() -> Dictionary:
 func person_at(cell: Vector2i) -> String:
 	if cell == VISITOR_CELL and visitor_today() != "":
 		return visitor_today()
-	if not is_in_town(cell):
+	if not is_in_town(cell) and town_room_of(cell) == "":
 		return ""
 	var here: Dictionary = people_in_town()
 	for id: String in here.keys():
@@ -1115,12 +1315,13 @@ func _describe_town(cell: Vector2i) -> String:
 		var info: Dictionary = person(who)
 		return "%s, %s" % [info["name"], info["what"]]
 	var building: String = town_building_at(cell)
+	var door: String = " (F at the door to go in)" if door_at(cell) != "" and is_room_open(building) else ""
 	if building.begins_with("home_"):
 		var owner: String = building.trim_prefix("home_")
-		return "%s's house" % person(owner)["name"]
+		return "%s's house: visitors 8am to 9pm%s" % [person(owner)["name"], door]
 	for id: String in TOWNSFOLK.keys():
 		if TOWNSFOLK[id]["place"] == building:
-			return "%s: open %s%s" % [TOWNSFOLK[id]["title"], hours_text(id), "" if is_open(id) else " (closed now)"]
+			return "%s: open %s%s%s" % [TOWNSFOLK[id]["title"], hours_text(id), "" if is_open(id) else " (closed now)", door]
 	match town_prop_at(cell):
 		"fountain": return "Fountain: toss in %d coins for luck today" % COST_WISH
 		"telescope": return "Lookout: take in the view (once a day)"
@@ -1142,6 +1343,37 @@ func _describe_town(cell: Vector2i) -> String:
 	if is_town_gate(cell):
 		return "Trail: down to your garden"
 	return ""
+
+
+## Words for what is in a town room on `cell`.
+func _describe_room(cell: Vector2i) -> String:
+	var who: String = talk_target(cell)
+	if who != "":
+		var info: Dictionary = person(who)
+		return "%s, %s" % [info["name"], info["what"]]
+	match town_room_tile(cell):
+		"D": return "Door mat: walk down to go outside"
+		"C": return "Counter"
+		"N": return "Notice board: %d requests" % quests.size()
+		"J": return "Town projects board"
+		"M":
+			var shown: String = museum_case(cell)
+			return "Museum case: %s" % (name_of(shown) if shown != "" else "waiting for a donation")
+		"S": return "Shelves"
+		"O": return "Oven"
+		"F": return "Fireplace" if town_room_of(cell) != "forge" else "Furnace"
+		"A": return "Anvil"
+		"W": return "Workbench"
+		"G": return "Fish tank"
+		"B": return "Bed"
+	return ""
+
+
+## What a museum case on `cell` shows: the collection in the order it was
+## given, one case each, or "".
+func museum_case(cell: Vector2i) -> String:
+	var index: int = town_room_spots("museum", "M").find(cell)
+	return town["museum"][index] if index >= 0 and index < town["museum"].size() else ""
 
 
 func is_town_gate(cell: Vector2i) -> bool:
@@ -1352,7 +1584,7 @@ func is_mine_entrance(cell: Vector2i) -> bool:
 
 
 func is_in_mine(cell: Vector2i) -> bool:
-	return is_indoors(cell) and cell.y >= MINE_ORIGIN.y - 5
+	return is_indoors(cell) and cell.x < TOWN_ROOMS_X and cell.y >= MINE_ORIGIN.y - 5
 
 
 func mine_floor() -> Rect2i:
@@ -1418,6 +1650,8 @@ func is_bed(cell: Vector2i) -> bool:
 
 ## The exit mat: the middle two tiles of the bottom floor row.
 func is_exit_mat(cell: Vector2i) -> bool:
+	if town_room_of(cell) != "":
+		return town_room_tile(cell) == "D"
 	var floor: Rect2i = mine_floor() if is_in_mine(cell) else room_floor()
 	@warning_ignore("integer_division")
 	var middle: int = floor.position.x + floor.size.x / 2
@@ -1435,6 +1669,8 @@ func can_walk(cell: Vector2i) -> bool:
 		return in_bounds(cell) and (not is_blocked(cell) or behind_tree) and not is_solid(cell)
 	if is_in_mine(cell):
 		return mine_floor().has_point(cell) and not is_solid(cell)
+	if town_room_of(cell) != "":
+		return ".DRHKs".contains(town_room_tile(cell)) and person_at(cell) == "" and not is_solid(cell)
 	return _room_free(cell) and not is_solid(cell)
 
 
@@ -1704,6 +1940,8 @@ func describe_cell(cell: Vector2i) -> String:
 		return "%d %s%s: walk over it to pick it up" % [int(objects[cell]["count"]), name_of(key.get_slice(":", 1)), " seeds" if key.begins_with("seed:") else ""]
 	if is_in_town(cell):
 		return _describe_town(cell)
+	if town_room_of(cell) != "":
+		return _describe_room(cell)
 	if is_indoors(cell):
 		if is_bed(cell):
 			return "Bed: tuck in to end the day"
@@ -2524,7 +2762,7 @@ func _do_buy_upgrade(player_id: int, kind: String) -> bool:
 		# The new room has its own built-in furniture: anything of ours now
 		# standing where that is goes back in the backpack.
 		for cell: Vector2i in objects.keys():
-			if is_indoors(cell) and not is_in_mine(cell) and not _room_free(cell):
+			if is_indoors(cell) and not is_in_mine(cell) and town_room_of(cell) == "" and not _room_free(cell):
 				items[object_kind(cell)] = item_count(object_kind(cell)) + 1
 				objects.erase(cell)
 				object_changed.emit(cell)

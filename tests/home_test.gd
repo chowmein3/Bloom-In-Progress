@@ -154,6 +154,11 @@ func _ready() -> void:
 	_expect(GameState.home_level() == 1, "Birch the carpenter builds the Cabin")
 	await _tap(KEY_ESCAPE)
 	_expect(int(str((hud.get("_coins") as Label).text)) == GameState.coins, "the HUD shows the purse")
+	var mat: Vector2i = GameState.town_room_spot("carpenter", "D")
+	player.position = Vector2((mat.x + 0.5) * 16, mat.y * 16 + 10)
+	await _hold(KEY_S, 0.3)
+	var below: Vector2i = player.call("cell") - GameState.building_door("carpenter")
+	_expect(bool(player.call("in_town")) and below.x == 0 and below.y >= 1 and below.y <= 4, "walking down off the mat goes back out in front of the door")
 	var gate: Vector2i = GameState.town_arrival()
 	player.position = Vector2((gate.x + 1.0) * 16, (gate.y + 1) * 16 - 3)
 	await _hold(KEY_S, 0.6)
@@ -701,13 +706,22 @@ func _hold(key: Key, seconds: float) -> void:
 	await _wait(0.1)
 
 
-## Stand just below one of the townsfolk, facing them, and press F.
+## Walk in through one of the townsfolk's doors, up to the counter, and press F.
 func _visit(who: String) -> void:
-	var spot: Vector2i = GameState.town_cell(GameState.TOWN_SPOTS[who])
-	player.position = Vector2((spot.x + 0.5) * 16, (spot.y + 1) * 16 + 10)
+	var building: String = GameState.TOWNSFOLK[who]["place"]
+	var door: Vector2i = GameState.building_door(building)
+	player.position = Vector2((door.x + 0.5) * 16, (door.y + 1) * 16 + 10)
 	player.set("facing", Vector2i.UP)
 	await _wait(0.1)
-	await _tap(KEY_F)
+	await _tap(KEY_F)  # in through the door
+	await _wait(0.1)
+	_expect(GameState.town_room_of(player.call("cell")) == building, "F at the door of the %s goes inside" % building)
+	var front: Vector2i = GameState.town_room_spot(building, "K") + Vector2i(0, 2)
+	player.position = Vector2((front.x + 0.5) * 16, front.y * 16 + 10)
+	player.set("facing", Vector2i.UP)
+	await _wait(0.2)
+	await _shot("home_4a_inside_%s" % building)
+	await _tap(KEY_F)  # talk across the counter
 	await _wait(0.1)
 
 

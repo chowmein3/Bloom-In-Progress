@@ -59,6 +59,16 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `request_donate`, `request_wish`, `request_lookout`; their state is
   `GameState.town` (saved, mirrored with the economy). Villagers stand at
   `TOWN_SPOTS` in town when not visiting; `person(id)` reads either table.
+  Every building has a room (`TOWN_ROOMS`: a floor map per building, a
+  letter per tile, also read by `tools/town_art.py` to paint
+  `town_room_<id>.png`), laid out from `TOWN_ROOMS_X` far to the side of the
+  grid (`is_indoors` is true there; use `town_room_of(cell)`,
+  `town_room_tile`, `town_room_spot(id, letter)`). F on a building's door
+  (`building_door`, `door_at`) goes in while `is_room_open`; walking down
+  off the mat ("D") comes back out. Keepers stand at "K" behind their
+  counter while open and at "H" otherwise; `talk_target` reaches across a
+  counter. `people_in_town()` says where everyone is (town or room cells);
+  `town_rooms_view.gd` draws the rooms and the museum's cases.
 - `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
   (each blocks its base tile, a log two; use `scenery_at(cell)`, which is ""

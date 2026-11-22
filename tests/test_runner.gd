@@ -6,6 +6,22 @@ const P := 1
 var failures: int = 0
 
 
+## Whether `to` can be walked to from `from` (a flood fill over can_walk).
+func _reachable(from: Vector2i, to: Vector2i) -> bool:
+	var seen: Dictionary = {from: true}
+	var queue: Array = [from]
+	while not queue.is_empty():
+		var at: Vector2i = queue.pop_front()
+		if at == to:
+			return true
+		for side: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+			var next: Vector2i = at + side
+			if not seen.has(next) and GameState.can_walk(next) and seen.size() < 6000:
+				seen[next] = true
+				queue.append(next)
+	return false
+
+
 func check(cond: bool, label: String) -> void:
 	if cond:
 		print("  ok    ", label)
@@ -946,13 +962,32 @@ func _ready() -> void:
 	GameState.request_set_time(P, 3, 13 * 60, false)  # one o'clock: every shop is open
 	var spots_ok: bool = true
 	for id: String in GameState.TOWNSFOLK.keys():
-		var stand: Vector2i = tc.call(GameState.TOWN_SPOTS[id])
-		if GameState.person_at(stand) != id or GameState.can_walk(stand) or not GameState.can_walk(stand + Vector2i(0, 1)):
+		var place: String = GameState.TOWNSFOLK[id]["place"]
+		var behind: Vector2i = GameState.town_room_spot(place, "K")
+		var front: Vector2i = behind + Vector2i(0, 2)
+		if GameState.person_at(behind) != id or GameState.talk_target(behind + Vector2i(0, 1)) != id or not GameState.can_walk(front) or not _reachable(GameState.town_room_spot(place, "D"), front):
 			spots_ok = false
-			print("    ", id, " at ", stand)
-	check(spots_ok, "each of the townsfolk stands at their shop while it's open, with room to talk to them")
+			print("    ", id, " in ", place)
+	check(spots_ok, "each of the townsfolk works behind their counter while open, and can be talked to across it from the door")
+	var doors_ok: bool = true
+	for building: String in GameState.TOWN_BUILDINGS.keys():
+		var door: Vector2i = GameState.building_door(building)
+		var mats: Array = GameState.town_room_spots(building, "D")
+		if GameState.door_at(door) != building or not GameState.can_walk(door + Vector2i.DOWN) or not _reachable(GameState.town_arrival(), door + Vector2i.DOWN):
+			doors_ok = false
+			print("    door of ", building)
+		if mats.size() != 2 or GameState.town_room_of(mats[0]) != building or not GameState.is_exit_mat(mats[0]) or not GameState.can_walk(mats[1]):
+			doors_ok = false
+			print("    mat of ", building)
+		if not GameState.is_indoors(mats[0]) or GameState.is_in_mine(mats[0]) or GameState.is_in_town(mats[0]):
+			doors_ok = false
+	check(doors_ok, "every building's door can be reached from the gate, and leads to a room of its own with a mat to walk out on")
+	var stools: Array = GameState.town_room_spots("inn", "s")
+	check(not GameState.can_walk(GameState.town_room_spot("inn", "C")) and GameState.can_walk(stools[0]) and not GameState.can_walk(GameState.town_room_spot("inn", "T")), "counters and tables are solid; the inn's stools can be stood at")
+	check(not GameState.can_drop_on(GameState.town_room_spot("store", "D") + Vector2i.UP) and not GameState.request_place(P, GameState.town_room_spot("store", "D") + Vector2i.UP, "fence"), "nothing is set down or dropped in someone else's building")
 	GameState.request_set_time(P, 3, 16 * 60, false)
-	check(not GameState.is_open("juniper") and GameState.person_at(tc.call(GameState.TOWN_SPOTS["juniper"])) == "" and GameState.can_walk(tc.call(GameState.TOWN_SPOTS["juniper"])), "shops close: by four the baker has gone home")
+	check(not GameState.is_open("juniper") and not GameState.is_room_open("bakery") and GameState.person_at(GameState.town_room_spot("bakery", "K")) == "" and GameState.person_at(GameState.town_room_spot("bakery", "H")) == "juniper", "shops close: by four the baker's door is locked and she's in the back")
+	check(GameState.is_room_open("home_pebble") and GameState.is_room_open("store"), "but Pebble's door and the general store are open")
 	GameState.request_set_time(P, 3, 10 * 60, false)
 	check(not GameState.is_open("rosie") and GameState.hours_text("rosie") == "noon to midnight", "the inn opens at noon")
 	check(GameState.visitor_today() == "maple" and GameState.person_at(tc.call(GameState.TOWN_SPOTS["maple"])) == "", "Maple is visiting the garden today, so she isn't in town")
@@ -994,6 +1029,8 @@ func _ready() -> void:
 	GameState.request_donate(P, "copper")
 	GameState.request_donate(P, "trout")
 	check(GameState.town["museum"].size() == 3 and GameState.coins == before_gift + 150, "the third donation brings a thank-you")
+	var cases: Array = GameState.town_room_spots("museum", "M")
+	check(cases.size() == GameState.MUSEUM.size() and GameState.museum_case(cases[0]) == "minnow" and GameState.museum_case(cases[3]) == "", "the museum has a case for everything it collects, filled in the order given")
 	GameState.coins = 15
 	check(not GameState.is_lucky(P) and GameState.request_wish(P) and GameState.coins == 5 and GameState.is_lucky(P), "a coin in the fountain brings luck today")
 	check(not GameState.request_wish(P) and GameState.coins == 5, "one wish a day")

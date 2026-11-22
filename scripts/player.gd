@@ -264,10 +264,22 @@ func go_into_mine() -> void:
 	_arrived()
 
 
-## Step out to just below the home's door (or the mine's mouth).
+## Through a town building's door onto the mat inside.
+func go_into_room(building: String) -> void:
+	var floor: Rect2i = GameState.town_room_floor(building)
+	position = Vector2((floor.position.x + floor.size.x / 2.0) * TILE, floor.end.y * TILE - 2.0)
+	facing = Vector2i.UP
+	_arrived()
+
+
+## Step out to just below the home's door (or the mine's mouth, or the door
+## of the town building you were in).
 func go_outside() -> void:
 	var door: Vector2i = GameState.home_door()
-	if GameState.is_in_mine(cell()):
+	var building: String = GameState.town_room_of(cell())
+	if building != "":
+		door = GameState.building_door(building)
+	elif GameState.is_in_mine(cell()):
 		door = Vector2i(GameState.MINE_RECT.position.x, GameState.MINE_RECT.end.y - 1)
 	position = Vector2((door.x + 0.5) * TILE, (door.y + 1) * TILE + 10.0)
 	facing = Vector2i.DOWN
@@ -442,6 +454,15 @@ func cycle_seed() -> void:
 func hand_action() -> String:
 	var target: Vector2i = target_cell()
 	var me: String = str(player_id)
+	if GameState.town_room_of(cell()) != "":  # inside a building in town
+		if GameState.talk_target(target) != "":
+			return "talk"
+		match GameState.town_room_tile(target):
+			"N": return "board"
+			"J": return "projects"
+		if facing == Vector2i.DOWN and GameState.is_exit_mat(cell()):
+			return "leave"
+		return ""
 	if indoors():
 		if GameState.is_bed(target):
 			return "sleep"
@@ -462,6 +483,8 @@ func hand_action() -> String:
 			"telescope": return "look"
 			"board": return "board"
 			"signpost": return "read"
+		if GameState.door_at(target) != "":
+			return "visit"
 		if GameState.town_building_at(target) != "":
 			return "read"
 		if GameState.TREES.has(GameState.object_kind(target)):
@@ -521,7 +544,8 @@ func hand_hint() -> String:
 	match action:
 		"sleep": return "get in"
 		"leave": return "go out"
-		"enter", "mine": return "go in"
+		"enter", "mine", "visit": return "go in"
+		"projects": return "read"
 		"shop": return "talk"
 		"clock", "bin", "mail": return "open"
 		"board", "read": return "read"
@@ -547,8 +571,15 @@ func use_hand() -> void:
 		"mail": mail_requested.emit()
 		"board": board_requested.emit()
 		"collect", "fill", "wait": GameState.request_harvest(player_id, target)
+		"visit":
+			var building: String = GameState.door_at(target)
+			if GameState.is_room_open(building):
+				go_into_room(building)
+			else:
+				GameState.notice.emit("Closed. %s" % GameState.describe_cell(target).get_slice(":", 1).strip_edges())
+		"projects": GameState.notice.emit("The town projects board")
 		"talk":
-			var who: String = GameState.person_at(target)
+			var who: String = GameState.talk_target(target)
 			if GameState.TOWNSFOLK.has(who):
 				shop_requested.emit(who)
 			else:
@@ -570,7 +601,7 @@ func use_hand() -> void:
 func use_tool() -> void:
 	var target: Vector2i = target_cell()
 	var hand: String = hand_action()
-	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake", "wish", "look", "read"].has(hand):
+	if ["sleep", "leave", "enter", "shop", "clock", "bin", "mine", "talk", "mail", "board", "bake", "wish", "look", "read", "visit", "projects"].has(hand):
 		use_hand()
 		return
 	var open_ground: bool = GameState.in_bounds(target) and not GameState.is_blocked(target) and not GameState.soil.has(target) and not GameState.objects.has(target)

@@ -282,6 +282,7 @@ def make_town():
     make_buildings(builds)
     make_props()
     make_folk()
+    make_rooms_art()
 
 
 # --------------------------------------------------------------- buildings
@@ -813,3 +814,328 @@ def f_keeper(c, face, clothes):  # Bristle the hedgehog, in his shop apron
 
 FEATURES = {"juniper": f_juniper, "flint": f_flint, "marlow": f_marlow, "birch": f_birch, "sage": f_sage,
             "quill": f_quill, "clementine": f_clementine, "rosie": f_rosie, "keeper_town": f_keeper}
+
+
+# ------------------------------------------------------------------- rooms
+# assets/sprites/town_room_<id>.png: inside each town building, painted from
+# TOWN_ROOMS in game_state.gd (wall colour, floor kind, floor map): two rows
+# of wall, then the floor, with the furniture drawn where the map puts it.
+
+def read_rooms():
+    text = open(GAME_STATE).read()
+    rooms = {}
+    for name, wall, floor, block in re.findall(r'"(\w+)": \{"wall": "(#\w+)", "floor": "(\w+)", "map": \[(.*?)\]\}', text, re.S):
+        rooms[name] = (wall, floor, re.findall(r'"([^"]*)"', block))
+    return rooms
+
+
+SHELF_GOODS = {  # what each room keeps on its shelves
+    "store": ["#e0605a", "#ffd24a", "#5aa85a", "#7fa8e0", "#f3b0c3"],
+    "bakery": ["#d9a25a", "#e9c48a", "#c98a4a", "#fbeed3"],
+    "forge": ["#9aa0aa", "#c9c2b5", "#6b6a70", "#d98a4a"],
+    "carpenter": ["#b07a4a", "#8a5e3a", "#d9b884", "#9aa0aa"],
+    "apothecary": ["#5fbf6a", "#b9a0ff", "#e0b04a", "#7fd0e0", "#ff8fb3"],
+    "museum": ["#c9c2b5", "#ffd24a", "#7fa8e0"],
+    "townhall": ["#c0503a", "#4f6aa8", "#5aa85a", "#e0b04a"],
+    "inn": ["#d9a25a", "#fbeed3", "#c0503a", "#8a5e3a"],
+    "fishshack": ["#9fb4c8", "#f2b84a", "#5a8fc8", "#e9e4dc"],
+}
+
+
+def room_floor(c, kind, w, h, y0):
+    """Paint the floor of a w x h tile room starting at pixel row y0."""
+    base = {"planks": "#c98f55", "wood": "#b98055", "checker": "#f3e2c8", "stone": "#9a958c",
+            "marble": "#e6e2da", "carpet": "#b5523f"}[kind]
+    col = rgb(base)
+    for y in range(h * TILE):
+        for x in range(w * TILE):
+            tone = col
+            if kind in ("planks", "wood"):
+                row = y // 8
+                if y % 8 == 7 or (x + row * 11) % 32 == 0:
+                    tone = shade(col, 0.22)
+                elif y % 8 == 0:
+                    tone = light(col, 0.1)
+            elif kind == "checker":
+                if ((x // 8) + (y // 8)) % 2:
+                    tone = rgb("#d9b8a0")
+            elif kind == "stone":
+                if x % 16 == 0 or y % 12 == 0 or (y // 12 % 2 and x % 16 == 8):
+                    tone = shade(col, 0.25)
+            elif kind == "marble":
+                if x % 16 == 0 or y % 16 == 0:
+                    tone = shade(col, 0.12)
+                elif (x * 7 + y * 3) % 41 == 0:
+                    tone = shade(col, 0.06)
+            elif kind == "carpet":
+                edge = x < 3 or y < 3 or x >= w * TILE - 3 or y >= h * TILE - 3
+                tone = rgb("#e0b04a") if edge else (shade(col, 0.08) if (x + y) % 6 == 0 else col)
+            c.px(x, y0 + y, tone)
+
+
+def room_wall(c, colour, w):
+    wall = rgb(colour)
+    for y in range(2 * TILE):
+        for x in range(w * TILE):
+            tone = wall
+            if y >= 22:
+                tone = shade(wall, 0.18)  # wainscot
+                if x % 8 == 0:
+                    tone = shade(wall, 0.3)
+            elif (x + y * 3) % 23 == 0:
+                tone = shade(wall, 0.06)
+            if y == 21:
+                tone = shade(wall, 0.4)
+            if y >= 30:
+                tone = rgb("#6b4630")  # skirting board
+            c.px(x, y, tone)
+
+
+def make_rooms_art():
+    for name, (wall, floor, rows) in read_rooms().items():
+        w, h = len(rows[0]), len(rows)
+        rng = random.Random(name)
+        c = Canvas(w * TILE, (h + 2) * TILE)
+        room_wall(c, wall, w)
+        for x in (w * TILE // 4, w * TILE * 3 // 4):  # windows
+            if all(rows[0][min(w - 1, max(0, (x + d) // TILE))] in ".HKD" for d in (-8, 8)):
+                c.rect(x - 7, 4, 14, 12, rgb("#8a5e3a"))
+                c.rect(x - 5, 6, 10, 8, rgb("#bfe6ff"))
+                c.rect(x, 6, 1, 8, rgb("#8a5e3a"))
+        room_floor(c, floor, w, h, 2 * TILE)
+        img = c.finish(outline=False, shading=False)
+        drawn = set()
+        for y in range(h):
+            for x in range(w):
+                ch = rows[y][x]
+                if (x, y) in drawn or ch in ".HK":
+                    continue
+                run = 1
+                while x + run < w and rows[y][x + run] == ch and ch in "CSFOWG":
+                    run += 1
+                if ch == "B":
+                    drawn.add((x, y + 1))
+                for i in range(run):
+                    drawn.add((x + i, y))
+                piece, lift = FURNITURE.get(ch, lambda r, n, g: (None, 0))(run, name, rng)
+                if piece is not None:
+                    img.alpha_composite(piece, (x * TILE, (y + 2) * TILE - lift))
+        save(img, "town_room_%s.png" % name)
+
+
+def _canvas(w, h, draw):
+    c = Canvas(w, h)
+    draw(c)
+    return c.finish()
+
+
+def fur_counter(run, room, rng):
+    top, front = rgb("#c9a070"), rgb("#8a5e3a")
+    if room == "inn":
+        top, front = rgb("#a8744a"), rgb("#6b4630")
+
+    def draw(c):
+        c.rect(0, 2, run * TILE, 5, top)
+        c.rect(0, 7, run * TILE, 9, front)
+        for x in range(8, run * TILE, 16):
+            c.rect(x, 9, 1, 6, shade(front, 0.25))
+        if room == "store":  # a till and a jar of sweets
+            c.rect(run * TILE // 2 - 12, 0, 7, 4, rgb("#5a5a66"))
+            c.ell(run * TILE // 2 + 8, 1, 2.5, 2.5, rgb("#ff8fb3"))
+        elif room == "bakery":
+            for i in range(0, run * TILE - 8, 12):
+                c.ell(i + 6, 2, 3.5, 1.8, rgb("#d9a25a"))
+        elif room == "inn":
+            for i in range(4, run * TILE - 4, 14):
+                c.rect(i, 0, 4, 4, rgb("#fbeed3"))
+                c.rect(i + 1, 0, 2, 1, WHITE)
+    return _canvas(run * TILE, 16, draw), 0
+
+
+def fur_shelf(run, room, rng):
+    goods = SHELF_GOODS.get(room, ["#c0503a", "#4f6aa8", "#5aa85a", "#e0b04a"])
+    wood = rgb("#8a5e3a")
+
+    def draw(c):
+        c.rect(0, 0, run * TILE, 28, wood)
+        for y in (2, 11, 20):
+            c.rect(2, y, run * TILE - 4, 7, shade(wood, 0.35))
+            x = 3
+            while x < run * TILE - 5:
+                wid = rng.choice((2, 3, 3, 4))
+                hgt = rng.choice((4, 5, 6))
+                c.rect(x, y + 7 - hgt, wid, hgt, rgb(rng.choice(goods)))
+                x += wid + rng.choice((0, 1, 1, 2))
+    return _canvas(run * TILE, 28, draw), 12
+
+
+def fur_table(run, room, rng):
+    def draw(c):
+        c.ell(7.5, 7, 7, 4.5, rgb("#a8744a"))
+        c.rect(6, 10, 3, 6, rgb("#6b4630"))
+        c.rect(4, 4, 3, 2, rgb("#fbeed3"))  # a cup
+        c.rect(9, 5, 3, 2, rgb("#e0605a"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_chair(run, room, rng):
+    def draw(c):
+        c.rect(4, 2, 8, 6, rgb("#a8744a"))
+        c.rect(3, 8, 10, 3, rgb("#c0503a"))
+        c.rect(4, 11, 2, 5, rgb("#6b4630"))
+        c.rect(10, 11, 2, 5, rgb("#6b4630"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_bed(run, room, rng):
+    blanket = {"home_thistle": "#8a9a5a", "home_pebble": "#5aa0e0", "home_maple": "#f2b84a"}.get(room, "#d9605a")
+
+    def draw(c):
+        c.rect(1, 0, 14, 32, rgb("#8a5e3a"))
+        c.rect(2, 2, 12, 28, rgb("#f6efe2"))
+        c.rect(3, 3, 10, 6, WHITE)
+        c.rect(2, 12, 12, 18, rgb(blanket))
+        c.rect(2, 12, 12, 2, light(rgb(blanket), 0.4))
+    return _canvas(16, 32, draw), 0
+
+
+def fur_oven(run, room, rng):
+    def draw(c):
+        brick = rgb("#b5523f")
+        c.rect(0, 0, run * TILE, 26, brick)
+        for y in range(2, 26, 4):
+            for x in range((y // 4 % 2) * 4, run * TILE, 8):
+                c.rect(x, y, 1, 3, shade(brick, 0.25))
+            c.rect(0, y, run * TILE, 1, shade(brick, 0.25))
+        for i in range(run):
+            c.ell(i * TILE + 7.5, 16, 5, 5, rgb("#2a2024"))
+            c.rect(i * TILE + 3, 16, 10, 6, rgb("#2a2024"))
+            c.rect(i * TILE + 5, 17, 6, 4, rgb("#f08a2e"))
+            c.rect(i * TILE + 6, 19, 4, 2, rgb("#ffd24a"))
+    return _canvas(run * TILE, 26, draw), 10
+
+
+def fur_fire(run, room, rng):
+    furnace = room == "forge"
+
+    def draw(c):
+        stone = rgb("#8f8a80") if furnace else rgb("#b9b3c4")
+        c.rect(0, 0, run * TILE, 28, stone)
+        for y in range(4, 28, 6):
+            c.rect(0, y, run * TILE, 1, shade(stone, 0.2))
+        c.rect(5, 10, run * TILE - 10, 18, rgb("#2a2024"))
+        c.ell(run * TILE / 2 - 0.5, 10, run * TILE / 2 - 5, 4, rgb("#2a2024"), top_only=True)
+        c.tri(run * TILE / 2 - 0.5, 14, 6, 13, rgb("#f08a2e"))
+        c.tri(run * TILE / 2 - 0.5, 19, 3, 8, rgb("#ffd24a"))
+        if not furnace:
+            c.rect(0, 0, run * TILE, 3, rgb("#8a5e3a"))
+    return _canvas(run * TILE, 28, draw), 12
+
+
+def fur_barrel(run, room, rng):
+    def draw(c):
+        wood = rgb("#9a6a40")
+        c.rect(3, 3, 10, 13, wood)
+        c.ell(7.5, 3, 5, 2, shade(wood, 0.1))
+        c.rect(3, 6, 10, 1, rgb("#5a5050"))
+        c.rect(3, 12, 10, 1, rgb("#5a5050"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_plant(run, room, rng):
+    def draw(c):
+        c.rect(4, 14, 8, 8, rgb("#c9744a"))
+        c.ell(7.5, 8, 6, 7, rgb("#5aa85a"))
+        c.ell(4, 5, 2.5, 3, rgb("#6fc46a"))
+    return _canvas(16, 22, draw), 6
+
+
+def fur_case(run, room, rng):
+    def draw(c):
+        c.rect(1, 12, 14, 10, rgb("#8a5e3a"))
+        c.rect(2, 1, 12, 11, rgb("#d9eef5"))
+        c.rect(2, 1, 12, 1, WHITE)
+        c.rect(3, 9, 10, 2, rgb("#b5523f"))  # a velvet cushion
+    return _canvas(16, 22, draw), 6
+
+
+def fur_anvil(run, room, rng):
+    def draw(c):
+        c.rect(3, 4, 11, 4, rgb("#4f4a4a"))
+        c.rect(1, 4, 3, 2, rgb("#4f4a4a"))
+        c.rect(6, 8, 5, 4, rgb("#4f4a4a"))
+        c.rect(4, 12, 9, 4, rgb("#6b4630"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_bench(run, room, rng):
+    def draw(c):
+        wood = rgb("#b07a4a")
+        c.rect(0, 4, run * TILE, 5, wood)
+        c.rect(0, 4, run * TILE, 1, light(wood, 0.2))
+        for x in (1, run * TILE - 3):
+            c.rect(x, 9, 2, 7, shade(wood, 0.3))
+        c.rect(5, 1, 9, 3, rgb("#c9c2b5"))  # a saw
+        c.rect(run * TILE - 12, 2, 6, 2, rgb("#8a5e3a"))  # a plane
+    return _canvas(run * TILE, 16, draw), 0
+
+
+def fur_tank(run, room, rng):
+    def draw(c):
+        c.rect(0, 2, run * TILE, 18, rgb("#5aa6dc"))
+        c.rect(0, 2, run * TILE, 2, rgb("#bfe6ff"))
+        c.rect(0, 20, run * TILE, 4, rgb("#6b4630"))
+        for i in range(run * 2):
+            fx = 4 + i * 7
+            c.ell(fx, 10 + (i % 2) * 4, 2.5, 1.5, rgb(rng.choice(["#f2b84a", "#e88a7a", "#9fb4c8"])))
+        c.rect(2, 16, run * TILE - 4, 2, rgb("#5aa85a"))
+    return _canvas(run * TILE, 24, draw), 8
+
+
+def fur_board(run, room, rng):
+    projects = run == -1
+
+    def draw(c):
+        c.rect(1, 0, 14, 12, rgb("#8a6238"))
+        c.rect(2, 1, 12, 10, rgb("#d9b88a"))
+        c.rect(3, 2, 4, 3, WHITE)
+        c.rect(8, 3, 4, 4, rgb("#fff3a0"))
+        c.rect(4, 6, 3, 3, rgb("#ffd9ea"))
+    return _canvas(16, 12, draw), 8
+
+
+def fur_projects(run, room, rng):
+    def draw(c):
+        c.rect(1, 0, 14, 12, rgb("#5a6aa8"))
+        c.rect(2, 1, 12, 10, rgb("#e9e4dc"))
+        c.rect(3, 3, 10, 1, rgb("#5aa85a"))
+        c.rect(3, 6, 7, 1, rgb("#e0b04a"))
+        c.rect(3, 9, 4, 1, rgb("#c0503a"))
+    return _canvas(16, 12, draw), 8
+
+
+def fur_rug(run, room, rng):
+    def draw(c):
+        c.ell(7.5, 8, 7.4, 5.5, rgb("#d9605a"))
+        c.ell(7.5, 8, 5, 3.4, rgb("#fbe6c4"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_stool(run, room, rng):
+    def draw(c):
+        c.ell(7.5, 8, 4.5, 2.2, rgb("#c0503a"))
+        c.rect(5, 10, 2, 6, rgb("#6b4630"))
+        c.rect(9, 10, 2, 6, rgb("#6b4630"))
+    return _canvas(16, 16, draw), 0
+
+
+def fur_mat(run, room, rng):
+    def draw(c):
+        c.rect(1, 9, 14, 6, rgb("#7a9a5a"))
+        c.rect(2, 10, 12, 4, rgb("#9ab87a"))
+    return _canvas(16, 16, draw), 0
+
+
+FURNITURE = {"C": fur_counter, "S": fur_shelf, "T": fur_table, "c": fur_chair, "B": fur_bed, "O": fur_oven,
+             "F": fur_fire, "b": fur_barrel, "P": fur_plant, "M": fur_case, "A": fur_anvil, "W": fur_bench,
+             "G": fur_tank, "N": fur_board, "J": fur_projects, "R": fur_rug, "D": fur_mat, "s": fur_stool}

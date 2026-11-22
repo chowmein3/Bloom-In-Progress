@@ -99,9 +99,14 @@ store and bakery to the west; the carpenter's yard and a park with blossom
 trees to the south; a cliff with stairs up to the museum, the apothecary and
 a lookout; an orchard and a flower meadow across the river; homes for
 Maple, Pebble and Old Thistle.
-- **Townsfolk** (`TOWNSFOLK`), one per building, stand in front of it while
-  it's open (hours per keeper) and are solid then. F opens their shop
-  screen: chat (once a day, friendship as with the visitors), their request
+- **Interiors:** every building can be walked into through its door while
+  open (shops in their hours, homes 8am-9pm): a room each (`TOWN_ROOMS`),
+  furnished to suit (counters, shelves, ovens, a furnace and anvil, fish
+  tanks, museum cases that fill with donations, the inn's bar and tables,
+  the town hall's boards, beds at home).
+- **Townsfolk** (`TOWNSFOLK`), one per building, work behind their counter
+  while it's open and are at the back of their building otherwise. F across
+  the counter opens their shop screen: chat (once a day, friendship as with the visitors), their request
   (`town.requests`, a new one some mornings, paid well), their wares
   (`sells`), what they pay extra for (`buys`, SPECIALTY times the usual
   price), gifts, and special pages: Flint's Tools, Birch's Home and Build,
