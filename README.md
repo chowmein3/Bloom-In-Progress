@@ -105,9 +105,39 @@ in the pause menu.
   fades slowly to black, then the next day begins. Every night (for now), he sits
   up, turns to her and leans over for a goodnight kiss, with a little heart. Getting
   up during the fade (Space) calls it off.
-- **Bristle's stall** (the hedgehog beside your home): sell picked plants for
-  coins, and buy seeds, a hoe and watering can that reach 3 then 5 tiles, a
-  cabin and then a cottage (more room, more energy each morning), and hats.
+- **Bristle's stall** (the hedgehog beside your home): sell your harvest and
+  anything else for coins. Seeds and the rest are at his store in town.
+- **The town:** walk up the trail at the top of the garden to reach it (and
+  down the trail at its bottom to come home). A river runs through it from a
+  waterfall, under two bridges; a cobbled plaza with a fountain sits below the
+  town hall, and stairs climb a cliff to the museum, the apothecary and a
+  lookout. Shopkeepers stand outside their shops while they're open (the
+  cursor on a building shows its hours); face one and press F to talk, buy,
+  sell, take on their request or give a gift:
+  - **Bristle** (General Store): seeds, animals and feed, pantry, decor, hats.
+  - **Juniper** the baker: flour, sugar, butter, cinnamon, buns and the oven;
+    pays extra for wheat, fruit, eggs, milk, honey and baking.
+  - **Flint** the blacksmith (forge): hoe, watering can and pickaxe upgrades,
+    copper and gold; pays extra for ore and gems.
+  - **Marlow** the fishmonger (fish shack on the river): pays extra for fish.
+  - **Birch** the carpenter: the cabin and cottage, greenhouse, coop and barn,
+    wood, stone and furniture; pays extra for wood, stone and fiber.
+  - **Sage** the herbalist (apothecary): energy tonics and mulch; pays extra
+    for forage and flowers.
+  - **Professor Quill** (museum): donate one of each fish, ore, gem and
+    forage; thank-you gifts at 3, 6, 9, 13 and all 17.
+  - **Mayor Clementine** (town hall): the notice board's requests.
+  - **Rosie** (The Snug Mug inn, noon to midnight): hot meals; pays extra for
+    cooking, cheese, jam and juice.
+  Each of them asks for something now and then (their Request tab) and pays
+  well for it; chats, gifts and requests earn hearts and presents, as with
+  the visitors. Maple, Pebble and Old Thistle live in town too, when they
+  aren't visiting your garden.
+- **In town:** fish the river (its own fish: trout, pike, eels after dark,
+  salmon in spring and fall), toss a coin in the fountain for luck (rare fish
+  bite more often that day), take in the view at the lookout once a day for
+  a little energy, pick fruit in the town orchard, and forage on the flower
+  meadow and up on the cliff.
 - **Hands:** no tool is needed to pet, pick or pick things up. Face it and
   press F. A plant you haven't petted today gets petted; a ripe plant you
   already petted gets picked. The line above the tool bar shows what F will do.
@@ -117,26 +147,26 @@ in the pause menu.
   fill it, and F again to collect when the green mark shows.
 - **Mailbox** (left of your home): letters arrive some mornings, a few with
   gifts. A mark bobs above it when there's post.
-- **Notice board** (right of your home): three requests at a time from Bristle
-  and the villagers. Handing one in pays coins and pleases whoever asked.
-- **Greenhouse** (Bristle's Home tab): a glass house in the lower right where
+- **Notice board** (right of your home): three requests at a time from the
+  villagers and townsfolk (the town hall has the same board). Handing one in pays coins and pleases whoever asked.
+- **Greenhouse** (built by Birch, in town): a glass house in the lower right where
   any plant can be planted and grows in every season.
-- **More plants:** sixteen kinds now. Bristle stocks eight new ones as your
+- **More plants:** sixteen kinds now. Bristle's store stocks eight new ones as your
   gardening level reaches 2 and 4.
 - **Foraging and storms:** a wild plant of the season turns up most mornings
   to pick by hand, and some rainy days are storms that blow in extra debris.
 - **With a partner:** set your name in Settings; it shows above your head with
   the tool you're holding. T opens emotes, Enter opens a chat line, and you
   see each other use tools.
-- **Animals:** build a coop, then a barn, at Bristle's Animals tab and buy
-  hens and cows. Each morning feed them (F, with animal feed in the backpack)
+- **Animals:** have Birch build a coop, then a barn, and buy hens and cows
+  at Bristle's store. Each morning feed them (F, with animal feed in the backpack)
   and stroke them (F again). Fed animals give eggs and milk overnight; happy
   ones give two.
 - **Visitors:** Maple, Pebble and Old Thistle each drop by two days a week and
-  stand near the stall. Talk (F) once a day and give one gift a day; each has
+  stand near the stall (the rest of the time they're at home in town). Talk (F) once a day and give one gift a day; each has
   loves, likes and dislikes. Every new heart of friendship brings a present.
 - **The mine:** the cave mouth at the top right leads to a room of rocks,
-  renewed every morning. Buy the pickaxe from Bristle's Tools tab (its slot
+  renewed every morning. Buy the pickaxe from Flint at the forge in town (its slot
   appears on the tool bar once you own it), face the cave mouth and press F to
   go down, then break rocks (6, Space)
   for stone, copper, gold and the odd amethyst. Copper and gold make the Great
@@ -148,13 +178,13 @@ in the pause menu.
   around it.
 - **Fruit trees:** buy a plumble sapling (Decor tab), set it on open ground,
   and after ten days it bears a plumble every three days, except in winter.
-- **Fishing:** face the pond with the rod (5) and press Space. Wait for the
+- **Fishing:** face the pond (or the town's river) with the rod (5) and press Space. Wait for the
   "!", press Space to hook it, then press Space each time the marker crosses
   the green band. Which fish bite depends on season, hour and rain. Sell them,
   ship them or cook them.
 - **Shipping bin** (the crate between your home and the stall): drop harvest
   and fish in; they're sold overnight at Bristle's prices.
-- **Decor:** buy furniture from Bristle's Decor tab, hold it (4) and set it
+- **Decor:** buy furniture from Birch the carpenter (and garden decor from Bristle), hold it (4) and set it
   down inside your home or in the garden.
 - **Goals** (journal, Goals page): eleven long-term goals that pay coins when
   met, and a special hat for finishing them all.
@@ -170,12 +200,12 @@ in the pause menu.
   back up.
 - **Cooking** (backpack, Kitchen tab, needs the Cabin's stove): turn harvest
   into meals. Hold a meal and press Space to eat it for energy.
-- **Baking** (backpack, Oven tab): buy an oven from Bristle (Decor tab) and
+- **Baking** (backpack, Oven tab): buy an oven from Juniper the baker and
   set it down in your home; F at the oven opens the tab. Banana bread, apple
   pie and cinnamon buns restore lots of energy and sell well. Grow the core
   parts: wheat (milled into flour on the Kitchen tab) and apple and banana
-  trees (saplings at the stall). Sugar, butter, cinnamon, eggs and spare
-  flour come from the stall's Pantry tab, or as gifts from visitors.
+  trees (saplings at Bristle's store). Sugar, butter, cinnamon, eggs and spare
+  flour come from Juniper or Bristle's Pantry tab, or as gifts from visitors.
 - **Axe** (7): trees, stumps and logs in the garden come down after a few
   swings (three for a tree), and the tree topples over and leaves a stack of
   wood on the ground; walk over it to pick it up. They grow back after a
@@ -184,7 +214,7 @@ in the pause menu.
 - **Gardening level:** caring for plants and harvesting earn experience.
   Levels unlock recipes and add a little energy.
 - **Bristle's requests:** each morning he asks for a plant you can grow and
-  pays double for it (Sell tab at the stall).
+  pays double for it (Sell tab at the stall or his store).
 - **Clock tower** (left of your home): face it and press Space to set any
   season, day, year, time of day and weather, to see how the garden looks
   then. Nothing grows or wilts for the time skipped. Expect a scene.

@@ -63,14 +63,15 @@ func _ready() -> void:
 			_line.text = text)
 
 
-func open() -> void:
-	_who = GameState.visitor_today()
+## Talk to `who` (a villager in town), or by default today's visitor.
+func open(who_id: String = "") -> void:
+	_who = who_id if who_id != "" else GameState.visitor_today()
 	if visible or _who == "" or player == null or bool(player.get("reading")):
 		return
 	visible = true
 	player.set("reading", true)
 	Sound.play("page")
-	var who: Dictionary = GameState.VILLAGERS[_who]
+	var who: Dictionary = GameState.person(_who)
 	var lines: Array = who["lines"]
 	_line.text = lines[(TimeManager.day_index + GameState.hearts(_who)) % lines.size()]
 	_face.texture = Assets.texture("res://assets/sprites/villager_%s.png" % _who)
@@ -93,7 +94,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _rebuild() -> void:
 	if not visible or not GameState.VILLAGERS.has(_who):
 		return
-	var who: Dictionary = GameState.VILLAGERS[_who]
+	var who: Dictionary = GameState.person(_who)
 	var friend: Dictionary = GameState.friends.get(_who, {})
 	_name.text = "%s, %s" % [who["name"], who["what"]]
 	var full: int = GameState.hearts(_who)
@@ -104,7 +105,11 @@ func _rebuild() -> void:
 	var me: int = player.get("player_id")
 	var given: bool = bool(friend.get("gifted", false))
 	var any: bool = false
-	for id: String in GameState.sellable_ids() + _meals():
+	var gifts: Array = GameState.sellable_ids()
+	for id: String in _meals():
+		if not gifts.has(id):
+			gifts.append(id)
+	for id: String in gifts:
 		any = true
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 3)

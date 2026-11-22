@@ -334,7 +334,7 @@ func _ready() -> void:
 	var in_garden: Callable = func() -> int:
 		var count: int = 0
 		for at: Vector2i in GameState.objects.keys():
-			if not GameState.is_indoors(at):
+			if GameState.in_bounds(at):  # the garden itself, not town or indoors
 				count += 1
 		return count
 	check(in_garden.call() == 0, "with wild growth off, the ground starts clear")
@@ -350,7 +350,9 @@ func _ready() -> void:
 	GameState.end_day(false)
 	GameState.wild_growth = false
 	var rock := Vector2i(1, 15)
-	GameState.objects.clear()
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.in_bounds(at):  # clear the garden (the town orchard stays)
+			GameState.objects.erase(at)
 	GameState.objects[rock] = {"kind": "rock"}
 	check(GameState.can_walk(rock) and not GameState.request_till(P, rock), "debris can be walked over but not tilled")
 	check(GameState.request_harvest(P, rock), "the basket clears a rock")
@@ -603,7 +605,7 @@ func _ready() -> void:
 	GameState.new_game()
 	check(GameState.visitor_today() == "maple" and not GameState.can_walk(GameState.VISITOR_CELL), "Maple visits on the first day and stands by the stall")
 	check(GameState.request_talk(P, "maple") and not GameState.request_talk(P, "maple") and int(GameState.friends["maple"]["points"]) == 10, "a chat a day is worth 10 points")
-	check(not GameState.request_talk(P, "pebble"), "you can't talk to someone who isn't here")
+	check(not GameState.request_talk(P, "nobody"), "you can't talk to someone who doesn't exist")
 	GameState.produce["moonbell"] = 2
 	GameState.items["minnow"] = 1
 	check(GameState.request_gift(P, "maple", "moonbell") and int(GameState.friends["maple"]["points"]) == 90 and int(GameState.produce["moonbell"]) == 1, "a loved gift is worth 80")
@@ -745,7 +747,7 @@ func _ready() -> void:
 		GameState.end_day(false)
 	var greens: int = 0
 	for at: Vector2i in GameState.objects.keys():
-		if GameState.object_kind(at) == "wildgreens":
+		if GameState.object_kind(at) == "wildgreens" and GameState.in_bounds(at):
 			greens += 1
 	check(greens >= 1 and greens <= 5, "wild greens turn up in spring, a few at most")
 	GameState.request_set_time(P, 28 + 2, 9 * 60, false)
@@ -785,7 +787,7 @@ func _ready() -> void:
 	GameState.new_game()
 	GameState.coins = 3000
 	check(GameState.seed_in_stock("wheat"), "wheat seeds are stocked from the start")
-	check(GameState.craft_problem("cinnamonbuns") == "Needs an oven (Bristle sells one)", "baking needs an oven")
+	check(GameState.craft_problem("cinnamonbuns") == "Needs an oven (Juniper the baker sells one, in town)", "baking needs an oven")
 	check(GameState.request_buy_item(P, "oven", 1) and GameState.coins == 2600, "Bristle sells an oven for 400")
 	var kitchen_spot: Vector2i = GameState.room_floor().position + Vector2i(4, 2)
 	check(GameState.request_place(P, kitchen_spot, "oven") and GameState.has_oven(), "it stands in the home")
@@ -925,6 +927,121 @@ func _ready() -> void:
 	print("gardens from before own bags")
 	GameState.apply_snapshot({"seeds": {"sunpuff": 9}, "coins": 777, "items": {"tea": 2}, "bin": {"tea": 1}})
 	check(GameState.coins == 777 and GameState.seed_count("sunpuff") == 9 and GameState.item_count("tea") == 2 and int(GameState.bin["tea"]) == 1, "the old shared bag becomes the host's")
+	GameState.new_game()
+
+	print("the town")
+	GameState.new_game()
+	GameState.request_set_time(P, 3, 10 * 60, false)  # a spring morning: every shop open
+	var tc: Callable = GameState.town_cell
+	check(GameState.can_walk(GameState.GARDEN_TRAIL_TOP), "the trail at the top of the garden can be walked up")
+	check(GameState.is_in_town(GameState.town_arrival()) and GameState.can_walk(GameState.town_arrival()), "and arrives on open ground in town")
+	check(GameState.is_town_gate(tc.call(GameState.TOWN_GATE[0])) and GameState.can_walk(tc.call(GameState.TOWN_GATE[0])), "the town's gate leads back down")
+	check(not GameState.can_walk(tc.call(Vector2i(41, 5))) and GameState.is_river(tc.call(Vector2i(41, 5))), "the river can't be walked on, but can be fished")
+	check(GameState.can_walk(tc.call(Vector2i(40, 14))), "the bridges cross it")
+	check(not GameState.can_walk(tc.call(Vector2i(0, 0))) and not GameState.can_walk(tc.call(Vector2i(20, 10))), "nor the woods or the cliff")
+	check(GameState.can_walk(tc.call(Vector2i(11, 10))), "the stairs climb it")
+	var townhall: Rect2i = GameState.TOWN_BUILDINGS["townhall"]
+	check(not GameState.can_walk(tc.call(townhall.position)), "buildings are solid")
+	check(not GameState.can_walk(tc.call(Vector2i(21, 19))) and GameState.town_prop_at(tc.call(Vector2i(22, 20))) == "fountain", "so is the fountain, all four tiles")
+	GameState.request_set_time(P, 3, 13 * 60, false)  # one o'clock: every shop is open
+	var spots_ok: bool = true
+	for id: String in GameState.TOWNSFOLK.keys():
+		var stand: Vector2i = tc.call(GameState.TOWN_SPOTS[id])
+		if GameState.person_at(stand) != id or GameState.can_walk(stand) or not GameState.can_walk(stand + Vector2i(0, 1)):
+			spots_ok = false
+			print("    ", id, " at ", stand)
+	check(spots_ok, "each of the townsfolk stands at their shop while it's open, with room to talk to them")
+	GameState.request_set_time(P, 3, 16 * 60, false)
+	check(not GameState.is_open("juniper") and GameState.person_at(tc.call(GameState.TOWN_SPOTS["juniper"])) == "" and GameState.can_walk(tc.call(GameState.TOWN_SPOTS["juniper"])), "shops close: by four the baker has gone home")
+	GameState.request_set_time(P, 3, 10 * 60, false)
+	check(not GameState.is_open("rosie") and GameState.hours_text("rosie") == "noon to midnight", "the inn opens at noon")
+	check(GameState.visitor_today() == "maple" and GameState.person_at(tc.call(GameState.TOWN_SPOTS["maple"])) == "", "Maple is visiting the garden today, so she isn't in town")
+	check(GameState.person_at(tc.call(GameState.TOWN_SPOTS["pebble"])) == "pebble" and GameState.request_talk(P, "pebble"), "but Pebble is, and can be talked to there")
+	check(GameState.request_talk(P, "flint") and int(GameState.friends["flint"]["points"]) == 10, "a chat with one of the townsfolk counts towards friendship too")
+	check(GameState.request_gift(P, "flint", "wheat") == false, "a gift has to be in the backpack")
+	GameState.items["amethyst"] = 1
+	check(GameState.request_gift(P, "flint", "amethyst") and GameState.hearts("flint") == 0 and int(GameState.friends["flint"]["points"]) == 90, "Flint loves amethyst")
+	GameState.produce["wheat"] = 4
+	GameState.coins = 0
+	check(GameState.price_at("juniper", "wheat") == roundi(18 * GameState.SPECIALTY) and GameState.price_at("juniper", "stone") == 0, "Juniper pays extra for wheat and doesn't buy stone")
+	check(GameState.request_sell_to(P, "juniper", "wheat", 4) and GameState.coins == 4 * roundi(18 * GameState.SPECIALTY) and int(GameState.produce["wheat"]) == 0, "selling wheat to the baker")
+	check(not GameState.request_sell_to(P, "juniper", "stone", 1), "she won't take stone")
+	GameState.coins = 100
+	check(GameState.request_buy_from(P, "juniper", "flour", 2) and GameState.item_count("flour") == 2 and GameState.coins == 30, "buying flour from her")
+	check(not GameState.request_buy_from(P, "juniper", "goldore", 1) and not GameState.request_buy_from(P, "juniper", "flour", 9), "only what she sells, and only what you can pay for")
+	GameState.town["requests"]["marlow"] = {"id": "trout", "count": 2, "coins": 150}
+	GameState.items["trout"] = 1
+	check(not GameState.request_town_request(P, "marlow"), "a request needs everything it asks for")
+	GameState.items["trout"] = 2
+	check(GameState.request_town_request(P, "marlow") and GameState.coins == 180 and GameState.town_request("marlow").is_empty() and int(GameState.friends["marlow"]["points"]) == 40, "Marlow pays for his trout, and likes you for it")
+	GameState.town["requests"] = {}
+	GameState.wild_growth = false
+	for dawn in 6:
+		GameState.end_day(false)
+	var asked: int = 0
+	for keeper: String in GameState.town["requests"].keys():
+		var wish: Dictionary = GameState.town["requests"][keeper]
+		if GameState.species.has(str(wish["id"])) or GameState.ITEMS.has(str(wish["id"])):
+			asked += 1
+	check(asked >= 3 and not GameState.town["requests"].has("bristle"), "over a few mornings the townsfolk think of requests")
+	GameState.request_set_time(P, 3, 10 * 60, false)
+	GameState.items["minnow"] = 2
+	GameState.items["copper"] = 1
+	GameState.items["trout"] = 1
+	check(GameState.request_donate(P, "minnow") and GameState.item_count("minnow") == 1 and GameState.donated("minnow"), "a minnow for the museum")
+	check(not GameState.request_donate(P, "minnow") and not GameState.request_donate(P, "wheat"), "one of each, and only things it collects")
+	var before_gift: int = GameState.coins
+	GameState.request_donate(P, "copper")
+	GameState.request_donate(P, "trout")
+	check(GameState.town["museum"].size() == 3 and GameState.coins == before_gift + 150, "the third donation brings a thank-you")
+	GameState.coins = 15
+	check(not GameState.is_lucky(P) and GameState.request_wish(P) and GameState.coins == 5 and GameState.is_lucky(P), "a coin in the fountain brings luck today")
+	check(not GameState.request_wish(P) and GameState.coins == 5, "one wish a day")
+	GameState.energy[P] = 50
+	check(GameState.request_lookout(P) and GameState.get_energy(P) == 50 + GameState.LOOKOUT_ENERGY and not GameState.request_lookout(P), "the view from the lookout lifts your spirits once a day")
+	var river_fish: bool = true
+	GameState.energy[P] = 200
+	for cast in 12:
+		var before_fish: Dictionary = GameState.items.duplicate()
+		GameState.request_fish(P, true, true)
+		for id: String in GameState.items.keys():
+			if GameState.item_count(id) > int(before_fish.get(id, 0)) and not (GameState.RIVER_FISH.has(id) or id == "goldie"):
+				river_fish = false
+	check(river_fish, "the river has its own fish")
+	GameState.request_set_time(P, 3, 21 * 60, false)
+	var eels: int = 0
+	for cast in 30:
+		var had: int = GameState.item_count("eel")
+		GameState.energy[P] = 200
+		GameState.request_fish(P, true, true)
+		eels += GameState.item_count("eel") - had
+	check(eels > 0, "eels bite after dark")
+	GameState.request_set_time(P, 4, 10 * 60, false)
+	check(not GameState.is_lucky(P), "luck lasts the day")
+	var tree_at: Vector2i = tc.call(GameState.TOWN_ORCHARD.keys()[0])
+	GameState.objects[tree_at]["fruit"] = true
+	var fruit: String = GameState.TREES[GameState.object_kind(tree_at)]
+	var had_fruit: int = GameState.item_count(fruit)
+	check(GameState.request_harvest(P, tree_at) and GameState.item_count(fruit) == had_fruit + 1, "the town orchard's fruit is free to pick")
+	check(not GameState.request_chop(P, tc.call(GameState.TOWN_TREES.keys()[0])), "the town's trees aren't for cutting")
+	check(not GameState.request_till(P, GameState.town_arrival()) and not GameState.request_place(P, GameState.town_arrival(), "fence"), "and nothing is dug or built in town")
+	GameState.wild_growth = true
+	for dawn in 8:
+		GameState.end_day(false)
+	var town_greens: int = 0
+	for at: Vector2i in GameState.objects.keys():
+		if GameState.is_in_town(at) and GameState.FORAGE.has(GameState.object_kind(at)):
+			town_greens += 1
+			if not "*u".contains(GameState.town_tile(at)):
+				town_greens = -99
+	check(town_greens >= 1 and town_greens <= 4, "wild things turn up on the meadow and up on the cliff")
+	GameState.wild_growth = false
+	var town_before: String = JSON.stringify(GameState.town)
+	GameState.save_game()
+	GameState.new_game()
+	check(GameState.town["museum"].is_empty(), "a new garden has an empty museum")
+	GameState.load_game()
+	check(JSON.stringify(GameState.town) == town_before and GameState.donated("trout"), "the museum, requests and luck survive save and load")
 	GameState.new_game()
 
 	print("curfew and energy")

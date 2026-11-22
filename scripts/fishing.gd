@@ -10,8 +10,10 @@ const REEL_TIME := 9.0
 
 var player: Node2D
 var pond: Node2D
+var river: Node2D  # the town view, which draws the float in the river
 var stage: String = ""  # "", wait, bite, reel
 
+var _in_river: bool = false  # this cast is in the town's river, not the pond
 var _t: float = 0.0
 var _wait: float = 0.0
 var _marker: float = 0.0
@@ -39,13 +41,16 @@ func cast() -> void:
 	if GameState.get_energy(player.get("player_id")) < GameState.COST_FISH:
 		GameState.notice.emit("Too tired to fish")
 		return
+	_in_river = GameState.is_river(player.call("target_cell"))
+	if _in_river and river != null:
+		river.set("spot", player.call("target_cell"))
 	stage = "wait"
 	_t = 0.0
 	_wait = randf_range(1.2, 3.6)
 	visible = true
 	player.set("reading", true)
-	pond.set("fishing", true)
-	pond.set("bite", false)
+	_water().set("fishing", true)
+	_water().set("bite", false)
 	Sound.play("water")
 
 
@@ -53,10 +58,10 @@ func _finish(landed: bool, words: String) -> void:
 	stage = ""
 	visible = false
 	player.set("reading", false)
-	pond.set("fishing", false)
+	_water().set("fishing", false)
 	if words != "":
 		GameState.notice.emit(words)
-	GameState.request_fish(player.get("player_id"), landed)
+	GameState.request_fish(player.get("player_id"), landed, _in_river)
 
 
 func _process(delta: float) -> void:
@@ -69,7 +74,7 @@ func _process(delta: float) -> void:
 			if _t >= _wait:
 				stage = "bite"
 				_t = 0.0
-				pond.set("bite", true)
+				_water().set("bite", true)
 				Sound.play("plant")
 		"bite":
 			if _t > 1.0:
@@ -92,7 +97,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		stage = ""
 		visible = false
 		player.set("reading", false)
-		pond.set("fishing", false)
+		_water().set("fishing", false)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("use") or event.is_action_pressed("interact"):
 		get_viewport().set_input_as_handled()
@@ -106,7 +111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_marker = 0.0
 				_direction = 1.0
 				_zone = randf_range(0.25, 0.7)
-				pond.set("bite", false)
+				_water().set("bite", false)
 			"reel":
 				if absf(_marker - _zone) <= 0.11:
 					_hits += 1
@@ -142,3 +147,8 @@ func _paint() -> void:
 			_canvas.draw_rect(Rect2(BAR.position.x + _marker * BAR.size.x - 1.5, BAR.position.y - 2, 3, BAR.size.y + 4), Ui.ACCENT)
 			for i in HITS_NEEDED:  # progress fish
 				_canvas.draw_circle(Vector2(146 + i * 14, 142), 4, Color(0.36, 0.62, 0.86) if i < _hits else Color(0.3, 0.2, 0.16, 0.6))
+
+
+## Whichever water the line is in: the pond, or the town's river.
+func _water() -> Node2D:
+	return river if _in_river and river != null else pond

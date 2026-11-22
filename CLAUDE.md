@@ -45,6 +45,20 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   `scripts/social.gd` (emotes and chat). Tables: `MACHINES`, `SEED_LEVELS`,
   `FORAGE` in `GameState`. A machine's state lives on its object
   (`busy`, `ready`).
+- The town (`GameState.TOWN_*`): its own area at `TOWN_ORIGIN`, drawn from
+  `TOWN_MAP` (a letter per tile; `tools/town_art.py` reads it from
+  `game_state.gd` to paint `town_<season>.png`, the buildings, props and
+  townsfolk). `scripts/town_view.gd` draws the ground and water and adds the
+  buildings, props, trees, woods and people to the y-sorted layer. Use
+  `is_in_town(cell)`, `town_tile`, `town_building_at`, `town_prop_at`,
+  `person_at`. Walking up off `GARDEN_TRAIL_TOP` goes to town
+  (`Player.go_to_town`), down off `TOWN_GATE` back (`go_to_garden`).
+  `TOWNSFOLK` are the shopkeepers (hours, `sells`, `buys`, `wants`, `tabs`);
+  `shop.gd` is every shop screen (`open("stall")` or `open(keeper)`); rules
+  are `request_sell_to`, `request_buy_from`, `request_town_request`,
+  `request_donate`, `request_wish`, `request_lookout`; their state is
+  `GameState.town` (saved, mirrored with the economy). Villagers stand at
+  `TOWN_SPOTS` in town when not visiting; `person(id)` reads either table.
 - `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`
   (each blocks its base tile, a log two; use `scenery_at(cell)`, which is ""
@@ -161,7 +175,7 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   Tests, tools, docs and packaging are left out of the exported game.
 - Visual smoke test: `godot --path . res://tests/screenshot.tscn -- <output folder>`.
 - Whole map, one picture per season (add `blocked` to tint tiles that can't be
-  walked on): `godot --path . res://tests/map_shot.tscn -- <output folder>`.
+  walked on, `town` for the town): `godot --path . res://tests/map_shot.tscn -- <output folder>`.
 - The goodnight kiss, every frame in each home (add `film` for 20 pictures a
   second of it playing, darkening as in the game):
   `godot --path . res://tests/bed_shot.tscn -- <output folder>`.
