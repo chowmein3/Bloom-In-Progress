@@ -522,6 +522,51 @@ const TOWNSFOLK: Dictionary = {
 		"buys": ["tea", "salad", "stew", "pie", "omelette", "cocoa", "skewer", "supper", "cheese", "jam", "juice"],
 		"wants": ["@crop", "egg", "milk", "cheese", "jam"], "tabs": ["Request", "Wares", "Sell", "Gift"]},
 }
+## Favourite spots about town (tiles from its top-left corner), where people
+## stroll to in their daily routines.
+const TOWN_PLACES: Dictionary = {
+	"plaza_nw": Vector2i(16, 17), "plaza_ne": Vector2i(27, 17), "plaza_sw": Vector2i(16, 22), "plaza_se": Vector2i(27, 22),
+	"fountain_n": Vector2i(21, 18), "fountain_s": Vector2i(22, 21), "park": Vector2i(7, 27), "park_bench": Vector2i(10, 29),
+	"lookout": Vector2i(23, 4), "riverbank": Vector2i(38, 24), "riverbank_n": Vector2i(36, 18), "bridge": Vector2i(41, 15),
+	"dock": Vector2i(43, 12), "orchard": Vector2i(46, 21), "meadow": Vector2i(49, 33), "meadow_s": Vector2i(51, 35),
+	"museum_lawn": Vector2i(12, 8), "gate": Vector2i(27, 34), "carpenter_yard": Vector2i(21, 32), "fish_bank": Vector2i(46, 13),
+	"inn_steps": Vector2i(35, 17), "forge_yard": Vector2i(36, 23),
+}
+## How the townsfolk and villagers spend their days. Each list is [minute,
+## place] (minutes after midnight): from then on they walk to that place and
+## stay. Places: a TOWN_PLACES spot; "shop" (behind their counter), "back"
+## (the back of their building) and "home" (a villager's home); "inn_1" to
+## "inn_4" (the inn's stools). A keeper's day is: "back", `morning`, the
+## shop through its hours, `evening`, then "back" at `bed`; on their `rest`
+## day (weekday 0-6) the shop stays shut and `rest_day` replaces all that.
+## A villager's day is `day`, then "home" at `bed`. On rainy days anywhere
+## outdoors becomes an inn stool while the inn is open, or home.
+const ROUTINES: Dictionary = {
+	"bristle": {"rest": 3, "morning": [], "evening": [[1080, "fountain_n"], [1140, "inn_1"]], "bed": 1290,
+		"rest_day": [[540, "orchard"], [720, "plaza_nw"], [960, "park_bench"], [1140, "inn_1"]]},
+	"juniper": {"rest": 2, "morning": [], "evening": [[900, "park"], [1020, "meadow"], [1110, "inn_2"]], "bed": 1260,
+		"rest_day": [[600, "meadow"], [780, "fountain_s"], [960, "park"], [1110, "inn_2"]]},
+	"flint": {"rest": 6, "morning": [[420, "forge_yard"]], "evening": [[1020, "riverbank_n"], [1140, "inn_3"]], "bed": 1320,
+		"rest_day": [[540, "dock"], [780, "riverbank_n"], [1020, "forge_yard"], [1140, "inn_3"]]},
+	"marlow": {"rest": 4, "morning": [], "evening": [[840, "dock"], [1020, "bridge"], [1200, "inn_4"]], "bed": 1350,
+		"rest_day": [[420, "dock"], [720, "fish_bank"], [960, "bridge"], [1200, "inn_4"]]},
+	"birch": {"rest": 5, "morning": [[420, "carpenter_yard"]], "evening": [[1020, "carpenter_yard"], [1110, "plaza_sw"], [1200, "inn_1"]], "bed": 1320,
+		"rest_day": [[540, "orchard"], [780, "carpenter_yard"], [1020, "gate"], [1200, "inn_1"]]},
+	"sage": {"rest": 2, "morning": [[420, "lookout"]], "evening": [[1080, "museum_lawn"], [1170, "lookout"]], "bed": 1260,
+		"rest_day": [[480, "meadow"], [720, "meadow_s"], [900, "park"], [1080, "lookout"]]},
+	"quill": {"rest": 0, "morning": [[420, "museum_lawn"]], "evening": [[1080, "lookout"], [1170, "inn_2"]], "bed": 1290,
+		"rest_day": [[540, "lookout"], [780, "riverbank"], [960, "museum_lawn"], [1170, "inn_2"]]},
+	"clementine": {"rest": 6, "morning": [[420, "fountain_s"]], "evening": [[1020, "plaza_ne"], [1110, "fountain_s"], [1170, "inn_3"]], "bed": 1290,
+		"rest_day": [[540, "plaza_ne"], [720, "park_bench"], [960, "fountain_s"], [1170, "inn_3"]]},
+	"rosie": {"rest": 1, "morning": [[480, "orchard"], [600, "plaza_se"]], "evening": [], "bed": 1440,
+		"rest_day": [[600, "plaza_se"], [780, "meadow"], [960, "riverbank"], [1140, "inn_steps"]]},
+	"thistle": {"day": [[540, "park"], [780, "park_bench"], [1020, "plaza_sw"], [1080, "inn_4"]], "bed": 1260},
+	"pebble": {"day": [[480, "riverbank"], [720, "dock"], [900, "riverbank"], [1080, "bridge"]], "bed": 1230},
+	"maple": {"day": [[480, "meadow"], [780, "orchard"], [960, "meadow_s"], [1110, "fountain_n"]], "bed": 1230},
+}
+## How fast people walk about town, in tiles a game minute (about two
+## tiles a real second).
+const WALK_TILES_PER_MINUTE := 1.6
 ## Fish from the town's river (the pond has FISH).
 const RIVER_FISH: Array[String] = ["trout", "pike", "eel", "salmon"]
 ## What the museum collects, one of each, and what it gives at each count.
@@ -802,6 +847,9 @@ var sleeping: Dictionary = {}  # player id -> true, players in bed waiting for t
 ## Seconds from everyone being in bed to the next day, while the screen fades
 ## slowly to black (0 ends the day at once, for tests).
 var bedtime_fade: float = 3.2
+var _walker: AStarGrid2D  # paths about town (built once, from the map)
+var _paths: Dictionary = {}  # Vector4i(from, to) -> the path between two town tiles
+var _poses: Dictionary = {}  # where people are at a given moment (see pose_of)
 var _ending_day: bool = false  # the host is in end_day (the date is sent with the garden)
 var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
 ## The chance that, with two in bed, one leans over to kiss the other as the
@@ -1147,12 +1195,17 @@ func person(id: String) -> Dictionary:
 	return VILLAGERS.get(id, TOWNSFOLK.get(id, {}))
 
 
-## Whether one of the townsfolk is at their shop now.
+## Whether one of the townsfolk's shops is open now (not on their rest day).
 func is_open(id: String) -> bool:
-	if not TOWNSFOLK.has(id):
+	if not TOWNSFOLK.has(id) or is_rest_day(id):
 		return false
 	var hours: Array = TOWNSFOLK[id]["hours"]
 	return TimeManager.minutes >= int(hours[0]) and TimeManager.minutes < int(hours[1])
+
+
+## Whether today is one of the townsfolk's day off (their shop stays shut).
+func is_rest_day(id: String) -> bool:
+	return ROUTINES.has(id) and ROUTINES[id].has("rest") and TimeManager.day_index % 7 == int(ROUTINES[id]["rest"])
 
 
 ## "6am to 3pm" for a keeper's opening hours.
@@ -1172,19 +1225,130 @@ static func _clock_words(minutes: int) -> String:
 
 
 ## Where everyone in town is now, id -> cell (in town or in one of its
-## rooms): the townsfolk behind their counters while open and at the back of
-## their building otherwise; the villagers about town by day and at home at
-## night (and not at all while visiting the garden).
+## rooms), following their ROUTINES (not the villager visiting the garden).
 func people_in_town() -> Dictionary:
 	var here: Dictionary = {}
-	for id: String in TOWNSFOLK.keys():
-		here[id] = town_room_spot(TOWNSFOLK[id]["place"], "K" if is_open(id) else "H")
-	for id: String in VILLAGERS.keys():
-		if visitor_today() == id:
-			continue
-		var night: bool = TimeManager.minutes >= 21 * 60 or TimeManager.minutes < 8 * 60
-		here[id] = town_room_spot("home_" + id, "H") if night else town_cell(TOWN_SPOTS[id])
+	for id: String in ROUTINES.keys():
+		var pose: Dictionary = pose_of(id)
+		if not pose.is_empty():
+			here[id] = pose["cell"]
 	return here
+
+
+## Where someone is and what they're doing now: {"cell" (the tile they're
+## on), "point" (exact, in tiles, for drawing), "walking", "facing"}, or {}
+## while they're away visiting the garden. Worked out from the clock alone,
+## so every player sees the same.
+func pose_of(id: String, minute: float = -1.0) -> Dictionary:
+	if VILLAGERS.has(id) and visitor_today() == id:
+		return {}
+	if minute < 0.0:
+		minute = TimeManager.exact_minutes()
+	var key: String = "%s|%d|%.2f|%s|%d" % [id, TimeManager.day_index, minute, TimeManager.raining, festival_today()]
+	if _poses.has(key):
+		return _poses[key]
+	if _poses.size() > 200:
+		_poses.clear()
+	var plan: Array = routine(id)
+	var index: int = 0
+	for i in plan.size():
+		if float(plan[i][0]) <= minute:
+			index = i
+	var to: String = plan[index][1]
+	var from: String = plan[index - 1][1] if index > 0 else to
+	var pose: Dictionary = {"cell": place_cell(id, to), "walking": false, "facing": Vector2i.DOWN}
+	if from != to and (not _indoor_place(from) or not _indoor_place(to) or place_building(id, from) != place_building(id, to)):
+		var path: PackedVector2Array = town_path(place_anchor(id, from), place_anchor(id, to))
+		var along: float = (minute - float(plan[index][0])) * WALK_TILES_PER_MINUTE
+		if path.size() > 1 and along < path.size() - 1:
+			var step: int = int(along)
+			var a: Vector2 = path[step]
+			var b: Vector2 = path[mini(step + 1, path.size() - 1)]
+			var point: Vector2 = a.lerp(b, along - step)
+			var dir: Vector2 = b - a
+			pose = {"cell": TOWN_ORIGIN + Vector2i(point.round()), "point": Vector2(TOWN_ORIGIN) + point, "walking": true,
+				"facing": Vector2i(int(signf(dir.x)), 0) if absf(dir.x) > absf(dir.y) else Vector2i(0, int(signf(dir.y)))}
+	if not pose.has("point"):
+		pose["point"] = Vector2(pose["cell"])
+	_poses[key] = pose
+	return pose
+
+
+## Someone's plan for today: [[minute, place], ...] in order.
+func routine(id: String) -> Array:
+	var info: Dictionary = ROUTINES[id]
+	var plan: Array = []
+	if VILLAGERS.has(id):
+		plan = [[0, "home"]] + info["day"] + [[int(info["bed"]), "home"]]
+	elif is_rest_day(id):
+		plan = [[0, "back"]] + info["rest_day"] + [[int(info["bed"]), "back"]]
+	else:
+		var hours: Array = TOWNSFOLK[id]["hours"]
+		plan = [[0, "back"]] + info["morning"] + [[int(hours[0]), "shop"]] + info["evening"] + [[int(info["bed"]), "back"]]
+		if info["evening"].is_empty() and int(info["bed"]) > int(hours[1]):
+			plan.insert(plan.size() - 1, [int(hours[1]), "back"])
+	if TimeManager.raining:  # stay in out of the rain
+		var stool: int = 1 + (ROUTINES.keys().find(id) % 4)
+		for i in plan.size():
+			var place: String = plan[i][1]
+			if TOWN_PLACES.has(place):
+				var minute: int = int(plan[i][0])
+				plan[i] = [minute, "inn_%d" % stool if minute >= 720 and minute < 1440 and id != "rosie" else ("home" if VILLAGERS.has(id) else "back")]
+	return plan
+
+
+func _indoor_place(place: String) -> bool:
+	return not TOWN_PLACES.has(place)
+
+
+## The building a place is in ("" outdoors).
+func place_building(id: String, place: String) -> String:
+	match place:
+		"shop", "back": return TOWNSFOLK[id]["place"]
+		"home": return "home_" + id
+	if place.begins_with("inn_"):
+		return "inn"
+	return ""
+
+
+## The tile a place is on (in town, or in a room).
+func place_cell(id: String, place: String) -> Vector2i:
+	match place:
+		"shop": return town_room_spot(TOWNSFOLK[id]["place"], "K")
+		"back", "home": return town_room_spot(place_building(id, place), "H")
+	if place.begins_with("inn_"):
+		var stools: Array = town_room_spots("inn", "s")
+		return stools[clampi(int(place.trim_prefix("inn_")) - 1, 0, stools.size() - 1)]
+	return town_cell(TOWN_PLACES.get(place, Vector2i.ZERO))
+
+
+## Where a walk to or from a place starts or ends outdoors (in town tiles
+## from its corner): a building's doorstep, or the spot itself.
+func place_anchor(id: String, place: String) -> Vector2i:
+	var building: String = place_building(id, place)
+	if building != "":
+		return building_door(building) + Vector2i.DOWN - TOWN_ORIGIN
+	return TOWN_PLACES.get(place, Vector2i.ZERO)
+
+
+## The way between two town tiles (from its corner) along open ground.
+func town_path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
+	var key := Vector4i(from.x, from.y, to.x, to.y)
+	if _paths.has(key):
+		return _paths[key]
+	if _walker == null:
+		_walker = AStarGrid2D.new()
+		_walker.region = Rect2i(Vector2i.ZERO, TOWN_SIZE)
+		_walker.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+		_walker.update()
+		for y in TOWN_SIZE.y:
+			for x in TOWN_SIZE.x:
+				var local := Vector2i(x, y)
+				if not _town_ground(TOWN_ORIGIN + local) or TOWN_ORCHARD.has(local):
+					_walker.set_point_solid(local)
+	var path: PackedVector2Array = _walker.get_point_path(from, to) if _walker.is_in_boundsv(from) and _walker.is_in_boundsv(to) else PackedVector2Array()
+	_paths[key] = path
+	return path
 
 
 ## The room inside building `id`: its top-left corner (two rows of wall, then the floor).
@@ -1298,9 +1462,13 @@ func _town_ground(cell: Vector2i) -> bool:
 	return not TOWN_TREES.has(cell - TOWN_ORIGIN) and town_building_at(cell) == "" and town_prop_at(cell) == ""
 
 
-## Town ground a player may stand on (nobody and nothing solid there).
+## Town ground a player may stand on (nobody standing and nothing solid
+## there; people walking by don't block the way).
 func _town_free(cell: Vector2i) -> bool:
-	return _town_ground(cell) and person_at(cell) == "" and not is_solid(cell)
+	if not _town_ground(cell) or is_solid(cell):
+		return false
+	var who: String = person_at(cell)
+	return who == "" or bool(pose_of(who).get("walking", false))
 
 
 ## Where you arrive in town from the garden, and in the garden from town.

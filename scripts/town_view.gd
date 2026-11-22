@@ -147,8 +147,15 @@ static func people(layer: Node2D) -> Dictionary:
 
 
 static func refresh(sprites: Dictionary) -> void:
-	var here: Dictionary = GameState.people_in_town()
+	var bob: float = sin(Time.get_ticks_msec() / 90.0)
 	for id: String in sprites.keys():
-		sprites[id].visible = here.has(id)
-		if here.has(id):
-			sprites[id].position = Vector2(here[id] * TILE) + Vector2(8, 15)
+		var pose: Dictionary = GameState.pose_of(id)
+		var who: Sprite2D = sprites[id]
+		who.visible = not pose.is_empty()
+		if pose.is_empty():
+			continue
+		var walking: bool = bool(pose["walking"])
+		who.position = (Vector2(pose["point"]) * TILE + Vector2(8, 15)).round() + Vector2(0, -1 if walking and bob > 0.0 else 0)
+		var facing: Vector2i = pose["facing"]
+		if facing.x != 0:
+			who.flip_h = facing.x > 0

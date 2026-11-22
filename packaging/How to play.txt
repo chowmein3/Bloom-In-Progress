@@ -61,7 +61,8 @@ GOOD TO KNOW
            the hedgehog at the stall next to your home (face the stall,
            press Space).
   Town:    walk up the trail at the top of the garden. Shopkeepers stand
-           outside their shops while open; face one and press F. Bristle
+           behind their counters while open (and walk about town, visit
+           the inn and go home to bed otherwise); face one and press F. Bristle
            (seeds, animals, hats), Juniper the baker, Flint the
            blacksmith (better tools, pickaxe), Marlow the fishmonger,
            Birch the carpenter (bigger home, coop, barn, furniture), Sage

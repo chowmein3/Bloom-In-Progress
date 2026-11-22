@@ -103,14 +103,22 @@ func open(who: String = "stall") -> void:
 		_face.texture = Assets.texture("res://assets/sprites/keeper.png" if keeper == "bristle" else "res://assets/sprites/villager_%s.png" % keeper)
 		var lines: Array = info["lines"]
 		_speech.text = lines[(TimeManager.day_index + GameState.hearts(keeper)) % lines.size()]
+		if not GameState.is_open(keeper):
+			_speech.text = "%s The shop's shut %s, but it's nice to chat." % [_speech.text, "today" if GameState.is_rest_day(keeper) else "just now"]
 		GameState.request_talk(player.get("player_id"), keeper)  # the day's chat
 	Sound.play("page")
 	_rebuild()
 
 
-## The pages of this shop.
+## The pages of this shop (away from the counter, only a chat, their
+## request and a gift).
 func tabs() -> Array:
-	return ["Sell"] if keeper == "stall" else GameState.TOWNSFOLK[keeper]["tabs"]
+	if keeper == "stall":
+		return ["Sell"]
+	var pages: Array = GameState.TOWNSFOLK[keeper]["tabs"]
+	if not GameState.is_open(keeper):
+		pages = pages.filter(func(page: String) -> bool: return page == "Request" or page == "Gift")
+	return pages
 
 
 func close() -> void:

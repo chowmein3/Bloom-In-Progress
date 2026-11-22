@@ -226,7 +226,7 @@ func _after_join() -> void:
 	# The clock tower, used by the guest: both gardens jump together.
 	GameState.request_set_time(GUEST, 2 * 28 + 4, 20 * 60, false)
 	_expect(await _until(func() -> bool: return TimeManager.season() == 2 and TimeManager.minutes == 20 * 60, 10.0), "guest's clock tower change comes back from the host")
-	_expect(bool(GameState.plants[HOST_CELL]["dormant"]), "and the spring plant is dormant in fall on the guest's side")
+	_expect(await _until(func() -> bool: return bool(GameState.plants[HOST_CELL]["dormant"]), 10.0), "and the spring plant is dormant in fall on the guest's side")
 	await _wait(2.5)
 	await _shot("coop_guest_morning")
 

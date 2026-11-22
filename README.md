@@ -114,7 +114,11 @@ in the pause menu.
   lookout. Every building can be walked into: press F at its door while
   it's open (the cursor on a building shows its hours), and walk down off
   the mat to leave. Shopkeepers stand behind their counters; face one and
-  press F to talk, buy, sell, take on their request or give a gift. The
+  press F to talk, buy, sell, take on their request or give a gift. Outside
+  shop hours everyone keeps their own routine: a morning walk, an evening
+  at the inn or by the fountain, home to bed, and a day off each week. You
+  can still chat with them wherever they are, and on rainy days they shelter
+  at the inn. The
   museum shows every donation in a case, and Maple, Pebble and Thistle
   welcome visitors at home from 8am to 9pm:
   - **Bristle** (General Store): seeds, animals and feed, pantry, decor, hats.

@@ -1,10 +1,12 @@
 extends Node
 ## Saves a picture of the whole garden and its border, for checking scenery.
 ## Run (needs a display):
-##   godot --path . res://tests/map_shot.tscn -- <output folder> [blocked] [town]
+##   godot --path . res://tests/map_shot.tscn -- <output folder> [blocked] [town] [HH:MM]
 ## One picture per season; with "blocked", tiles that can't be walked on are
 ## tinted red so collisions can be compared with what is drawn. With "town",
-## the town up the trail instead of the garden (town_<season>.png).
+## the town up the trail instead of the garden (town_<season>.png). A time
+## such as 17:10 shows everyone where their routine puts them then (noon
+## otherwise).
 
 var out_dir: String = "user://"
 var show_blocked: bool = false
@@ -31,6 +33,9 @@ func _ready() -> void:
 	main.call("start_solo")
 	TimeManager.paused = true
 	TimeManager.minutes = 12 * 60
+	for arg: String in args:
+		if arg.contains(":"):
+			TimeManager.minutes = int(arg.get_slice(":", 0)) * 60 + int(arg.get_slice(":", 1))
 	for layer: Node in main.find_children("*", "CanvasLayer", true, false):
 		(layer as CanvasLayer).visible = false
 	var player: Node2D = main.get("player")

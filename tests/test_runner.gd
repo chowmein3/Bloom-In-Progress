@@ -962,6 +962,8 @@ func _ready() -> void:
 	GameState.request_set_time(P, 3, 13 * 60, false)  # one o'clock: every shop is open
 	var spots_ok: bool = true
 	for id: String in GameState.TOWNSFOLK.keys():
+		if GameState.is_rest_day(id):
+			continue  # their day off
 		var place: String = GameState.TOWNSFOLK[id]["place"]
 		var behind: Vector2i = GameState.town_room_spot(place, "K")
 		var front: Vector2i = behind + Vector2i(0, 2)
@@ -986,12 +988,46 @@ func _ready() -> void:
 	check(not GameState.can_walk(GameState.town_room_spot("inn", "C")) and GameState.can_walk(stools[0]) and not GameState.can_walk(GameState.town_room_spot("inn", "T")), "counters and tables are solid; the inn's stools can be stood at")
 	check(not GameState.can_drop_on(GameState.town_room_spot("store", "D") + Vector2i.UP) and not GameState.request_place(P, GameState.town_room_spot("store", "D") + Vector2i.UP, "fence"), "nothing is set down or dropped in someone else's building")
 	GameState.request_set_time(P, 3, 16 * 60, false)
-	check(not GameState.is_open("juniper") and not GameState.is_room_open("bakery") and GameState.person_at(GameState.town_room_spot("bakery", "K")) == "" and GameState.person_at(GameState.town_room_spot("bakery", "H")) == "juniper", "shops close: by four the baker's door is locked and she's in the back")
-	check(GameState.is_room_open("home_pebble") and GameState.is_room_open("store"), "but Pebble's door and the general store are open")
+	check(not GameState.is_open("juniper") and not GameState.is_room_open("bakery") and GameState.person_at(GameState.town_room_spot("bakery", "K")) == "" and GameState.people_in_town()["juniper"] == tc.call(GameState.TOWN_PLACES["park"]), "shops close: by four the baker has locked up and gone for a walk in the park")
+	check(GameState.is_room_open("home_pebble") and GameState.is_room_open("forge"), "but Pebble's door and the forge are open")
+	check(GameState.is_rest_day("bristle") and not GameState.is_open("bristle") and not GameState.is_room_open("store"), "and today is Bristle's day off: his store stays shut")
 	GameState.request_set_time(P, 3, 10 * 60, false)
 	check(not GameState.is_open("rosie") and GameState.hours_text("rosie") == "noon to midnight", "the inn opens at noon")
+	var places_ok: bool = true
+	for place: String in GameState.TOWN_PLACES.keys():
+		if GameState.town_path(GameState.town_arrival() - GameState.TOWN_ORIGIN, GameState.TOWN_PLACES[place]).size() < 2:
+			places_ok = false
+			print("    can't reach ", place)
+	check(places_ok, "every favourite spot in town can be walked to")
+	var walks_ok: bool = true
+	for rainy in [false, true]:
+		for weekday in 7:
+			GameState.request_set_time(P, 7 + weekday, 6 * 60, rainy)
+			for id: String in GameState.ROUTINES.keys():
+				var plan: Array = GameState.routine(id)
+				for i in range(1, plan.size()):
+					var leave: Vector2i = GameState.place_anchor(id, plan[i - 1][1])
+					var reach: Vector2i = GameState.place_anchor(id, plan[i][1])
+					if leave != reach and GameState.town_path(leave, reach).size() < 2:
+						walks_ok = false
+						print("    ", id, " can't walk ", plan[i - 1][1], " -> ", plan[i][1])
+					if int(plan[i][0]) < int(plan[i - 1][0]):
+						walks_ok = false
+						print("    ", id, "'s day goes backwards at ", plan[i])
+	check(walks_ok, "everyone's day, any weekday, rain or shine, is a walk that can be made")
+	GameState.request_set_time(P, 3, 15 * 60 + 4, false)
+	var walker: Dictionary = GameState.pose_of("juniper")
+	check(bool(walker.get("walking", false)) and GameState.is_in_town(walker["cell"]) and GameState.can_walk(walker["cell"]), "just after closing the baker is out walking, and doesn't block the way")
+	GameState.request_set_time(P, 3, 10 * 60, false)
+	check(GameState.people_in_town()["bristle"] == tc.call(GameState.TOWN_PLACES["orchard"]), "on his day off Bristle strolls in the orchard")
+	GameState.request_set_time(P, 8, 19 * 60 + 30, true)
+	var bristle_at: Vector2i = GameState.people_in_town()["bristle"]
+	check(GameState.town_room_of(bristle_at) == "inn" and GameState.town_room_tile(bristle_at) == "s", "on a rainy evening he sits at the inn instead")
+	GameState.request_set_time(P, 8, 23 * 60, true)
+	check(GameState.people_in_town()["bristle"] == GameState.town_room_spot("store", "H") and GameState.people_in_town()["thistle"] == GameState.town_room_spot("home_thistle", "H"), "and everyone is home at night")
+	GameState.request_set_time(P, 3, 13 * 60, false)
 	check(GameState.visitor_today() == "maple" and GameState.person_at(tc.call(GameState.TOWN_SPOTS["maple"])) == "", "Maple is visiting the garden today, so she isn't in town")
-	check(GameState.person_at(tc.call(GameState.TOWN_SPOTS["pebble"])) == "pebble" and GameState.request_talk(P, "pebble"), "but Pebble is, and can be talked to there")
+	check(GameState.people_in_town()["pebble"] == tc.call(GameState.TOWN_PLACES["dock"]) and GameState.person_at(tc.call(GameState.TOWN_PLACES["dock"])) == "pebble" and GameState.request_talk(P, "pebble"), "but Pebble is, fishing off the dock after lunch, and can be talked to there")
 	check(GameState.request_talk(P, "flint") and int(GameState.friends["flint"]["points"]) == 10, "a chat with one of the townsfolk counts towards friendship too")
 	check(GameState.request_gift(P, "flint", "wheat") == false, "a gift has to be in the backpack")
 	GameState.items["amethyst"] = 1

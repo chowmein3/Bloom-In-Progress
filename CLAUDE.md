@@ -67,7 +67,14 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   (`building_door`, `door_at`) goes in while `is_room_open`; walking down
   off the mat ("D") comes back out. Keepers stand at "K" behind their
   counter while open and at "H" otherwise; `talk_target` reaches across a
-  counter. `people_in_town()` says where everyone is (town or room cells);
+  counter. Everyone keeps a daily routine (`ROUTINES`: keepers have a
+  morning, shop hours, an evening, a bedtime and a weekday off; villagers a
+  day of favourite `TOWN_PLACES`; rain sends them to the inn or home),
+  worked out from the clock alone so every player sees the same:
+  `routine(id)` is the day's plan, `pose_of(id)` where someone is now
+  (walking along `town_path`, which never crosses the orchard), `is_open`
+  is false on a rest day. Walkers don't block the way; standing people do.
+  `people_in_town()` says where everyone is (town or room cells);
   `town_rooms_view.gd` draws the rooms and the museum's cases.
 - `scripts/festival_view.gd`: bunting and the 5pm party on festival days.
   Fixed trees, bushes, boulders, stumps and logs are `GameState.SCENERY`

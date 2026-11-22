@@ -674,6 +674,7 @@ func _refresh_all() -> void:
 
 func _process(_delta: float) -> void:
 	_update_light()  # every frame, so dusk deepens smoothly between clock ticks
+	TownView.refresh(_town_people)  # townsfolk walking about
 
 
 ## Warm daylight, purple dusk from 5pm, blue night from 8pm.

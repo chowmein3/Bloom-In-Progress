@@ -105,7 +105,13 @@ Maple, Pebble and Old Thistle.
   tanks, museum cases that fill with donations, the inn's bar and tables,
   the town hall's boards, beds at home).
 - **Townsfolk** (`TOWNSFOLK`), one per building, work behind their counter
-  while it's open and are at the back of their building otherwise. F across
+  while it's open and are at the back of their building otherwise. Each
+  keeps a daily routine (`ROUTINES`): a morning errand or stroll, the shop,
+  an evening out (the inn, the fountain, the riverbank), home to bed, and
+  one day off a week spent about town. Villagers wander between favourite
+  spots (`TOWN_PLACES`) when they aren't visiting the garden. Rain sends
+  everyone to the inn or home. People walk between places along real paths,
+  worked out from the clock, so both players see them in the same place. F across
   the counter opens their shop screen: chat (once a day, friendship as with the visitors), their request
   (`town.requests`, a new one some mornings, paid well), their wares
   (`sells`), what they pay extra for (`buys`, SPECIALTY times the usual
