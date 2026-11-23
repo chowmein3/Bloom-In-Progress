@@ -76,6 +76,19 @@ Godot 4.4 project, GDScript. Cozy co-op gardening game. Read `docs/DESIGN.md` fi
   is false on a rest day. Walkers don't block the way; standing people do.
   `people_in_town()` says where everyone is (town or room cells);
   `town_rooms_view.gd` draws the rooms and the museum's cases.
+- Quests: `scripts/stories.gd` holds the tables (`STORIES` a story per person
+  in steps talk/bring/deliver/find, `SCENES` heart scenes at 2 and 4 hearts,
+  `LOST`, `PROJECTS`); `GameState.Stories` reaches them. `moment(who)` says
+  what talking to someone does next (scene, story step, errand, story start)
+  and `request_moment(who, kind, choice)` does it; `scripts/moment.gd` is the
+  screen player.gd opens instead of a shop or chat when one is waiting.
+  Errands are on the mayor's Errands page (`request_errand`, new ones each
+  morning), lost things are "dropped" objects on town grass (`_drop_lost`).
+  Projects (`request_contribute`, the "J" board opens the mayor's Projects
+  page) add props in town once built (`town_prop_at` includes them; call
+  `_town_reshaped()` when what's built changes so walks are worked out
+  again). All of it lives in `GameState.town` (saved, mirrored); the journal's
+  Quests page lists it.
 - Festivals (`FESTIVALS`, day `FESTIVAL_DAY` of each season) are held in the
   town plaza: everyone's routine ends at the party (`PARTY_GATHER` to
   `PARTY_END`, `PARTY_SPOTS`, shops shut, the garden's visitor comes too) and

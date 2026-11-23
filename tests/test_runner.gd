@@ -1186,6 +1186,102 @@ func _ready() -> void:
 	check(JSON.stringify(GameState.town) == town_before and GameState.donated("trout"), "the museum, requests and luck survive save and load")
 	GameState.new_game()
 
+	print("stories, heart scenes, errands and town projects")
+	GameState.new_game()
+	GameState.request_set_time(P, 2, 10 * 60, false)
+	check(GameState.moment("bristle").is_empty(), "strangers have nothing to tell you")
+	GameState.friends["bristle"] = {"points": 100, "talked": false, "gifted": false, "rewards": 1}
+	check(GameState.moment("bristle")["kind"] == "start", "at one heart Bristle has a story to share")
+	check(not GameState.request_moment(P, "bristle", "scene") and GameState.request_moment(P, "bristle", "start"), "the screen's moment must match what's due")
+	check(GameState.story_step("bristle")["to"] == "thistle" and GameState.moment("thistle")["kind"] == "step", "the first step: go and ask Old Thistle")
+	GameState.request_moment(P, "thistle", "step")
+	GameState.request_moment(P, "quill", "step")
+	check(GameState.item_count("letter") == 1 and GameState.story_step("bristle")["do"] == "deliver", "Quill hands over a letter to carry back")
+	GameState.request_moment(P, "bristle", "step")
+	check(GameState.item_count("letter") == 0 and GameState.moment("bristle").is_empty(), "the letter is delivered; the last step waits on 3 sunpuffs")
+	GameState.produce["sunpuff"] = 2
+	GameState.items["sunpuff.gold"] = 1
+	var story_purse: int = GameState.coins
+	var story_seeds: int = GameState.seed_count("sunpuff")
+	check(GameState.request_moment(P, "bristle", "step") and GameState.story_done("bristle"), "any quality counts, and the story is done")
+	check(GameState.coins == story_purse + 300 and GameState.seed_count("sunpuff") == story_seeds + 10 and GameState.total_of("sunpuff") == 0, "its reward is paid")
+	check(GameState.moment("bristle").is_empty() and GameState.hearts("bristle") >= 1, "and Bristle has nothing more to ask")
+	GameState.friends["juniper"] = {"points": 100, "talked": false, "gifted": false, "rewards": 1}
+	GameState.request_moment(P, "juniper", "start")
+	var q_lost_at := Vector2i(-1, -1)
+	for cell: Vector2i in GameState.objects.keys():
+		if GameState.object_kind(cell) == "dropped" and str(GameState.objects[cell]["key"]) == "item:recipecard":
+			q_lost_at = cell
+	check(GameState.is_in_town(q_lost_at) and GameState.can_walk(q_lost_at) and GameState.town_tile(q_lost_at) == ".", "Juniper's recipe card is lost on the grass somewhere in town")
+	check(GameState.request_harvest(P, q_lost_at) and GameState.item_count("recipecard") == 1, "and can be picked up")
+	check(GameState.request_moment(P, "juniper", "step") and GameState.story_step("juniper")["id"] == "honey", "taking it back moves her story on")
+	GameState.friends["flint"] = {"points": 200, "talked": false, "gifted": false, "rewards": 2}
+	check(GameState.scene_due("flint") == 2 and GameState.moment("flint")["kind"] == "scene" and GameState.moment("flint")["choices"].size() == 3, "at two hearts a scene comes first, with three replies")
+	check(not GameState.request_moment(P, "flint", "scene", 5) and GameState.request_moment(P, "flint", "scene", 0), "a reply has to be one of them")
+	check(int(GameState.friends["flint"]["points"]) == 240 and GameState.scene_due("flint") == 0 and GameState.moment("flint")["kind"] == "start", "the kind reply wins friendship; then his story is next")
+	GameState.friends["flint"]["points"] = 400
+	GameState.friends["flint"]["rewards"] = 4
+	check(GameState.scene_due("flint") == 4, "and another scene waits at four hearts")
+	check(GameState.town["errands"].size() == 2, "two errands are up on the town hall's board")
+	GameState.town["errands"] = [{"do": "deliver", "from": "marlow", "to": "sage", "id": "parcel", "coins": 60, "taken": false},
+		{"do": "find", "from": "rosie", "to": "rosie", "id": "locket", "coins": 90, "taken": false}]
+	check(GameState.request_errand(P, 0) and GameState.item_count("parcel") == 1 and not GameState.request_errand(P, 0), "taking on a delivery hands over the parcel (once)")
+	var errand_purse: int = GameState.coins
+	check(GameState.moment("sage")["kind"] == "errand" and GameState.request_moment(P, "sage", "errand"), "Sage takes the parcel")
+	check(GameState.coins == errand_purse + 60 and GameState.item_count("parcel") == 0 and GameState.town["errands"].size() == 1, "and the errand pays and comes off the board")
+	GameState.request_errand(P, 0)
+	var q_locket_at := Vector2i(-1, -1)
+	for cell: Vector2i in GameState.objects.keys():
+		if GameState.object_kind(cell) == "dropped" and str(GameState.objects[cell]["key"]) == "item:locket":
+			q_locket_at = cell
+	check(GameState.is_in_town(q_locket_at) and GameState.moment("rosie").is_empty(), "Rosie's locket is somewhere in town, and she waits for it")
+	GameState.request_harvest(P, q_locket_at)
+	check(GameState.request_moment(P, "rosie", "errand") and GameState.town["errands"].is_empty(), "finding it and taking it back finishes the errand")
+	GameState.end_day(false)
+	check(GameState.town["errands"].size() == 2, "new errands go up in the morning")
+	GameState.items["wood"] = 5
+	check(GameState.request_contribute(P, "benches", "wood") and GameState.project_needs("benches", "wood") == 7 and GameState.item_count("wood") == 0, "wood goes towards the riverside benches")
+	check(not GameState.request_contribute(P, "benches", "copper") and not GameState.request_contribute(P, "benches", "wood"), "only what's wanted, and only what you have")
+	var q_bench: Vector2i = GameState.town_cell(GameState.Stories.PROJECTS["benches"]["props"].keys()[0])
+	check(GameState.can_walk(q_bench) and GameState.town_prop_at(q_bench) == "", "the q_bench isn't there yet")
+	GameState.items["wood"] = 20
+	GameState.items["stone"] = 20
+	var project_purse: int = GameState.coins
+	GameState.request_contribute(P, "benches", "wood")
+	check(GameState.request_contribute(P, "benches", "stone") and GameState.project_built("benches") and GameState.item_count("wood") == 13 and GameState.item_count("stone") == 14, "the last stone finishes it")
+	check(GameState.coins == project_purse + 200 and GameState.town_prop_at(q_bench) == "bench" and not GameState.can_walk(q_bench), "everyone is paid, and the benches stand by the river")
+	check(not GameState.request_contribute(P, "benches", "wood"), "a finished project takes no more")
+	for project: String in GameState.Stories.PROJECTS.keys():
+		if not GameState.project_built(project):
+			GameState.town["built"].append(project)
+	GameState._town_reshaped()
+	var q_walks_ok: bool = true
+	for weekday in 7:
+		GameState.request_set_time(P, 7 + weekday, 6 * 60, false)
+		for id: String in GameState.ROUTINES.keys():
+			var q_plan: Array = GameState.routine(id)
+			for i in range(1, q_plan.size()):
+				var q_leave: Vector2i = GameState.place_anchor(id, q_plan[i - 1][1])
+				var q_reach: Vector2i = GameState.place_anchor(id, q_plan[i][1])
+				if q_leave != q_reach and GameState.town_path(q_leave, q_reach).size() < 2:
+					q_walks_ok = false
+					print("    ", id, " can't walk ", q_plan[i - 1][1], " -> ", q_plan[i][1])
+	check(q_walks_ok, "with every project built everyone can still walk their day")
+	var q_props_ok: bool = true
+	for project: String in GameState.Stories.PROJECTS.keys():
+		for at: Vector2i in GameState.Stories.PROJECTS[project]["props"].keys():
+			if GameState.TOWN_MAP[at.y][at.x] != "." or GameState.TOWN_PLACES.values().has(at) or GameState.TOWN_PROPS.has(at):
+				q_props_ok = false
+				print("    ", project, " stands on ", at)
+	check(q_props_ok, "project props stand on open grass, off everyone's favourite spots")
+	var quests_before: String = JSON.stringify(GameState.town)
+	GameState.save_game()
+	GameState.new_game()
+	check(GameState.town["built"].is_empty() and GameState.town_prop_at(q_bench) == "", "a new garden's town has no projects")
+	GameState.load_game()
+	check(JSON.stringify(GameState.town) == quests_before and GameState.town_prop_at(q_bench) == "bench", "stories, scenes, errands and projects survive save and load")
+	GameState.new_game()
+
 	print("curfew and energy")
 	GameState.energy[P] = 1
 	check(not GameState.request_till(P, Vector2i(8, 8)), "too tired to till")

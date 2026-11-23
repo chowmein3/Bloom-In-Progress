@@ -101,7 +101,8 @@ func _run_host() -> void:
 	_expect(GameState.get_energy(GUEST) <= 96, "guest's energy is tracked by the host")
 	var guest_node: Node2D = main.get("remote_players")[GUEST]
 	_expect(await _until(func() -> bool: return guest_node.position.x < 15.4 * 16, 10.0), "guest's movement shows on the host's screen")
-	_expect(await _until(func() -> bool: return GameState.hat_of(GUEST) == "flower" and int(GameState.bag_of(GUEST)["coins"]) == 10, 10.0), "guest's hat purchase reaches the host, paid from the guest's own purse")
+	var paid: Array = [10, 10 + GameState.Stories.ERRAND_DELIVER_COINS, 10 + GameState.Stories.ERRAND_FIND_COINS]  # (the guest may have run an errand already)
+	_expect(await _until(func() -> bool: return GameState.hat_of(GUEST) == "flower" and paid.has(int(GameState.bag_of(GUEST)["coins"])), 10.0), "guest's hat purchase reaches the host, paid from the guest's own purse")
 	_expect(GameState.coins == 160, "the host's purse is untouched")
 	_expect(await _until(func() -> bool: return GameState.object_kind(Vector2i(3, 14)) == "path", 10.0), "a stepping stone the guest crafted and placed appears for the host")
 	_expect(not GameState.objects.has(DROP_CELL) and int(GameState.bag_of(GUEST)["items"].get("stone", 0)) == 1 and GameState.item_count("stone") == 0, "the guest picked up the stone and used it")
@@ -208,6 +209,28 @@ func _after_join() -> void:
 		return river[0] != "", 10.0), "guest fishes the town's river")
 	GameState.request_donate(GUEST, river[0])
 	_expect(await _until(func() -> bool: return GameState.donated(river[0]), 10.0), "and gives the catch to the museum, which the host's town keeps")
+	var errands: Array = GameState.town["errands"]
+	var pick: int = -1
+	for i in errands.size():
+		if errands[i]["do"] == "deliver" and not bool(errands[i]["taken"]):
+			pick = i
+	if pick == -1:  # the board had only lost things today: look for one instead
+		pick = 0
+	var errand: Dictionary = errands[pick].duplicate()
+	GameState.request_errand(GUEST, pick)
+	_expect(await _until(func() -> bool: return GameState.town["errands"].any(func(e: Dictionary) -> bool: return bool(e["taken"])), 10.0), "the guest takes on an errand from the town hall's board")
+	if errand["do"] == "find":
+		var spot: Array = [Vector2i(-1, -1)]
+		_expect(await _until(func() -> bool:
+			for cell: Vector2i in GameState.objects.keys():
+				if GameState.object_kind(cell) == "dropped" and str(GameState.objects[cell]["key"]) == "item:" + str(errand["id"]):
+					spot[0] = cell
+			return spot[0] != Vector2i(-1, -1), 10.0), "the lost thing turns up in town")
+		GameState.request_harvest(GUEST, spot[0])
+	_expect(await _until(func() -> bool: return GameState.item_count(errand["id"]) == 1 and GameState.moment(errand["to"]).get("kind", "") == "errand", 10.0), "with it in the guest's backpack, %s has an errand to finish" % errand["to"])
+	var errand_purse: int = GameState.coins
+	GameState.request_moment(GUEST, errand["to"], "errand")
+	_expect(await _until(func() -> bool: return GameState.coins == errand_purse + int(errand["coins"]) and GameState.item_count(errand["id"]) == 0, 10.0), "handing it over pays the guest")
 	await _hold(KEY_A, 0.4)  # walk left so the host can see us move
 	await _wait(0.5)
 	main.get("player").call("go_inside")

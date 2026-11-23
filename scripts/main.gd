@@ -31,6 +31,7 @@ const Bin := preload("res://scripts/bin.gd")
 const AnimalView := preload("res://scripts/animal_view.gd")
 const MineView := preload("res://scripts/mine_view.gd")
 const Villager := preload("res://scripts/villager.gd")
+const Moment := preload("res://scripts/moment.gd")
 const Notices := preload("res://scripts/notices.gd")
 const GreenhouseView := preload("res://scripts/greenhouse_view.gd")
 const Social := preload("res://scripts/social.gd")
@@ -208,6 +209,14 @@ func _ready() -> void:
 	villager.player = player
 	add_child(villager)
 	player.villager_requested.connect(villager.open)
+	var moment := Moment.new()
+	moment.player = player
+	add_child(moment)
+	player.moment_requested.connect(moment.open)
+	player.projects_requested.connect(func() -> void:
+		shop.open("clementine")
+		if shop.visible:
+			shop.show_tab("Projects"))
 	var notices := Notices.new()
 	notices.player = player
 	add_child(notices)
@@ -278,6 +287,9 @@ func _ready() -> void:
 	GameState.object_changed.connect(_refresh_thing)
 	GameState.day_advanced.connect(_on_day_advanced)
 	GameState.economy_changed.connect(_on_area_changed)
+	GameState.economy_changed.connect(func() -> void: TownView.show_projects(get_tree()))
+	GameState.state_reloaded.connect(func() -> void: TownView.show_projects(get_tree()))
+	TownView.show_projects(get_tree())
 	GameState.state_reloaded.connect(_on_area_changed)
 	GameState.state_reloaded.connect(_rebuild_views)
 	TimeManager.time_changed.connect(_update_light)

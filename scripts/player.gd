@@ -20,6 +20,8 @@ signal bake_requested  # used the oven
 signal mail_requested
 signal board_requested
 signal villager_requested(who: String)  # spoke to a villager
+signal moment_requested(who: String)  # spoke to someone with a heart scene, story or errand waiting
+signal projects_requested  # read the town projects board in the town hall
 signal fish_requested  # cast the rod into the pond
 signal acted  # swung a tool or used a hand (for the little animation)
 
@@ -579,10 +581,12 @@ func use_hand() -> void:
 				go_into_room(building)
 			else:
 				GameState.notice.emit("Closed. %s" % GameState.describe_cell(target).get_slice(":", 1).strip_edges())
-		"projects": GameState.notice.emit("The town projects board")
+		"projects": projects_requested.emit()
 		"talk":
 			var who: String = GameState.talk_target(target)
-			if GameState.TOWNSFOLK.has(who):
+			if not GameState.moment(who).is_empty():
+				moment_requested.emit(who)
+			elif GameState.TOWNSFOLK.has(who):
 				shop_requested.emit(who)
 			else:
 				villager_requested.emit(who)

@@ -7,6 +7,7 @@ extends CanvasLayer
 
 const Assets := preload("res://scripts/assets.gd")
 const Ui := preload("res://scripts/ui_style.gd")
+const Stories := preload("res://scripts/stories.gd")
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 const FESTIVAL_HINTS: Array[String] = [
 	"Enter your finest harvest in the show!",
@@ -193,6 +194,8 @@ func _rebuild() -> void:
 		"Donate": _fill_donate()
 		"Board": _fill_board()
 		"Festival": _fill_festival()
+		"Errands": _fill_errands()
+		"Projects": _fill_projects()
 
 
 ## One line of the list: picture, name with a smaller note, price, buttons.
@@ -521,6 +524,37 @@ func _fill_entries(verb: String, thanks: String, skip: Array = []) -> void:
 		])
 	if not any:
 		_list.add_child(Ui.label("No harvest in your backpack to put in.", Ui.FAINT, 5))
+
+
+## Errands on the town hall's board: take one on, then see it through.
+func _fill_errands() -> void:
+	var me: int = player.get("player_id")
+	if GameState.town["errands"].is_empty():
+		_list.add_child(Ui.label("No errands today. New ones go up most mornings.", Ui.FAINT, 5))
+	for index in GameState.town["errands"].size():
+		var errand: Dictionary = GameState.town["errands"][index]
+		var taken: bool = bool(errand["taken"])
+		var note: String = "Under way: talk to %s when you have it." % GameState.person(errand["to"])["name"] if taken else "Pays %d coins, and makes friends." % int(errand["coins"])
+		_row(_item_icon(errand["id"], false), GameState.errand_text(errand), note, str(int(errand["coins"])), [
+			_button("Take it on", not taken, func() -> void: GameState.request_errand(me, index), "Thank you! The town runs on helping hands."),
+		])
+
+
+## The town projects board: give what you have towards each project.
+func _fill_projects() -> void:
+	var me: int = player.get("player_id")
+	for project: String in Stories.PROJECTS.keys():
+		var info: Dictionary = Stories.PROJECTS[project]
+		if GameState.project_built(project):
+			_row(null, "%s: built!" % info["name"], info["text"], "", [])
+			continue
+		_row(null, info["name"], "%s Everyone gets %d coins when it's built." % [info["text"], int(info["coins"])], "", [])
+		for id: String in info["needs"].keys():
+			var left: int = GameState.project_needs(project, id)
+			var have: int = GameState.total_of(id)
+			_row(_item_icon(id, false), "  %s: %d of %d given" % [GameState.name_of(id), int(info["needs"][id]) - left, int(info["needs"][id])], "You have %d" % have if left > 0 else "Done", "", [
+				_button("Give", left > 0 and have > 0, func() -> void: GameState.request_contribute(me, project, id), "Every bit helps!"),
+			])
 
 
 ## The town's notice board, at the town hall.

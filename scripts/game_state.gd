@@ -29,6 +29,8 @@ signal economy_changed  # coins, upgrades, hats owned or hats worn changed
 signal bedtime_started(kiss_by: int)  # everyone is in bed and the fade begins; kiss_by: who leans over for a kiss, or 0
 signal scenery_hit(cell: Vector2i, felled: bool)  # an axe struck a tree, stump or log; `felled` when it came down
 
+## Stories, heart scenes, errands and town projects (tables in stories.gd).
+const Stories := preload("res://scripts/stories.gd")
 const SPECIES_PATHS: Array[String] = [
 	"res://data/plants/sunpuff.tres",
 	"res://data/plants/moonbell.tres",
@@ -316,7 +318,7 @@ const TOWN_PROPS: Dictionary = {
 	Vector2i(36, 21): "barrel", Vector2i(50, 9): "crate", Vector2i(29, 36): "signpost", Vector2i(50, 11): "barrel",
 	Vector2i(17, 19): "planter", Vector2i(26, 19): "planter", Vector2i(17, 21): "planter", Vector2i(26, 21): "planter",
 }
-const TOWN_PROP_SIZES: Dictionary = {"fountain": Vector2i(2, 2), "bench": Vector2i(2, 1), "lumber": Vector2i(2, 1)}
+const TOWN_PROP_SIZES: Dictionary = {"fountain": Vector2i(2, 2), "bench": Vector2i(2, 1), "lumber": Vector2i(2, 1), "bandstand": Vector2i(2, 2)}
 ## Trees (not for cutting: they belong to the town).
 const TOWN_TREES: Dictionary = {
 	Vector2i(9, 2): "oak", Vector2i(18, 2): "pine", Vector2i(36, 2): "maple", Vector2i(49, 2): "pine", Vector2i(2, 3): "birch",
@@ -513,7 +515,7 @@ const TOWNSFOLK: Dictionary = {
 		"lines": ["Slow and steady makes a good town.", "The notice board is how this town looks after itself.", "Our festivals are the heart of the valley."],
 		"loves": ["pie", "juice", "goldie"], "likes": ["cheese", "jam", "honey", "lanternsquash"], "dislikes": ["minnow", "fiber"],
 		"rewards": [{"coins": 200}, {"items": {"lantern": 2}}, {"coins": 350}, {"items": {"birdbath": 1}}, {"coins": 600}],
-		"sells": {}, "buys": [], "wants": ["@crop"], "tabs": ["Request", "Board", "Gift"]},
+		"sells": {}, "buys": [], "wants": ["@crop"], "tabs": ["Request", "Board", "Errands", "Projects", "Gift"]},
 	"rosie": {"name": "Rosie", "what": "the innkeeper", "place": "inn", "title": "The Snug Mug", "hours": [720, 1440],
 		"lines": ["Pull up a stool, the stew's on.", "A hot meal fixes most things.", "Bring me good food and I'll pay a fair price for it."],
 		"loves": ["juice", "cheese", "stew"], "likes": ["jam", "salad", "omelette", "melonbub"], "dislikes": ["stone", "copper"],
@@ -698,6 +700,16 @@ const ITEMS: Dictionary = {
 	"tonic": {"name": "Herbal Tonic", "kind": "meal", "energy": 60, "price": 50, "blurb": "Restores 60 energy. From Sage's apothecary."},
 	"bottleship": {"name": "Ship in a Bottle", "kind": "decor", "solid": true, "blurb": "From Marlow's fish shack. Smells faintly of the sea."},
 	"firefly_jar": {"name": "Firefly Jar", "kind": "decor", "solid": true, "blurb": "Caught on Firefly Night. It glows softly."},
+	# Quest items: carried for someone in town (Stories), never sold.
+	"parcel": {"name": "Parcel", "kind": "quest", "blurb": "Tied up with string. Not yours to open."},
+	"letter": {"name": "Letter", "kind": "quest", "blurb": "Sealed with wax."},
+	"recipecard": {"name": "Recipe Card", "kind": "quest", "blurb": "Juniper's grandmother's honey cake. A bit floury."},
+	"oldmap": {"name": "Old Map", "kind": "quest", "blurb": "The valley before the town. There's an X on it."},
+	"spectacles": {"name": "Spectacles", "kind": "quest", "blurb": "Old Thistle's reading glasses."},
+	"keyring": {"name": "Keyring", "kind": "quest", "blurb": "Bristle's keys. One of them must open the store."},
+	"locket": {"name": "Locket", "kind": "quest", "blurb": "Rosie's locket, with her gran inside."},
+	"scarf": {"name": "Scarf", "kind": "quest", "blurb": "Maple's scarf, striped like a bee."},
+	"toyboat": {"name": "Toy Boat", "kind": "quest", "blurb": "Pebble's toy boat. It floats!"},
 	"fern": {"name": "Potted Fern", "kind": "decor", "solid": true, "cost": 80, "blurb": "A bit of the garden indoors."},
 	"lamp": {"name": "Floor Lamp", "kind": "decor", "solid": true, "cost": 120, "blurb": "Cosy light."},
 	"rug": {"name": "Round Rug", "kind": "decor", "solid": false, "flat": true, "cost": 150, "blurb": "Soft underfoot. Can be walked on."},
@@ -852,7 +864,7 @@ var friends: Dictionary = {}  # villager or townsfolk id -> {"points", "talked",
 ## The town: the townsfolk's requests (id -> {"id", "count", "coins"}), the
 ## museum's collection, and the day each player last made a wish at the
 ## fountain ("luck") or took in the view ("looked"), by str(player id).
-var town: Dictionary = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
+var town: Dictionary = {"requests": {}, "museum": [], "luck": {}, "looked": {}, "stories": {}, "scenes": {}, "errands": [], "projects": {}, "built": []}
 var bin: Dictionary:  # what this player put in the shipping bin: id -> count, sold overnight
 	get: return _bag()["bin"]
 	set(value): _bag()["bin"] = value
@@ -872,6 +884,7 @@ var bedtime_fade: float = 3.2
 var _walker: AStarGrid2D  # paths about town (built once, from the map)
 var _paths: Dictionary = {}  # Vector4i(from, to) -> the path between two town tiles
 var _poses: Dictionary = {}  # where people are at a given moment (see pose_of)
+var _shape: int = 0  # town projects built when the walks were last worked out
 var _ending_day: bool = false  # the host is in end_day (the date is sent with the garden)
 var _bedtime: int = 0  # bumped when bedtime starts or is called off, so a stale fade does nothing
 ## The chance that, with two in bed, one leans over to kiss the other as the
@@ -925,7 +938,7 @@ func new_game() -> void:
 	wanted = {}
 	animals = []
 	friends = {}
-	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
+	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}, "stories": {}, "scenes": {}, "errands": [], "projects": {}, "built": []}
 	mail = []
 	quests = []
 	stats = {"requests": 0, "cooked": {}, "fish": {}}
@@ -935,6 +948,8 @@ func new_game() -> void:
 	outfits = {}
 	_fill_mine()
 	_plant_orchard()
+	_town_reshaped()
+	_post_errands()
 	for pid: int in energy.keys():
 		energy[pid] = MAX_ENERGY
 	TimeManager.reset()
@@ -1202,6 +1217,11 @@ func town_prop_at(cell: Vector2i) -> String:
 		var kind: String = TOWN_PROPS[corner]
 		if Rect2i(corner, TOWN_PROP_SIZES.get(kind, Vector2i.ONE)).has_point(at):
 			return kind
+	for project: String in town["built"]:
+		var props: Dictionary = Stories.PROJECTS[project]["props"]
+		for corner: Vector2i in props.keys():
+			if Rect2i(corner, TOWN_PROP_SIZES.get(props[corner], Vector2i.ONE)).has_point(at):
+				return props[corner]
 	return ""
 
 
@@ -1828,6 +1848,241 @@ func _do_sky_lantern(player_id: int) -> bool:
 	return true
 
 
+# ----- quests: stories, heart scenes, errands, town projects
+
+## The step `who`'s story is on ({} before it starts and once it's done).
+func story_step(who: String) -> Dictionary:
+	var at: int = int(town["stories"].get(who, -1))
+	var steps: Array = Stories.STORIES.get(who, {}).get("steps", [])
+	return steps[at] if at >= 0 and at < steps.size() else {}
+
+
+func story_done(who: String) -> bool:
+	return Stories.STORIES.has(who) and int(town["stories"].get(who, -1)) >= Stories.STORIES[who]["steps"].size()
+
+
+## The heart scene `who` has waiting (2 or 4), or 0.
+func scene_due(who: String) -> int:
+	for level: int in [2, 4]:
+		if Stories.SCENES.get(who, {}).has(level) and hearts(who) >= level and not town["scenes"].get(who, []).has(level):
+			return level
+	return 0
+
+
+## Whether the player has what a story step or errand asks for.
+func _step_ready(step: Dictionary) -> bool:
+	match str(step["do"]):
+		"talk": return true
+		"bring": return total_of(step["id"]) >= int(step["count"])
+	return item_count(step["id"]) >= 1
+
+
+## What happens next when talking to `who`, or {}: a heart scene, a story
+## step or errand they're the one to finish, or their story starting.
+##   {"kind": "scene"|"step"|"errand"|"start", "lines": [...], "choices": [...], ...}
+## Worked out the same way on the host, so the rule matches the screen.
+func moment(who: String) -> Dictionary:
+	if person(who).is_empty():
+		return {}
+	var level: int = scene_due(who)
+	if level > 0:
+		var scene: Dictionary = Stories.SCENES[who][level]
+		return {"kind": "scene", "level": level, "lines": scene["lines"], "choices": scene["choices"].map(func(c: Array) -> String: return c[0])}
+	for giver: String in Stories.STORIES.keys():
+		var step: Dictionary = story_step(giver)
+		if not step.is_empty() and step["to"] == who and _step_ready(step):
+			var ask: String = "Is that for me?"
+			var button: String = "Hand it over"
+			match str(step["do"]):
+				"talk":
+					ask = step["thanks"]
+					button = "Thank you!"
+				"bring":
+					ask = "Have you brought the %d %s?" % [int(step["count"]), name_of(step["id"])]
+					button = "Hand over %d %s" % [int(step["count"]), name_of(step["id"])]
+				"find":
+					ask = "Is that my %s? Where did you find it?" % name_of(step["id"]).to_lower()
+			return {"kind": "step", "giver": giver, "lines": [ask], "choices": [button]}
+	for index in town["errands"].size():
+		var errand: Dictionary = town["errands"][index]
+		if bool(errand["taken"]) and errand["to"] == who and _step_ready(errand):
+			var ask: String = "A parcel from %s? For me?" % person(errand["from"])["name"] if errand["do"] == "deliver" else "My %s! You found it?" % name_of(errand["id"]).to_lower()
+			return {"kind": "errand", "index": index, "lines": [ask], "choices": ["Hand it over"]}
+	if Stories.STORIES.has(who) and not town["stories"].has(who) and hearts(who) >= int(Stories.STORIES[who]["hearts"]):
+		return {"kind": "start", "lines": Stories.STORIES[who]["intro"], "choices": ["I'll help!"]}
+	return {}
+
+
+## Doing what moment(who) offers; `choice` picks a reply in a heart scene.
+func _do_moment(player_id: int, who: String, kind: String, choice: int) -> bool:
+	var now: Dictionary = moment(who)
+	if now.is_empty() or now["kind"] != kind:
+		return false
+	match kind:
+		"scene":
+			var level: int = now["level"]
+			var replies: Array = Stories.SCENES[who][level]["choices"]
+			if choice < 0 or choice >= replies.size():
+				return false
+			var seen: Array = town["scenes"].get(who, [])
+			seen.append(level)
+			town["scenes"][who] = seen
+			_notify(player_id, "%s: %s" % [person(who)["name"], replies[choice][1]])
+			_befriend(player_id, who, int(replies[choice][2]))
+		"step":
+			var giver: String = now["giver"]
+			var step: Dictionary = story_step(giver)
+			match str(step["do"]):
+				"bring": _take_any(step["id"], int(step["count"]))
+				"deliver", "find": _take(step["id"], 1)
+			town["stories"][giver] = int(town["stories"][giver]) + 1
+			var words: String = "%s: %s" % [person(who)["name"], step["thanks"]]
+			if story_done(giver):
+				var story: Dictionary = Stories.STORIES[giver]
+				words += "\nStory complete: %s! %s" % [story["title"], ", ".join(_give(story["reward"]))]
+				_befriend(player_id, giver, 60)
+			else:
+				_start_step(giver)
+				words += "\nNext: %s" % story_step(giver)["say"]
+				_befriend(player_id, who, 10)
+			_notify(player_id, words)
+		"errand":
+			var errand: Dictionary = town["errands"][int(now["index"])]
+			_take(errand["id"], 1)
+			town["errands"].remove_at(int(now["index"]))
+			coins += int(errand["coins"])
+			_notify(player_id, "%s thanks you: %d coins" % [person(who)["name"], int(errand["coins"])])
+			_befriend(player_id, who, Stories.ERRAND_FRIENDSHIP)
+			if errand["from"] != who:
+				_befriend(player_id, errand["from"], int(Stories.ERRAND_FRIENDSHIP * 0.5))
+		"start":
+			town["stories"][who] = 0
+			_start_step(who)
+			_notify(player_id, "New story: %s. %s" % [Stories.STORIES[who]["title"], story_step(who)["say"]])
+	_changed("inventory")
+	_changed("economy")
+	return true
+
+
+## A story step begins: a quest item to carry, or one lost about town.
+func _start_step(giver: String) -> void:
+	var step: Dictionary = story_step(giver)
+	match str(step.get("do", "")):
+		"deliver": items[step["id"]] = item_count(step["id"]) + 1
+		"find": _drop_lost(step["id"])
+
+
+## Drops a quest item on open ground somewhere in town (not on a path, a
+## favourite spot or a doorstep), for someone to find.
+func _drop_lost(id: String) -> Vector2i:
+	var spots: Array = []
+	for y in range(3, TOWN_SIZE.y - 3):
+		for x in range(3, TOWN_SIZE.x - 3):
+			var cell: Vector2i = town_cell(Vector2i(x, y))
+			if TOWN_MAP[y][x] == "." and _town_ground(cell) and not objects.has(cell) and not TOWN_PLACES.values().has(Vector2i(x, y)) and not TOWN_ORCHARD.has(Vector2i(x, y)) and door_at(cell + Vector2i.UP) == "" and person_at(cell) == "":
+				spots.append(cell)
+	var cell: Vector2i = spots[rng.randi_range(0, spots.size() - 1)]
+	objects[cell] = {"kind": "dropped", "key": "item:" + id, "count": 1}
+	object_changed.emit(cell)
+	return cell
+
+
+## Words for an errand on the board.
+func errand_text(errand: Dictionary) -> String:
+	if errand["do"] == "deliver":
+		return "Take a parcel from %s to %s" % [person(errand["from"])["name"], person(errand["to"])["name"]]
+	return "%s lost their %s somewhere in town" % [person(errand["to"])["name"], name_of(errand["id"]).to_lower()]
+
+
+## Keeps ERRANDS_POSTED errands up on the town hall's board each morning.
+func _post_errands() -> void:
+	var open: int = town["errands"].filter(func(e: Dictionary) -> bool: return not bool(e["taken"])).size()
+	var folk: Array = TOWNSFOLK.keys() + VILLAGERS.keys()
+	var tries: int = 0
+	while open < Stories.ERRANDS_POSTED and tries < 20:
+		tries += 1
+		var errand: Dictionary = {}
+		if rng.randf() < 0.5:
+			var from: String = TOWNSFOLK.keys()[rng.randi_range(0, TOWNSFOLK.size() - 1)]
+			var to: String = folk[rng.randi_range(0, folk.size() - 1)]
+			if to == from:
+				continue
+			errand = {"do": "deliver", "from": from, "to": to, "id": "parcel", "coins": Stories.ERRAND_DELIVER_COINS, "taken": false}
+		else:
+			var owner: String = Stories.LOST.keys()[rng.randi_range(0, Stories.LOST.size() - 1)]
+			if town["errands"].any(func(e: Dictionary) -> bool: return e["do"] == "find" and e["to"] == owner):
+				continue
+			errand = {"do": "find", "from": owner, "to": owner, "id": Stories.LOST[owner], "coins": Stories.ERRAND_FIND_COINS, "taken": false}
+		town["errands"].append(errand)
+		open += 1
+	_changed("economy")
+
+
+## Taking on an errand from the board: a parcel to carry, or the search begins.
+func _do_errand(player_id: int, index: int) -> bool:
+	if index < 0 or index >= town["errands"].size() or bool(town["errands"][index]["taken"]):
+		return false
+	var errand: Dictionary = town["errands"][index]
+	errand["taken"] = true
+	if errand["do"] == "deliver":
+		items["parcel"] = item_count("parcel") + 1
+		_notify(player_id, "%s's parcel is in your backpack. Take it to %s" % [person(errand["from"])["name"], person(errand["to"])["name"]])
+	else:
+		_drop_lost(errand["id"])
+		_notify(player_id, "Keep an eye out for %s's %s about town" % [person(errand["to"])["name"], name_of(errand["id"]).to_lower()])
+	_changed("inventory")
+	_changed("economy")
+	return true
+
+
+## How many of `id` are still wanted for a town project.
+func project_needs(project: String, id: String) -> int:
+	var given: int = int(town["projects"].get(project, {}).get(id, 0))
+	return maxi(int(Stories.PROJECTS[project]["needs"].get(id, 0)) - given, 0)
+
+
+func project_built(project: String) -> bool:
+	return town["built"].has(project)
+
+
+## Giving what you can of `id` towards a town project. When the last of
+## everything is in, it's built: it appears in town and everyone is paid.
+func _do_contribute(player_id: int, project: String, id: String) -> bool:
+	if not Stories.PROJECTS.has(project) or project_built(project):
+		return false
+	var give: int = mini(project_needs(project, id), total_of(id))
+	if give <= 0:
+		return false
+	_take_any(id, give)
+	var given: Dictionary = town["projects"].get(project, {})
+	given[id] = int(given.get(id, 0)) + give
+	town["projects"][project] = given
+	var info: Dictionary = Stories.PROJECTS[project]
+	var left: int = 0
+	for need: String in info["needs"].keys():
+		left += project_needs(project, need)
+	if left == 0:
+		town["built"].append(project)
+		_town_reshaped()
+		_reward_everyone(int(info["coins"]))
+		for who: String in TOWNSFOLK.keys() + VILLAGERS.keys():
+			_befriend(player_id, who, Stories.PROJECT_FRIENDSHIP)
+		_notify(player_id, "The %s project is finished! The whole town thanks you: %d coins each" % [info["name"], int(info["coins"])])
+	else:
+		_notify(player_id, "You gave %d %s to the %s project" % [give, name_of(id), info["name"]])
+	_changed("inventory")
+	_changed("economy")
+	return true
+
+
+## Built projects change what stands in town: walks are worked out again.
+func _town_reshaped() -> void:
+	_walker = null
+	_paths.clear()
+	_poses.clear()
+	_shape = town["built"].size()
+
+
 ## Wild things to pick in town too: on the flower meadow and up on the cliff.
 func _grow_town_forage() -> void:
 	var now: String = FORAGE[TimeManager.season()]
@@ -2122,12 +2377,12 @@ func fireflies() -> Array:
 		return []
 	var tiles: Array = _firefly_tiles()
 	var slot: int = TimeManager.minutes / FIREFLY_EVERY
-	var rng := RandomNumberGenerator.new()
-	rng.seed = TimeManager.day_index * 1000 + slot
+	var dice := RandomNumberGenerator.new()
+	dice.seed = TimeManager.day_index * 1000 + slot
 	var out: Array = []
 	var taken: Array = festival_state()["taken"]
 	for k in FIREFLIES:
-		var cell: Vector2i = town_cell(tiles[rng.randi_range(0, tiles.size() - 1)])
+		var cell: Vector2i = town_cell(tiles[dice.randi_range(0, tiles.size() - 1)])
 		if not out.has(cell) and not taken.has("%d|%d|%d" % [slot, cell.x, cell.y]):
 			out.append(cell)
 	return out
@@ -2464,6 +2719,22 @@ func request_sky_lantern(player_id: int) -> bool:
 	return _request("sky_lantern", player_id, [])
 
 
+## Doing what moment(who) offers: `kind` must match it (so a stale screen
+## does nothing), `choice` picks a reply in a heart scene.
+func request_moment(player_id: int, who: String, kind: String, choice: int = 0) -> bool:
+	return _request("moment", player_id, [who, kind, choice])
+
+
+## Take on errand `index` from the town hall's board.
+func request_errand(player_id: int, index: int) -> bool:
+	return _request("errand", player_id, [index])
+
+
+## Give what you can of `id` towards a town project.
+func request_contribute(player_id: int, project: String, id: String) -> bool:
+	return _request("contribute", player_id, [project, id])
+
+
 func request_talk(player_id: int, villager: String) -> bool:
 	return _request("talk", player_id, [villager])
 
@@ -2562,6 +2833,9 @@ func _apply_now(action: String, player_id: int, args: Array) -> bool:
 		"show_entry": return _do_show_entry(player_id, args[0])
 		"catch_firefly": return _do_catch_firefly(player_id, args[0])
 		"sky_lantern": return _do_sky_lantern(player_id)
+		"moment": return _do_moment(player_id, args[0], args[1], args[2])
+		"errand": return _do_errand(player_id, args[0])
+		"contribute": return _do_contribute(player_id, args[0], args[1])
 		"buy_item": return _do_buy_item(player_id, args[0], args[1])
 		"ship": return _do_ship(args[0], args[1])
 		"mine": return _do_mine(player_id, args[0])
@@ -3690,6 +3964,7 @@ func end_day(passed_out: bool) -> void:
 	_deliver_mail()
 	_refresh_quests()
 	_refresh_town_requests()
+	_post_errands()
 	if wild_growth:
 		_grow_forage()
 		_grow_town_forage()
@@ -4002,7 +4277,7 @@ func apply_snapshot(data: Dictionary) -> void:
 		if typeof(quest) == TYPE_DICTIONARY and (species.has(str(quest.get("id", ""))) or ITEMS.has(str(quest.get("id", "")))):
 			quests.append({"who": str(quest.get("who", "bristle")), "id": str(quest["id"]), "count": int(quest.get("count", 1)), "coins": int(quest.get("coins", 0)), "days": int(quest.get("days", 1))})
 	var saved_town: Dictionary = data.get("town", {})
-	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}}
+	town = {"requests": {}, "museum": [], "luck": {}, "looked": {}, "stories": {}, "scenes": {}, "errands": [], "projects": {}, "built": []}
 	for keeper: String in saved_town.get("requests", {}).keys():
 		var wish: Variant = saved_town["requests"][keeper]
 		if TOWNSFOLK.has(keeper) and typeof(wish) == TYPE_DICTIONARY and (species.has(str(wish.get("id", ""))) or ITEMS.has(str(wish.get("id", "")))):
@@ -4025,6 +4300,28 @@ func apply_snapshot(data: Dictionary) -> void:
 		for key: Variant in fest.get("taken", []):
 			restored["taken"].append(str(key))
 		town["festival"] = restored
+	for who: String in saved_town.get("stories", {}).keys():
+		if Stories.STORIES.has(who):
+			town["stories"][who] = clampi(int(saved_town["stories"][who]), 0, Stories.STORIES[who]["steps"].size())
+	for who: String in saved_town.get("scenes", {}).keys():
+		if Stories.SCENES.has(who):
+			town["scenes"][who] = []
+			for level: Variant in saved_town["scenes"][who]:
+				if Stories.SCENES[who].has(int(level)):
+					town["scenes"][who].append(int(level))
+	for errand: Variant in saved_town.get("errands", []):
+		if typeof(errand) == TYPE_DICTIONARY and ["deliver", "find"].has(str(errand.get("do", ""))) and not person(str(errand.get("to", ""))).is_empty() and not person(str(errand.get("from", ""))).is_empty() and ITEMS.has(str(errand.get("id", ""))):
+			town["errands"].append({"do": str(errand["do"]), "from": str(errand["from"]), "to": str(errand["to"]), "id": str(errand["id"]), "coins": int(errand.get("coins", 0)), "taken": bool(errand.get("taken", false))})
+	for project: String in saved_town.get("projects", {}).keys():
+		if Stories.PROJECTS.has(project):
+			town["projects"][project] = {}
+			for id: String in saved_town["projects"][project].keys():
+				if Stories.PROJECTS[project]["needs"].has(id):
+					town["projects"][project][id] = int(saved_town["projects"][project][id])
+	for project: Variant in saved_town.get("built", []):
+		if Stories.PROJECTS.has(str(project)) and not town["built"].has(str(project)):
+			town["built"].append(str(project))
+	_town_reshaped()
 	if Net.is_host():
 		_plant_orchard()  # gardens saved before the town existed
 	var has_rocks: bool = false
@@ -4301,6 +4598,12 @@ func _rpc_request(action: String, args: Array) -> void:
 			valid = args.size() == 1 and args[0] is String
 		"catch_firefly":
 			valid = args.size() == 1 and args[0] is Vector2i
+		"moment":
+			valid = args.size() == 3 and args[0] is String and args[1] is String and args[2] is int
+		"errand":
+			valid = args.size() == 1 and args[0] is int
+		"contribute":
+			valid = args.size() == 2 and args[0] is String and args[1] is String
 		"buy_item":
 			valid = args.size() == 2 and args[0] is String and args[1] is int and args[1] >= 1 and args[1] <= 99
 		"ship":
@@ -4381,6 +4684,8 @@ func _mirror_economy() -> void:
 func _net_economy(new_bags: Dictionary, new_upgrades: Dictionary, new_hats: Array, new_outfits: Dictionary, new_xp: int, new_wanted: Dictionary, new_stats: Dictionary, new_goals: Array, new_friends: Dictionary, new_town: Dictionary) -> void:
 	friends = new_friends
 	town = new_town
+	if town["built"].size() != _shape:
+		_town_reshaped()
 	stats = new_stats
 	goals_done = new_goals
 	xp = new_xp

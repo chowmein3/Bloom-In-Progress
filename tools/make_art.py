@@ -714,6 +714,85 @@ def make_things():
         c.dot(7, 13, rgb("#e8f57a"))
         c.dot(5, 7, WHITE)
 
+    def parcel(c):
+        paper = rgb("#c99a62")
+        c.rect(2, 5, 12, 9, paper)
+        c.rect(2, 5, 12, 2, light(paper, 0.15))
+        c.rect(7, 5, 2, 9, rgb("#8a3a3a"))
+        c.rect(2, 9, 12, 1, rgb("#8a3a3a"))
+        c.ell(6, 3.5, 2, 1.5, rgb("#c94a4a"))
+        c.ell(10, 3.5, 2, 1.5, rgb("#c94a4a"))
+
+    def letter(c):
+        c.rect(2, 4, 12, 9, rgb("#fbf3df"))
+        for d in range(6):
+            c.dot(2 + d, 4 + d, rgb("#d9c9a8"))
+            c.dot(13 - d, 4 + d, rgb("#d9c9a8"))
+        c.ell(7.5, 9, 2, 2, rgb("#c94a4a"))
+
+    def recipecard(c):
+        c.rect(2, 3, 12, 10, rgb("#fff6e0"))
+        c.rect(2, 3, 12, 2, rgb("#f3b0c3"))
+        for y in (7, 9, 11):
+            c.rect(4, y, 8 if y != 11 else 5, 1, rgb("#9a8a7a"))
+        c.dot(11, 11, rgb("#e8e0d0"))
+        c.dot(12, 12, rgb("#e8e0d0"))
+
+    def oldmap(c):
+        paper = rgb("#e0c890")
+        c.rect(1, 3, 14, 10, paper)
+        c.rect(1, 3, 2, 10, shade(paper, 0.15))
+        c.rect(13, 3, 2, 10, shade(paper, 0.15))
+        c.rect(5, 6, 5, 1, rgb("#5aa6dc"))
+        c.rect(8, 7, 1, 4, rgb("#5aa6dc"))
+        c.dot(10, 9, rgb("#c94a4a"))
+        c.dot(11, 10, rgb("#c94a4a"))
+        c.dot(11, 9 - 1 + 1, rgb("#c94a4a"))
+        c.dot(10, 10, rgb("#c94a4a"))
+
+    def spectacles(c):
+        rim = rgb("#5a4a3a")
+        c.ell(4.5, 9, 3.5, 3, rim)
+        c.ell(11.5, 9, 3.5, 3, rim)
+        c.ell(4.5, 9, 2.5, 2, rgb("#cfe8f0"))
+        c.ell(11.5, 9, 2.5, 2, rgb("#cfe8f0"))
+        c.rect(7, 8, 2, 1, rim)
+        c.dot(3, 8, WHITE)
+        c.dot(10, 8, WHITE)
+
+    def keyring(c):
+        brass = rgb("#d9b25a")
+        c.ell(5, 5, 3.5, 3.5, brass)
+        c.ell(5, 5, 2, 2, None)
+        c.rect(7, 7, 2, 7, brass)
+        c.rect(9, 11, 3, 1, brass)
+        c.rect(9, 13, 2, 1, brass)
+        c.rect(10, 4, 2, 8, rgb("#9a9aa8"))
+        c.rect(12, 9, 2, 1, rgb("#9a9aa8"))
+
+    def locket(c):
+        gold = rgb("#e8c35a")
+        for i in range(5):
+            c.dot(3 + i, 2 + i, gold)
+            c.dot(12 - i, 2 + i, gold)
+        c.ell(7.5, 10, 4, 4, gold)
+        c.ell(7.5, 10, 2.5, 2.5, rgb("#f6dc9a"))
+        c.dot(6, 9, WHITE)
+
+    def scarf(c):
+        for i, y in enumerate(range(3, 13, 2)):
+            c.rect(3, y, 10, 2, rgb("#f2c84a") if i % 2 == 0 else rgb("#3a3030"))
+        c.rect(9, 12, 4, 3, rgb("#f2c84a"))
+        c.rect(9, 14, 1, 1, rgb("#3a3030"))
+        c.rect(12, 14, 1, 1, rgb("#3a3030"))
+
+    def toyboat(c):
+        c.rect(2, 10, 12, 3, rgb("#e0443a"))
+        c.rect(4, 13, 8, 1, shade(rgb("#e0443a"), 0.25))
+        c.rect(7, 3, 1, 7, rgb("#6b4630"))
+        c.tri(9.5, 3, 2.5, 6, WHITE)
+        c.rect(1, 14, 14, 1, rgb("#5aa6dc"))
+
     def fern(c):
         c.rect(5, 11, 6, 4, rgb("#c9744a"))
         c.rect(4, 10, 8, 1, rgb("#dd8a5e"))
@@ -1038,7 +1117,7 @@ def make_things():
         "pike": fish("#b9c2cc", "#eef2f5", "#7f8a96"),
         "eel": eel,
         "salmon": fish("#e88a7a", "#ffd9cc", "#c0604f"),
-        "tonic": tonic, "bottleship": bottleship, "firefly_jar": firefly_jar,
+        "tonic": tonic, "bottleship": bottleship, "firefly_jar": firefly_jar, "parcel": parcel, "letter": letter, "recipecard": recipecard, "oldmap": oldmap, "spectacles": spectacles, "keyring": keyring, "locket": locket, "scarf": scarf, "toyboat": toyboat,
         "fern": fern, "lamp": lamp, "rug": rug, "armchair": armchair, "teatable": teatable,
         "bookcase": bookcase, "gnome": gnome, "birdbath": birdbath, "skewer": skewer, "bin": crate_bin,
         "supper": lambda c: bowl(c, rgb("#7a6ac8"), ("#f3e9d2", "#e8584f", "#f3e9d2")),

@@ -140,6 +140,14 @@ in the pause menu.
   well for it; chats, gifts and requests earn hearts and presents, as with
   the visitors. Maple, Pebble and Old Thistle live in town too, when they
   aren't visiting your garden.
+- **Quests:** make a friend (one heart) and they share a story: a few steps
+  of asking around town, bringing them things, carrying letters and parcels
+  and finding what they've lost, with a reward at the end. At two and four
+  hearts there's a little scene with a reply to choose. The mayor posts
+  errands (deliveries and lost things) each morning, and the town hall's
+  projects board takes materials for Lamplight, Flower Beds, a Bandstand and
+  Riverside Benches, which then appear in town. The journal's Quests page
+  (J) keeps track.
 - **In town:** fish the river (its own fish: trout, pike, eels after dark,
   salmon in spring and fall), toss a coin in the fountain for luck (rare fish
   bite more often that day), take in the view at the lookout once a day for

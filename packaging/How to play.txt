@@ -69,6 +69,8 @@ GOOD TO KNOW
            the herbalist, Professor Quill at the museum (donations),
            Mayor Clementine (notice board) and Rosie at the inn. Each
            pays extra for their own kind of goods and has requests.
+           Make friends and each has a story (quests) to share; the
+           mayor has errands and town projects. Journal (J) > Quests.
            Fish the river, toss a coin in the fountain for luck, enjoy
            the lookout, pick from the orchard. Walk down the trail at the
            bottom of town to go home.

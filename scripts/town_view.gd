@@ -8,9 +8,10 @@ extends Node2D
 
 const Assets := preload("res://scripts/assets.gd")
 const BorderView := preload("res://scripts/border_view.gd")
+const Stories := preload("res://scripts/stories.gd")
 const TILE := 16
 ## Props in town_props.png: a 32x32 frame each, in this order, base on the bottom row.
-const PROPS: Array[String] = ["fountain", "bench", "lamp", "telescope", "board", "hive", "lumber", "barrel", "crate", "signpost", "planter"]
+const PROPS: Array[String] = ["fountain", "bench", "lamp", "telescope", "board", "hive", "lumber", "barrel", "crate", "signpost", "planter", "bandstand"]
 
 var fishing: bool = false  # the local player has a line in the river
 var bite: bool = false
@@ -61,6 +62,17 @@ func _draw() -> void:
 		if int(top.y / TILE) == 2:
 			var puff: float = 1.5 + sin(_t * 5.0 + i) * 1.0
 			draw_circle(top + Vector2(8, 17), 4.0 + puff, Color(1, 1, 1, 0.28 if not frozen else 0.12))
+	if GameState.project_built("lamplight") and TimeManager.minutes >= 18 * 60 + 30:
+		var lamps: Array = []
+		for at: Vector2i in GameState.TOWN_PROPS.keys():
+			if GameState.TOWN_PROPS[at] == "lamp":
+				lamps.append(at)
+		var added: Dictionary = Stories.PROJECTS["lamplight"]["props"]
+		lamps.append_array(added.keys())
+		for at: Vector2i in lamps:
+			var pool: Vector2 = Vector2(at * TILE) + Vector2(8, 14)
+			draw_circle(pool, 22.0, Color(1.0, 0.82, 0.45, 0.1))
+			draw_circle(pool, 13.0, Color(1.0, 0.85, 0.5, 0.14))
 	if fishing:
 		var bob := Vector2((spot - GameState.TOWN_ORIGIN) * TILE) + Vector2(8, 8) + Vector2(0, sin(_t * (14.0 if bite else 3.0)) * (2.5 if bite else 1.0))
 		draw_circle(bob, 4.0 + sin(_t * 4.0), Color(1, 1, 1, 0.3))
@@ -84,18 +96,16 @@ static func decorate(layer: Node2D) -> void:
 		house.offset = Vector2(-house.texture.get_width() / 2.0, -house.texture.get_height())
 		house.position = Vector2((GameState.TOWN_ORIGIN + rect.position) * TILE) + Vector2(rect.size.x * TILE / 2.0, rect.size.y * TILE)
 		layer.add_child(house)
-	var props: Texture2D = Assets.texture("res://assets/sprites/town_props.png")
 	for at: Vector2i in GameState.TOWN_PROPS.keys():
-		var kind: String = GameState.TOWN_PROPS[at]
-		var size: Vector2i = GameState.TOWN_PROP_SIZES.get(kind, Vector2i.ONE)
-		var prop := Sprite2D.new()
-		prop.texture = props
-		prop.region_enabled = true
-		prop.region_rect = Rect2(PROPS.find(kind) * 32, 0, 32, 32)
-		prop.centered = false
-		prop.offset = Vector2(-16, -32)
-		prop.position = Vector2((GameState.TOWN_ORIGIN + at) * TILE) + Vector2(size.x * TILE / 2.0, size.y * TILE)
-		layer.add_child(prop)
+		layer.add_child(_prop(at, GameState.TOWN_PROPS[at]))
+	for project: String in Stories.PROJECTS.keys():  # shown once built (show_projects)
+		var built: Dictionary = Stories.PROJECTS[project]["props"]
+		for at: Vector2i in built.keys():
+			var prop: Sprite2D = _prop(at, built[at])
+			prop.add_to_group("project_" + project)
+			layer.add_child(prop)
+	if layer.is_inside_tree():
+		show_projects(layer.get_tree())
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
 	for at: Vector2i in GameState.TOWN_TREES.keys():
@@ -119,6 +129,28 @@ static func decorate(layer: Node2D) -> void:
 			BorderView._add(layer, BorderView._pick(rng, woods), foot(here) + nudge, rng.randf() < 0.5, BorderView._tint(rng))
 			if edge and rng.randf() < 0.45:
 				BorderView._add(layer, ["bush", "bush", "boulder"][rng.randi_range(0, 2)], foot(here) + Vector2(rng.randi_range(-8, 8), 4), rng.randf() < 0.5, Color.WHITE)
+
+
+## A prop's sprite from town_props.png, standing on its tiles.
+static func _prop(at: Vector2i, kind: String) -> Sprite2D:
+	var size: Vector2i = GameState.TOWN_PROP_SIZES.get(kind, Vector2i.ONE)
+	var prop := Sprite2D.new()
+	prop.texture = Assets.texture("res://assets/sprites/town_props.png")
+	prop.region_enabled = true
+	prop.region_rect = Rect2(PROPS.find(kind) * 32, 0, 32, 32)
+	prop.centered = false
+	prop.offset = Vector2(-16, -32)
+	prop.position = Vector2((GameState.TOWN_ORIGIN + at) * TILE) + Vector2(size.x * TILE / 2.0, size.y * TILE)
+	return prop
+
+
+## Shows the things town projects have added, once each is built.
+static func show_projects(tree: SceneTree) -> void:
+	if tree == null:
+		return
+	for project: String in Stories.PROJECTS.keys():
+		for prop: Node in tree.get_nodes_in_group("project_" + project):
+			(prop as CanvasItem).visible = GameState.project_built(project)
 
 
 ## The map letter at a town tile; woods all round the outside, except where

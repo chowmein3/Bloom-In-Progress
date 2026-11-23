@@ -12,7 +12,8 @@ const DIM := Color(0.55, 0.42, 0.32)
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
 const MILESTONES: Array[String] = ["Planted", "Bloomed", "Radiant"]
 
-const PAGES: Array[String] = ["Plants", "Goals", "Fish"]
+const PAGES: Array[String] = ["Plants", "Goals", "Fish", "Quests"]
+const Stories := preload("res://scripts/stories.gd")
 const Assets2 := preload("res://scripts/assets.gd")
 
 var player: Node2D
@@ -103,6 +104,7 @@ func _ready() -> void:
 	box.add_child(scroll)
 
 	GameState.journal_changed.connect(_rebuild)
+	GameState.economy_changed.connect(_rebuild)
 	GameState.tree_changed.connect(_rebuild)
 	GameState.state_reloaded.connect(_rebuild)
 
@@ -154,10 +156,37 @@ func _rebuild() -> void:
 			_grid.columns = 2
 			for id: String in GameState.FISH + GameState.RIVER_FISH:
 				_grid.add_child(_fish(id))
+		"Quests":
+			_grid.columns = 1
+			for line: Array in quest_lines():
+				_grid.add_child(_text(line[0], line[1]))
 		_:
 			_grid.columns = 2
 			for id: String in GameState.species.keys():
 				_grid.add_child(_entry(id))
+
+
+## The Quests page: stories under way (and done), errands, town projects,
+## and who has a story to tell once you're friends. [text, colour] each.
+func quest_lines() -> Array:
+	var lines: Array = []
+	for who: String in Stories.STORIES.keys():
+		var story: Dictionary = Stories.STORIES[who]
+		var name_of: String = GameState.person(who)["name"]
+		if GameState.story_done(who):
+			lines.append(["%s (%s): done" % [story["title"], name_of], DIM])
+		elif not GameState.story_step(who).is_empty():
+			lines.append(["%s (%s): %s" % [story["title"], name_of, GameState.story_step(who)["say"]], CREAM])
+		elif GameState.hearts(who) >= int(story["hearts"]):
+			lines.append(["%s has something to ask you. Go and talk to them." % name_of, GOLD])
+	for errand: Dictionary in GameState.town["errands"]:
+		if bool(errand["taken"]):
+			lines.append(["Errand: %s" % GameState.errand_text(errand), CREAM])
+	var built: int = GameState.town["built"].size()
+	lines.append(["Town projects built: %d of %d (the board in the town hall)" % [built, Stories.PROJECTS.size()], DIM])
+	if lines.size() == 1:
+		lines.push_front(["Make friends in town: at one heart, everyone has a story to share.", DIM])
+	return lines
 
 
 ## One long-term goal: done, ready to be paid tonight, or still to do.

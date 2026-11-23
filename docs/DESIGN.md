@@ -117,7 +117,25 @@ Maple, Pebble and Old Thistle.
   (`sells`), what they pay extra for (`buys`, SPECIALTY times the usual
   price), gifts, and special pages: Flint's Tools, Birch's Home and Build,
   Quill's Donate (the museum, `MUSEUM`, rewards at milestones), the mayor's
-  Board (the notice board's quests).
+  Board (the notice board's quests), Errands and Projects.
+- **Quests** (tables in `scripts/stories.gd`, state in `GameState.town`):
+  - Stories: at one heart each of the twelve has a story to share, three or
+    four steps long: talk to someone, bring something (any quality), deliver
+    a letter or parcel they hand you, or find a lost thing dropped on the
+    grass somewhere in town. Each ends with a reward and extra friendship.
+  - Heart scenes: at two and four hearts, talking to someone first plays a
+    short scene with three replies; kind ones win more friendship.
+  - Errands: two at a time on the mayor's Errands page, new ones most
+    mornings: carry a parcel from one person to another (60 coins) or find
+    someone's lost keyring, locket, scarf or toy boat (90 coins), and make
+    friends with both.
+  - Town projects (the board in the town hall): Lamplight, Flower Beds,
+    Bandstand, Riverside Benches. Both players give materials; when one is
+    finished it appears in town (lamps that glow in the evening, flower
+    boxes, a bandstand in the park, benches by the river), everyone is paid
+    and the whole town likes you a little more.
+  - Whatever's due shows when you talk to someone (instead of their shop);
+    the journal's Quests page lists stories under way, errands and projects.
 - **Nature with a purpose:** the river's own fish (`RIVER_FISH`); a coin in
   the fountain for luck today (rare fish likelier); the lookout's once-a-day
   energy; the town orchard (grown fruit trees anyone may pick, objects at

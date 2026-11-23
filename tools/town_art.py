@@ -592,7 +592,7 @@ BUILDERS = {
 
 def make_props():
     frames = []
-    for draw in (p_fountain, p_bench, p_lamp, p_telescope, p_board, p_hive, p_lumber, p_barrel, p_crate, p_signpost, p_planter):
+    for draw in (p_fountain, p_bench, p_lamp, p_telescope, p_board, p_hive, p_lumber, p_barrel, p_crate, p_signpost, p_planter, p_bandstand):
         c = Canvas(32, 32)
         draw(c)
         frames.append(c.finish())
@@ -704,6 +704,22 @@ def p_planter(c):
     for x, colour in ((9, "#ff8fb3"), (14, "#ffd24a"), (19, "#b9a0ff"), (23, "#ff8fb3")):
         c.ell(x, 16, 3, 3, rgb("#5aa85a"))
         c.ell(x, 14, 1.6, 1.6, rgb(colour))
+
+
+def p_bandstand(c):
+    """Two tiles wide: a little round bandstand with a pointed roof."""
+    wood, roof, trim = rgb("#f3ead8"), rgb("#c9644a"), rgb("#8a5e3a")
+    c.ell(15.5, 27, 15, 4.5, rgb("#c8bba8"))  # the stone floor
+    c.ell(15.5, 26, 14, 3.5, rgb("#e0d6c4"))
+    for x in (2, 9, 21, 28):
+        c.rect(x, 12, 2, 15, wood)
+    c.rect(2, 21, 28, 1, trim)  # railing
+    c.rect(2, 23, 28, 1, trim)
+    c.tri(15.5, 0, 16, 12, roof)
+    c.rect(0, 11, 32, 2, shade(roof, 0.2))
+    c.rect(15, 0, 2, 2, rgb("#ffd24a"))
+    for x in range(1, 31, 4):
+        c.rect(x, 13, 2, 1, rgb("#fbeed3"))
 
 
 # ---------------------------------------------------------------- the folk
